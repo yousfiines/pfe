@@ -1,7 +1,8 @@
 import React, { useState } from "react";
+import login from "../assets/lotties/login.json";
+import Lottie from "lottie-react";
 
-
-const LoginForm = () => {
+const Connexion = () => {
   // États pour gérer les valeurs des champs
   const [formData, setFormData] = useState({
     email: "",
@@ -59,33 +60,31 @@ const LoginForm = () => {
 
   return (
     <div style={styles.container}>
+      {/* Formulaire de connexion */}
       <div style={styles.card}>
-      <h2 style={styles.title}>Connexion</h2>
         <form onSubmit={handleSubmit} style={styles.form}>
           {/* Champ Email */}
           <div style={styles.formGroup}>
-            <label style={styles.label}>Email :</label>
             <input
               type="email"
               name="email"
               value={formData.email}
               onChange={handleChange}
               style={styles.input}
-              placeholder="Entrez votre email"
+              placeholder="Saisir votre email"
             />
             {errors.email && <span style={styles.error}>{errors.email}</span>}
           </div>
 
           {/* Champ Mot de passe */}
           <div style={styles.formGroup}>
-            <label style={styles.label}>Mot de passe :</label>
             <input
               type="password"
               name="password"
               value={formData.password}
               onChange={handleChange}
               style={styles.input}
-              placeholder="Entrez votre mot de passe"
+              placeholder="Saisir votre mot de passe"
             />
             {errors.password && (
               <span style={styles.error}>{errors.password}</span>
@@ -98,8 +97,8 @@ const LoginForm = () => {
           </button>
         </form>
 
-        {/* Lien pour s'inscrire */}
-        <p style={styles.signupLink}>
+         {/* Lien pour s'inscrire */}
+         <p style={styles.signupLink}>
           Pas encore de compte ? 
         </p>
         <p style={styles.signupLink}>
@@ -107,10 +106,17 @@ const LoginForm = () => {
         <p style={styles.signupLink}>
         <a href="/inscription" style={styles.link}>Inscrivez-vous en tant qu'etudiant</a>
         </p>
-       
+      </div>
+
+      {/* Animation Lottie */}
+      <div style={styles.lottieContainer}>
+        <Lottie
+          animationData={login}
+          style={{ width: "300px", height: "300px" }}
+          loop={true}
+        />
       </div>
     </div>
-  
   );
 };
 
@@ -118,10 +124,11 @@ const LoginForm = () => {
 const styles = {
   container: {
     display: "flex",
-    justifyContent: "center",
-    alignItems: "center",
-    minHeight: "100vh",
-    backgroundColor: "#f0f2f5",
+    justifyContent: "center", // Centre horizontalement
+    alignItems: "center", // Centre verticalement
+    minHeight: "100vh", // Prend toute la hauteur de la page
+    backgroundColor: "#f0f2f5", // Couleur de fond
+    padding: "20px", // Espacement autour du contenu
   },
   card: {
     backgroundColor: "#fff",
@@ -130,12 +137,12 @@ const styles = {
     boxShadow: "0 4px 8px rgba(0, 0, 0, 0.1)",
     maxWidth: "400px",
     width: "100%",
+    marginRight: "50px", // Espace entre le formulaire et l'animation
   },
   title: {
-    textAlign: "center",
-    marginBottom: "20px",
     fontSize: "24px",
-    color: "#333",
+    marginBottom: "20px",
+    textAlign: "center",
   },
   form: {
     display: "flex",
@@ -145,46 +152,39 @@ const styles = {
     marginBottom: "20px",
   },
   label: {
-    marginBottom: "8px",
     fontSize: "14px",
     color: "#555",
+    marginBottom: "5px",
   },
   input: {
-    padding: "12px",
-    borderRadius: "6px",
-    border: "1px solid #ddd",
-    fontSize: "16px",
     width: "100%",
-    boxSizing: "border-box",
-  },
-  error: {
-    color: "#ff4d4f",
-    fontSize: "12px",
-    marginTop: "5px",
+    padding: "10px",
+    border: "1px solid #ccc",
+    borderRadius: "5px",
+    fontSize: "14px",
   },
   button: {
-    padding: "12px",
-    borderRadius: "6px",
-    border: "none",
+    width: "100%",
+    padding: "10px",
     backgroundColor: "#007bff",
-    color: "white",
+    color: "#fff",
+    border: "none",
+    borderRadius: "5px",
     fontSize: "16px",
     cursor: "pointer",
-    transition: "background-color 0.3s ease",
   },
   buttonHover: {
-    backgroundColor: "#0056b3",
-  },
-  signupLink: {
-    textAlign: "center",
-    marginTop: "20px",
-    fontSize: "14px",
-    color: "#555",
+    backgroundColor: "#0056b3", // Couleur au survol
   },
   link: {
     color: "#007bff",
     textDecoration: "none",
   },
+  lottieContainer: {
+    maxWidth: "400px", // Largeur maximale de l'animation
+    width: "100%",
+  },
 };
 
-export default LoginForm;
+
+export default Connexion;

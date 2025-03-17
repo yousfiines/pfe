@@ -1,0 +1,217 @@
+/* Styles généraux */
+body {
+  font-family: Arial, sans-serif;
+  margin: 0;
+  padding: 0;
+}
+
+.home-page {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+/* En-tête */
+/* Style de base pour le header */
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px;
+  background-color: #396a9b;
+  color: #fff;
+  width: 100%;
+}
+
+/* Style pour la navbar */
+.nav a {
+  color: #fff;
+  margin:  15px;
+  text-decoration: none;
+  font-size: 16px;
+  transition: color 0.3s ease;
+
+}
+/* Style pour le logo */
+nav img {
+  font-size: 24px;
+  font-weight: bold;
+}
+
+/* Style pour la liste des liens */
+nav ul {
+  list-style: none;
+  display: flex;
+  align-items: center;
+}
+
+/* Style pour les éléments de la liste */
+nav ul li {
+  margin-left: 20px;
+ 
+
+}
+
+/* Style pour les liens */
+nav ul li a {
+  color: white;
+  text-decoration: none;
+  font-size: 16px;
+  transition: color 0.3s ease;
+}
+
+/* Effet au survol des liens */
+nav ul li a:hover {
+  color: #f8f6f5; /* Couleur au survol */
+}
+
+
+.cta-button {
+  background-color: #90adeb;
+  color: #fff;
+  padding: 10px 20px;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+}
+
+.cta-button.secondary {
+  background-color: transparent;
+  border: 1px solid #fff;
+}
+
+/* Bannière principale */
+.hero-section {
+ /* background-image: url("hero-background.jpg");  Remplacez par votre image */
+  background-size: cover;
+  background-position: center;
+  height: 500px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  color: #161515;
+  text-align: center;
+}
+
+.hero-content h1 {
+  font-size: 48px;
+  margin-bottom: 20px;
+}
+
+.hero-content p {
+  font-size: 24px;
+  margin-bottom: 30px;
+}
+
+.hero-buttons {
+  display: flex;
+  gap: 20px;
+}
+
+/* À propos de la faculté */
+.about-section {
+  padding: 50px 20px;
+  text-align: center;
+  background-color: #f9f9f9;
+}
+
+.stats {
+  display: flex;
+  justify-content: space-around;
+  margin-top: 30px;
+}
+
+.stat {
+  text-align: center;
+}
+
+.stat h3 {
+  font-size: 36px;
+  color: #003366;
+}
+
+/* Formations proposées */
+.programs-section {
+  padding: 50px 20px;
+  text-align: center;
+}
+
+.programs-grid {
+  display: flex;
+  justify-content: space-around;
+  margin-top: 30px;
+}
+
+.program-card {
+  background-color: #fff;
+  padding: 20px;
+  border-radius: 10px;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+  width: 30%;
+}
+
+/* Actualités et événements */
+.news-section {
+  padding: 50px 20px;
+  text-align: center;
+  background-color: #f9f9f9;
+}
+
+.news-grid {
+  display: flex;
+  justify-content: space-around;
+  margin-top: 30px;
+}
+
+.news-card {
+  background-color: #fff;
+  padding: 20px;
+  border-radius: 10px;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+  width: 45%;
+}
+
+/* Témoignages */
+.testimonials-section {
+  padding: 50px 20px;
+  text-align: center;
+}
+
+.testimonials-grid {
+  display: flex;
+  justify-content: space-around;
+  margin-top: 30px;
+}
+
+.testimonial-card {
+  background-color: #fff;
+  padding: 20px;
+  border-radius: 10px;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+  width: 45%;
+}
+
+/* Pied de page */
+.footer {
+  background-color: #003366;
+  color: #fff;
+  padding: 50px 20px;
+  width: 100%;
+  text-align: center;
+}
+
+.footer-content {
+  display: flex;
+  justify-content: space-around;
+}
+
+.footer-section {
+  text-align: left;
+}
+
+.footer-section a {
+  color: #fff;
+  text-decoration: none;
+  display: block;
+  margin: 10px 0;
+}
