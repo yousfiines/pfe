@@ -8,18 +8,14 @@ function App() {
   return (
     <Router>
       <div className="app">
-        {/* En-tête avec navigation */}
         <Header />
 
-        {/* Contenu principal avec les routes */}
         <Routes>
          
-          {/*
-          <Route path="/se connecter" element={<SeConnecter />} /> */}
-         
+        
         </Routes>
 
-        {/* Pied de page */}
+      
         <Footer />
       </div>
     </Router>
