@@ -1,5 +1,4 @@
-import React from "react";
-; 
+import React from "react"; 
 
 export default function Footer() { // Le nom du composant commence par une majuscule
   return (
@@ -19,7 +18,7 @@ export default function Footer() { // Le nom du composant commence par une majus
           </div>
           <div className="footer-section">
             <h3>Réseaux sociaux</h3>
-            <a href="https://facebook.com">Facebook</a>
+            <a href="https://www.facebook.com/profile.php?id=61554467716200">Facebook</a>
           </div>
         </div>
       </footer>

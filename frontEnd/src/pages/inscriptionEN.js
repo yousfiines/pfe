@@ -3,8 +3,8 @@ import React, { useState } from "react";
 const InscriptionEn = () => {
   // États pour gérer les valeurs des champs
   const [formData, setFormData] = useState({
-    Nom_et_prénom: "",
     Cin: "",
+    Nom_et_prénom: "",
     email: "",
     password: "",
     confirmPassword: "",
@@ -74,18 +74,7 @@ const InscriptionEn = () => {
     <div style={styles.container}>
       <h2 style={styles.title}>Inscription</h2>
       <form onSubmit={handleSubmit} style={styles.form}>
-        {/* Champ Nom */}
-        <div style={styles.formGroup}>
-          <label style={styles.label}>Nom et prénom :</label>
-          <input
-            type="text"
-            name="name"
-            value={formData.name}
-            onChange={handleChange}
-            style={styles.input}
-          />
-          {errors.name && <span style={styles.error}>{errors.name}</span>}
-        </div>
+       
          {/* Champ cin */}
          <div style={styles.formGroup}>
           <label style={styles.label}>CIN :</label>
@@ -98,7 +87,18 @@ const InscriptionEn = () => {
           />
           {errors.cin && <span style={styles.error}>{errors.cin}</span>}
         </div>
-
+ {/* Champ Nom */}
+ <div style={styles.formGroup}>
+          <label style={styles.label}>Nom et prénom :</label>
+          <input
+            type="text"
+            name="name"
+            value={formData.name}
+            onChange={handleChange}
+            style={styles.input}
+          />
+          {errors.name && <span style={styles.error}>{errors.name}</span>}
+        </div>
         {/* Champ Email */}
         <div style={styles.formGroup}>
           <label style={styles.label}>Email :</label>

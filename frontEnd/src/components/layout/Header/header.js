@@ -1,17 +1,15 @@
 import React from "react";
-
-import logo from "../../../assets/logo.png"
 const header= () => {
   return (
     <div className="home-page">
       {/* En-tête */}
       <header className="header">
-       <img src={logo}/>
+    
         <nav className="nav">
-          <a href="/formations">Formations</a>
-          <a href="/evenement">Evénement</a>
-          <a href="/contact">Contact</a>
-          <a href="/connect">Se connecter</a>
+          <a href ="/formations">Formations</a>
+          <a href ="/evenement">Evénement</a>
+          <a href ="/contact">Contact</a>
+          <a href ="/connexion">Se connecter</a>
           
         </nav>
       </header>

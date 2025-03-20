@@ -18,11 +18,7 @@ nav ul li {
   margin-left: 20px; /* Espace entre les éléments de la liste */
 }
 
-nav ul img {
-  width: 100px; /* Ajustez la taille du logo selon vos besoins */
-  height: auto;
-  margin-right: 20px; /* Espace entre le logo et le premier élément de la liste */
-}
+
 
 nav ul li a {
   text-decoration: none;

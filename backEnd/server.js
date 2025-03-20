@@ -14,7 +14,7 @@ const db = mysql.createConnection({
   host: "localhost",
   user: "root",
   password: "",
-  database: "ma_base",
+  database: "mon_pfe",
 });
 
 // Connexion à la base MySQL
@@ -27,8 +27,8 @@ db.connect((err) => {
 });
 
 // Route GET pour récupérer tous les utilisateurs
-app.get("/users", (req, res) => {
-  const sql = "SELECT * FROM users";
+app.get("/enseignants", (req, res) => {
+  const sql = "SELECT * FROM enseignants";
   db.query(sql, (err, results) => {
     if (err) {
       console.error("Erreur lors de la récupération :", err);
@@ -41,13 +41,13 @@ app.get("/users", (req, res) => {
 });
 
 // Route POST pour insérer un nouvel utilisateur
-app.post("/users", (req, res) => {
-  const { name, email } = req.body;
-  console.log("Données reçues :", { name, email }); // Log des données reçues
+app.post("/enseignants", (req, res) => {
+  const { CIN,Nom_et_prénom,Email,Password,Confirmpassword } = req.body;
+  console.log("Données reçues :", { CIN,Nom_et_prénom,Email,Password,Confirmpassword  }); // Log des données reçues
 
   // Vérifier que les champs requis sont présents
-  if (!name || !email) {
-    return res.status(400).json({ error: "Le nom et l'email sont obligatoires." });
+  if (CIN,Nom_et_prénom,Email,Password,Confirmpassword ) {
+    return res.status(400).json({ error: "champ obligatoire." });
   }
 
   // Validation supplémentaire de l'email (exemple)
@@ -56,7 +56,7 @@ app.post("/users", (req, res) => {
     return res.status(400).json({ error: "Format d'email invalide." });
   }
 
-  const sql = "INSERT INTO users (name, email) VALUES (?, ?)";
+  const sql = "INSERT INTO enseignants (CIN,Nom_et_prénom,Email,Password,Confirmpassword ) VALUES (?, ?)";
   db.query(sql, [name, email], (err, result) => {
     if (err) {
       console.error("Erreur lors de l'insertion :", err);

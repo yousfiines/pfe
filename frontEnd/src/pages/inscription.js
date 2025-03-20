@@ -3,8 +3,8 @@ import React, { useState } from "react";
 const Inscription = () => {
   // États pour gérer les valeurs des champs
   const [formData, setFormData] = useState({
-    Nom_et_prénom: "",
     Cin: "",
+    Nom_et_prénom: "",
     Téléphone: "",
     email: "",
     password: "",
