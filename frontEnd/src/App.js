@@ -10,12 +10,11 @@ const App= () => {
         <nav className="nav">
           <a href="/">Accueil</a>
           <a href="/formations">Formations</a>
-          <a href="/admissions">Admissions</a>
-          <a href="/recherche">Recherche</a>
-          <a href="/actualites">Actualités</a>
+          <a href="/evenement">Evénement</a>
           <a href="/contact">Contact</a>
+          <a href="/connect">Se connecter</a>
+          
         </nav>
-        <button className="cta-button">Se connecter</button>
       </header>
 
       {/* Bannière principale */}
