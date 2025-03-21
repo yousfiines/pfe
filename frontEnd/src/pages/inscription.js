@@ -16,7 +16,8 @@ const Inscription = () => {
   const [errors, setErrors] = useState({});
 
   // Options pour la liste déroulante
-  const Filière = ["Informatique", "Phy/chimie", "Tic", "Agro"];
+  const Filière = [""," Licence en Sciences Biologiques et Environnementales","Licence en Sciences de l'informatique : Génie logiciel et systèmes d'information", " Licence en Sciences : Physique-Chimie","Licence en Sciences de Mathématique","Licence en Technologie de l’information et de la communication"," Licnece en Industries Agroalimentaires et Impacts Environnementaux",
+    "Master Recherche en Ecophysiologie et Adaptation Végétal","Mastere de Recherche Informatique décisionnelle","Master recherche Physique et Chimie des Matériaux de Hautes Performances"];
 
   // Fonction pour gérer les changements dans les champs
   const handleChange = (e) => {
@@ -65,8 +66,9 @@ const Inscription = () => {
       alert("Inscription réussie !");
       // Réinitialiser le formulaire après la soumission
       setFormData({
-        Nom_et_prénom: "",
         Cin: "",
+        Nom_et_prénom: "",
+       
         Téléphone: "",
         email: "",
         password: "",
@@ -82,18 +84,7 @@ const Inscription = () => {
     <div style={styles.container}>
       <h2 style={styles.title}>Inscription</h2>
       <form onSubmit={handleSubmit} style={styles.form}>
-        {/* Champ Nom */}
-        <div style={styles.formGroup}>
-          <label style={styles.label}>Nom et prénom :</label>
-          <input
-            type="text"
-            name="name"
-            value={formData.name}
-            onChange={handleChange}
-            style={styles.input}
-          />
-          {errors.name && <span style={styles.error}>{errors.name}</span>}
-        </div>
+       
          {/* Champ cin */}
          <div style={styles.formGroup}>
           <label style={styles.label}>CIN :</label>
@@ -105,6 +96,18 @@ const Inscription = () => {
             style={styles.input}
           />
           {errors.cin && <span style={styles.error}>{errors.cin}</span>}
+        </div>
+         {/* Champ Nom */}
+         <div style={styles.formGroup}>
+          <label style={styles.label}>Nom et prénom :</label>
+          <input
+            type="text"
+            name="name"
+            value={formData.name}
+            onChange={handleChange}
+            style={styles.input}
+          />
+          {errors.name && <span style={styles.error}>{errors.name}</span>}
         </div>
          {/* Champ télé */}
          <div style={styles.formGroup}>
