@@ -1,72 +1,90 @@
 import express from "express";
-import mysql from "mysql";
 import cors from "cors";
+import mysql from "mysql2";
+import bcrypt from "bcryptjs"; // Utilisation de bcryptjs
 
-const app = express();
-
-// Middleware pour autoriser le cross-origin
-app.use(cors());
-// Middleware pour parser le JSON du body
-app.use(express.json());
-
-// Configuration de la connexion MySQL
-const db = mysql.createConnection({
+// Configuration de la connexion à MySQL
+const pool = mysql.createPool({
   host: "localhost",
   user: "root",
   password: "",
-  database: "mon_pfe",
-});
+  database: "mon-pfe",
+  waitForConnections: true,
+  connectionLimit: 10,
+  queueLimit: 0,
+}).promise();
 
-// Connexion à la base MySQL
-db.connect((err) => {
-  if (err) {
-    console.error("Erreur de connexion à MySQL :", err);
-    return;
+const app = express();
+
+// Middleware
+app.use(cors());
+app.use(express.json());
+
+// Route pour l'inscription
+app.post("/enseignants", async (req, res) => {
+  const { Cin, Nom_et_prénom, Email, Password, Confirmpassword } = req.body;
+
+  console.log("Données reçues :", { Cin, Nom_et_prénom, Email, Password, Confirmpassword });
+
+  // Validation
+  const errors = {};
+
+  if (!Cin) errors.Cin = "Le CIN est requis.";
+  if (!Nom_et_prénom) errors.Nom_et_prénom = "Le nom est requis.";
+  if (!Email) {
+    errors.email = "L'email est requis.";
+  } else if (!/\S+@\S+\.\S+/.test(Email)) {
+    errors.email = "L'email est invalide.";
   }
-  console.log("Connecté à MySQL !");
-});
+  if (!Password) {
+    errors.password = "Le mot de passe est requis.";
+  } else if (Password.length < 6) {
+    errors.password = "Le mot de passe doit contenir au moins 6 caractères.";
+  }
+  if (Password !== Confirmpassword) {
+    errors.confirmPassword = "Les mots de passe ne correspondent pas.";
+  }
 
-// Route GET pour récupérer tous les utilisateurs
-app.get("/enseignants", (req, res) => {
-  const sql = "SELECT * FROM enseignants";
-  db.query(sql, (err, results) => {
-    if (err) {
-      console.error("Erreur lors de la récupération :", err);
-      return res
-        .status(500)
-        .json({ error: "Erreur lors de la récupération des données" });
+  if (Object.keys(errors).length > 0) {
+    console.log("Erreurs de validation :", errors);
+    return res.status(400).json({ errors });
+  }
+
+  try {
+    // Vérifier si l'enseignant existe déjà
+    const [existing] = await pool.query(
+      "SELECT * FROM enseignants WHERE Cin = ? OR Email = ?",
+      [Cin, Email]
+    );
+
+    if (existing.length > 0) {
+      console.log("Enseignant existe déjà :", existing);
+      return res.status(400).json({ message: "Un enseignant avec ce CIN ou cet email existe déjà." });
     }
-    res.json(results);
-  });
+
+    // Hacher le mot de passe
+    const saltRounds = 10;
+    const hashedPassword = await bcrypt.hash(Password, saltRounds);
+    console.log("Mot de passe haché :", hashedPassword);
+
+    // Ajouter l'enseignant
+    const [result] = await pool.query(
+      "INSERT INTO enseignants (Cin, Nom_et_prénom, Email, Password) VALUES (?, ?, ?, ?)",
+      [Cin, Nom_et_prénom, Email, hashedPassword]
+    );
+
+    console.log("Résultat de l'insertion :", result);
+
+    // Réponse de succès
+    res.status(201).json({ message: "Inscription réussie", data: { Cin, Nom_et_prénom, Email } });
+  } catch (error) {
+    console.error("Erreur lors de l'inscription :", error);
+    res.status(500).json({ message: "Une erreur s'est produite lors de l'inscription.", error: error.message });
+  }
 });
 
-// Route POST pour insérer un nouvel utilisateur
-app.post("/enseignants", (req, res) => {
-  const { CIN,Nom_et_prénom,Email,Password,Confirmpassword } = req.body;
-  console.log("Données reçues :", { CIN,Nom_et_prénom,Email,Password,Confirmpassword  }); // Log des données reçues
-
-  // Vérifier que les champs requis sont présents
-  if (CIN,Nom_et_prénom,Email,Password,Confirmpassword ) {
-    return res.status(400).json({ error: "champ obligatoire." });
-  }
-
-  // Validation supplémentaire de l'email (exemple)
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  if (!emailRegex.test(email)) {
-    return res.status(400).json({ error: "Format d'email invalide." });
-  }
-
-  const sql = "INSERT INTO enseignants (CIN,Nom_et_prénom,Email,Password,Confirmpassword ) VALUES (?, ?)";
-  db.query(sql, [name, email], (err, result) => {
-    if (err) {
-      console.error("Erreur lors de l'insertion :", err);
-      return res.status(500).json({ error: "Erreur lors de l'insertion." });
-    }
-    console.log("Utilisateur inséré avec l'ID :", result.insertId); // Log de l'ID inséré
-    res.json({ message: "Utilisateur ajouté !", id: result.insertId });
-  });
-});
-
-// Lancer le serveur
+// Démarrer le serveur
 const PORT = 5000;
-app.listen(PORT, () => console.log('Serveur lancé sur http://localhost:${PORT}'));
+app.listen(PORT, () => {
+  console.log(`Server is running on http://localhost:${PORT}`);
+});

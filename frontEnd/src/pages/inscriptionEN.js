@@ -1,7 +1,6 @@
 import React, { useState } from "react";
 
 const InscriptionEn = () => {
-  // États pour gérer les valeurs des champs
   const [formData, setFormData] = useState({
     Cin: "",
     Nom_et_prénom: "",
@@ -10,11 +9,9 @@ const InscriptionEn = () => {
     confirmPassword: "",
   });
 
-  // États pour gérer les erreurs
   const [errors, setErrors] = useState({});
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
- 
-  // Fonction pour gérer les changements dans les champs
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData({
@@ -23,13 +20,11 @@ const InscriptionEn = () => {
     });
   };
 
-  // Fonction pour valider le formulaire
   const validateForm = () => {
     const newErrors = {};
 
-    //if (!formData.name) newErrors.name = "Le nom est requis.";
-    //if (!formData.Cin) newErrors.cin = "Le numéro de cin est requis.";
-   
+    if (!formData.Cin) newErrors.Cin = "Le CIN est requis.";
+    if (!formData.Nom_et_prénom) newErrors.Nom_et_prénom = "Le nom est requis.";
     if (!formData.email) {
       newErrors.email = "L'email est requis.";
     } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
@@ -43,30 +38,59 @@ const InscriptionEn = () => {
     if (formData.password !== formData.confirmPassword) {
       newErrors.confirmPassword = "Les mots de passe ne correspondent pas.";
     }
-   
+
     setErrors(newErrors);
-    return Object.keys(newErrors).length === 0; // Retourne true si aucune erreur
+    return Object.keys(newErrors).length === 0;
   };
 
-  // Fonction pour gérer la soumission du formulaire
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
 
     if (validateForm()) {
-      // Si le formulaire est valide, vous pouvez envoyer les données
-      console.log("Formulaire soumis avec succès :", formData);
-      alert("Inscription réussie !");
-      // Réinitialiser le formulaire après la soumission
-      setFormData({
-        Nom_et_prénom: "",
-        Cin: "",
-        email: "",
-        password: "",
-        confirmPassword: "",
-       
-      });
+      setIsSubmitting(true);
+      try {
+        const response = await fetch("http://localhost:5000/enseignants", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            Cin: formData.Cin,
+            Nom_et_prénom: formData.Nom_et_prénom,
+            Email: formData.email,
+            Password: formData.password,
+            Confirmpassword: formData.confirmPassword,
+          }),
+        });
+
+        const data = await response.json();
+
+        if (response.ok) {
+          console.log("Réponse du serveur :", data);
+          alert("Inscription réussie !");
+          setFormData({
+            Cin: "",
+            Nom_et_prénom: "",
+            email: "",
+            password: "",
+            confirmPassword: "",
+          });
+        } else {
+          console.error("Erreur lors de l'inscription :", data);
+          if (data.errors) {
+            setErrors(data.errors);
+          } else {
+            alert(`Erreur : ${data.message || "Une erreur s'est produite."}`);
+          }
+        }
+      } catch (error) {
+        console.error("Erreur réseau :", error);
+        alert("Erreur réseau. Veuillez réessayer.");
+      } finally {
+        setIsSubmitting(false);
+      }
     } else {
-      console.log("Erreurs dans le formulaire :", errors);
+      console.log("Formulaire invalide", errors);
     }
   };
 
@@ -74,31 +98,32 @@ const InscriptionEn = () => {
     <div style={styles.container}>
       <h2 style={styles.title}>Inscription</h2>
       <form onSubmit={handleSubmit} style={styles.form}>
-       
-         {/* Champ cin */}
-         <div style={styles.formGroup}>
+        {/* Champ CIN */}
+        <div style={styles.formGroup}>
           <label style={styles.label}>CIN :</label>
           <input
-            type="int"
-            name="cin"
-            value={formData.cin}
+            type="text"
+            name="Cin"
+            value={formData.Cin}
             onChange={handleChange}
             style={styles.input}
           />
-          {errors.cin && <span style={styles.error}>{errors.cin}</span>}
+          {errors.Cin && <span style={styles.error}>{errors.Cin}</span>}
         </div>
- {/* Champ Nom */}
- <div style={styles.formGroup}>
+
+        {/* Champ Nom et prénom */}
+        <div style={styles.formGroup}>
           <label style={styles.label}>Nom et prénom :</label>
           <input
             type="text"
-            name="name"
-            value={formData.name}
+            name="Nom_et_prénom"
+            value={formData.Nom_et_prénom}
             onChange={handleChange}
             style={styles.input}
           />
-          {errors.name && <span style={styles.error}>{errors.name}</span>}
+          {errors.Nom_et_prénom && <span style={styles.error}>{errors.Nom_et_prénom}</span>}
         </div>
+
         {/* Champ Email */}
         <div style={styles.formGroup}>
           <label style={styles.label}>Email :</label>
@@ -122,9 +147,7 @@ const InscriptionEn = () => {
             onChange={handleChange}
             style={styles.input}
           />
-          {errors.password && (
-            <span style={styles.error}>{errors.password}</span>
-          )}
+          {errors.password && <span style={styles.error}>{errors.password}</span>}
         </div>
 
         {/* Champ Confirmation du mot de passe */}
@@ -142,19 +165,14 @@ const InscriptionEn = () => {
           )}
         </div>
 
-    
-
         {/* Bouton de soumission */}
-        <button type="submit" style={styles.button}>
-          S'inscrire
+        <button type="submit" style={styles.button} disabled={isSubmitting}>
+          {isSubmitting ? "En cours..." : "S'inscrire"}
         </button>
       </form>
     </div>
-
-
-          );
-        }
-
+  );
+};
 
 // Styles pour le formulaire
 const styles = {
