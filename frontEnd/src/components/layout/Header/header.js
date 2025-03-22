@@ -10,6 +10,7 @@ const header= () => {
           <a href ="/evenement">Evénement</a>
           <a href ="/contact">Contact</a>
           <a href ="/connexion">Se connecter</a>
+          <a href ="/enseignant">Enseignant</a>
           
         </nav>
       </header>

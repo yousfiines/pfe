@@ -29,6 +29,66 @@ const Filière = [
   "Master recherche Physique et Chimie des Matériaux de Hautes Performances",
 ];
 
+
+
+
+
+// Route pour la connexion des utilisateurs (enseignants ou étudiants)
+app.post("/connexion", async (req, res) => {
+  const { email, password } = req.body;
+
+  // Validation des champs
+  if (!email || !password) {
+    return res.status(400).json({ message: "L'email et le mot de passe sont requis." });
+  }
+
+  try {
+    // Vérifier si l'utilisateur est un enseignant
+    const [enseignant] = await pool.query(
+      "SELECT * FROM enseignants WHERE Email = ?",
+      [email]
+    );
+
+    if (enseignant.length > 0) {
+      // Vérifier le mot de passe
+      const isPasswordValid = await bcrypt.compare(password, enseignant[0].Password);
+      if (isPasswordValid) {
+        return res.status(200).json({ message: "Connexion réussie", role: "enseignant", user: enseignant[0] });
+      } else {
+        return res.status(400).json({ message: "Mot de passe incorrect." });
+      }
+    }
+
+    // Vérifier si l'utilisateur est un étudiant
+    const [etudiant] = await pool.query(
+      "SELECT * FROM etudiant WHERE email = ?",
+      [email]
+    );
+
+    if (etudiant.length > 0) {
+      // Vérifier le mot de passe
+      const isPasswordValid = await bcrypt.compare(password, etudiant[0].password);
+      if (isPasswordValid) {
+        return res.status(200).json({ message: "Connexion réussie", role: "etudiant", user: etudiant[0] });
+      } else {
+        return res.status(400).json({ message: "Mot de passe incorrect." });
+      }
+    }
+
+    // Si aucun utilisateur n'est trouvé
+    return res.status(404).json({ message: "Aucun utilisateur trouvé avec cet email." });
+  } catch (error) {
+    console.error("Erreur lors de la connexion :", error);
+    return res.status(500).json({ message: "Erreur interne du serveur", error: error.message });
+  }
+});
+
+
+
+
+
+
+
 // Route pour l'inscription des enseignants
 app.post("/enseignants", async (req, res) => {
   const { Cin, Nom_et_prénom, Email, Password, Confirmpassword } = req.body;
@@ -128,7 +188,8 @@ app.post("/etudiant", async (req, res) => {
   }
 });
 
-app.use(cors());
-/*app.listen(PORT, () => {
+//app.use(cors());
+const PORT=5000;
+app.listen(PORT, () => {
   console.log(`Serveur en ligne sur http://localhost:${PORT}`);
-});*/
+});

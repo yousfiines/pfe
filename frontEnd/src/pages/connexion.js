@@ -1,18 +1,18 @@
 import React, { useState } from "react";
+import { useNavigate } from "react-router-dom"; // Pour la redirection
 import login from "../assets/lotties/login.json";
 import Lottie from "lottie-react";
 
 const Connexion = () => {
-  // États pour gérer les valeurs des champs
   const [formData, setFormData] = useState({
     email: "",
     password: "",
   });
 
-  // États pour gérer les erreurs
   const [errors, setErrors] = useState({});
+  const navigate = useNavigate(); // Pour la navigation
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Fonction pour gérer les changements dans les champs
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData({
@@ -21,7 +21,6 @@ const Connexion = () => {
     });
   };
 
-  // Fonction pour valider le formulaire
   const validateForm = () => {
     const newErrors = {};
 
@@ -37,22 +36,39 @@ const Connexion = () => {
     }
 
     setErrors(newErrors);
-    return Object.keys(newErrors).length === 0; // Retourne true si aucune erreur
+    return Object.keys(newErrors).length === 0;
   };
 
-  // Fonction pour gérer la soumission du formulaire
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
+    setIsSubmitting(true);
 
     if (validateForm()) {
-      // Si le formulaire est valide, vous pouvez envoyer les données
-      console.log("Formulaire soumis avec succès :", formData);
-      alert("Connexion réussie !");
-      // Réinitialiser le formulaire après la soumission
-      setFormData({
-        email: "",
-        password: "",
-      });
+      try {
+        const response = await fetch("http://localhost:5000/connexion", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(formData),
+        });
+  
+        const data = await response.json();
+  
+        if (response.ok) {
+          alert(data.message);
+          if (data.role === "enseignant") {
+            navigate("/enseignant"); // Rediriger vers la page enseignant
+          } else if (data.role === "etudiant") {
+            navigate("/etudiant"); // Rediriger vers la page étudiant
+          }
+        } else {
+          alert(data.message); // Afficher le message d'erreur
+        }
+      } catch (error) {
+        console.error("Erreur réseau :", error);
+        alert("Erreur réseau. Veuillez réessayer.");
+      }
     } else {
       console.log("Erreurs dans le formulaire :", errors);
     }
@@ -60,10 +76,8 @@ const Connexion = () => {
 
   return (
     <div style={styles.container}>
-      {/* Formulaire de connexion */}
       <div style={styles.card}>
         <form onSubmit={handleSubmit} style={styles.form}>
-          {/* Champ Email */}
           <div style={styles.formGroup}>
             <input
               type="email"
@@ -76,7 +90,6 @@ const Connexion = () => {
             {errors.email && <span style={styles.error}>{errors.email}</span>}
           </div>
 
-          {/* Champ Mot de passe */}
           <div style={styles.formGroup}>
             <input
               type="password"
@@ -86,29 +99,27 @@ const Connexion = () => {
               style={styles.input}
               placeholder="Saisir votre mot de passe"
             />
-            {errors.password && (
-              <span style={styles.error}>{errors.password}</span>
-            )}
+            {errors.password && <span style={styles.error}>{errors.password}</span>}
           </div>
 
-          {/* Bouton de soumission */}
-          <button type="submit" style={styles.button}>
-            Se connecter
-          </button>
+          <button type="submit" style={styles.button} disabled={isSubmitting}>
+          {isSubmitting ? "En cours..." : "Se Connecter"}
+        </button>
         </form>
 
-         {/* Lien pour s'inscrire */}
-         <p style={styles.signupLink}>
-          Pas encore de compte ? 
+        <p style={styles.signupLink}>
+          Pas encore de compte ?{" "}
+          <a href="/inscriptionEN" style={styles.link}>
+            Inscrivez-vous en tant qu'enseignant
+          </a>
         </p>
         <p style={styles.signupLink}>
-        <a href="/inscriptionEN" style={styles.link}>Inscrivez-vous en tant qu'enseignant</a></p>
-        <p style={styles.signupLink}>
-        <a href="/inscription" style={styles.link}>Inscrivez-vous en tant qu'etudiant</a>
+          <a href="/inscription" style={styles.link}>
+            Inscrivez-vous en tant qu'étudiant
+          </a>
         </p>
       </div>
 
-      {/* Animation Lottie */}
       <div style={styles.lottieContainer}>
         <Lottie
           animationData={login}
@@ -120,15 +131,14 @@ const Connexion = () => {
   );
 };
 
-// Styles pour le formulaire
 const styles = {
   container: {
     display: "flex",
-    justifyContent: "center", // Centre horizontalement
-    alignItems: "center", // Centre verticalement
-    minHeight: "100vh", // Prend toute la hauteur de la page
-    backgroundColor: "#f0f2f5", // Couleur de fond
-    padding: "20px", // Espacement autour du contenu
+    justifyContent: "center",
+    alignItems: "center",
+    minHeight: "100vh",
+    backgroundColor: "#f0f2f5",
+    padding: "20px",
   },
   card: {
     backgroundColor: "#fff",
@@ -137,12 +147,7 @@ const styles = {
     boxShadow: "0 4px 8px rgba(0, 0, 0, 0.1)",
     maxWidth: "400px",
     width: "100%",
-    marginRight: "50px", // Espace entre le formulaire et l'animation
-  },
-  title: {
-    fontSize: "24px",
-    marginBottom: "20px",
-    textAlign: "center",
+    marginRight: "50px",
   },
   form: {
     display: "flex",
@@ -150,11 +155,6 @@ const styles = {
   },
   formGroup: {
     marginBottom: "20px",
-  },
-  label: {
-    fontSize: "14px",
-    color: "#555",
-    marginBottom: "5px",
   },
   input: {
     width: "100%",
@@ -173,18 +173,18 @@ const styles = {
     fontSize: "16px",
     cursor: "pointer",
   },
-  buttonHover: {
-    backgroundColor: "#0056b3", // Couleur au survol
-  },
   link: {
     color: "#007bff",
     textDecoration: "none",
   },
   lottieContainer: {
-    maxWidth: "400px", // Largeur maximale de l'animation
+    maxWidth: "400px",
     width: "100%",
   },
+  error: {
+    color: "red",
+    fontSize: "14px",
+  },
 };
-
 
 export default Connexion;

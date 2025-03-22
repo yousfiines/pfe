@@ -6,6 +6,7 @@ import "./styles.css"
 import Connexion from "./pages/connexion.js"
 import Inscription from "./pages/inscription.js"
 import InscriptionEN from "./pages/inscriptionEN.js";
+import Enseignant from "./pages/enseignant.js"
 function App() {
   return (
    
@@ -16,6 +17,7 @@ function App() {
         <Route path="/connexion" element={<Connexion />} />
         <Route path="/inscription" element={<Inscription />} />
         <Route path="/inscriptionEn" element={<InscriptionEN />} />
+        <Route path="/enseignant" element={<Enseignant />} />
         </Routes>
         <Footer />
       </div>
