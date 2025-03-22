@@ -1,7 +1,6 @@
 import React, { useState } from "react";
 
 const Inscription = () => {
-  // États pour gérer les valeurs des champs
   const [formData, setFormData] = useState({
     Cin: "",
     Nom_et_prénom: "",
@@ -9,74 +8,89 @@ const Inscription = () => {
     email: "",
     password: "",
     confirmPassword: "",
-   filiere: "Informatique", // Nouveau champ 
+    filière: "",
   });
 
-  // États pour gérer les erreurs
   const [errors, setErrors] = useState({});
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Options pour la liste déroulante
-  const Filière = [""," Licence en Sciences Biologiques et Environnementales","Licence en Sciences de l'informatique : Génie logiciel et systèmes d'information", " Licence en Sciences : Physique-Chimie","Licence en Sciences de Mathématique","Licence en Technologie de l’information et de la communication"," Licnece en Industries Agroalimentaires et Impacts Environnementaux",
-    "Master Recherche en Ecophysiologie et Adaptation Végétal","Mastere de Recherche Informatique décisionnelle","Master recherche Physique et Chimie des Matériaux de Hautes Performances"];
+  const Filière = [
+    "",
+    "Licence en Sciences Biologiques et Environnementales",
+    "Licence en Sciences de l'informatique : Génie logiciel et systèmes d'information",
+    "Licence en Sciences : Physique-Chimie",
+    "Licence en Sciences de Mathématique",
+    "Licence en Technologie de l’information et de la communication",
+    "Licence en Industries Agroalimentaires et Impacts Environnementaux",
+    "Master Recherche en Ecophysiologie et Adaptation Végétal",
+    "Master de Recherche Informatique décisionnelle",
+    "Master recherche Physique et Chimie des Matériaux de Hautes Performances",
+  ];
 
-  // Fonction pour gérer les changements dans les champs
   const handleChange = (e) => {
     const { name, value } = e.target;
+    console.log(`Champ ${name} mis à jour :`, value); // Debug
     setFormData({
       ...formData,
       [name]: value,
     });
   };
 
-  // Fonction pour valider le formulaire
   const validateForm = () => {
     const newErrors = {};
+    if (!formData.Cin) newErrors.Cin = "Le CIN est requis.";
+    else if (!/^\d{8}$/.test(formData.Cin)) newErrors.Cin = "Le CIN doit contenir exactement 8 chiffres.";
 
-    if (!formData.name) newErrors.name = "Le nom est requis.";
-    if (!formData.Cin) newErrors.cin = "Le numéro de cin est requis.";
-    if (!formData.tél) newErrors.tél = "Le numéro de téléphone est requis.";
-    if (!formData.email) {
-      newErrors.email = "L'email est requis.";
-    } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
-      newErrors.email = "L'email est invalide.";
-    }
-    if (!formData.password) {
-      newErrors.password = "Le mot de passe est requis.";
-    } else if (formData.password.length < 6) {
-      newErrors.password = "Le mot de passe doit contenir au moins 6 caractères.";
-    }
-    if (formData.password !== formData.confirmPassword) {
-      newErrors.confirmPassword = "Les mots de passe ne correspondent pas.";
-    }
-    if (!formData.filiere) {
-      newErrors.filiere = "Le filiere est requis.";
-    }
+    if (!formData.Nom_et_prénom) newErrors.Nom_et_prénom = "Le nom est requis.";
+    if (!formData.Téléphone) newErrors.Téléphone = "Le téléphone est requis.";
+    if (!formData.email) newErrors.email = "L'email est requis.";
+    else if (!/\S+@\S+\.\S+/.test(formData.email)) newErrors.email = "L'email est invalide.";
+    if (!formData.password) newErrors.password = "Le mot de passe est requis.";
+    else if (formData.password.length < 6) newErrors.password = "Le mot de passe doit contenir au moins 6 caractères.";
+    if (formData.password !== formData.confirmPassword) newErrors.confirmPassword = "Les mots de passe ne correspondent pas.";
+    if (!formData.filière) newErrors.filière = "La filière est requise.";
 
     setErrors(newErrors);
-    return Object.keys(newErrors).length === 0; // Retourne true si aucune erreur
+    return Object.keys(newErrors).length === 0;
   };
 
-  // Fonction pour gérer la soumission du formulaire
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
+    setIsSubmitting(true);
 
     if (validateForm()) {
-      // Si le formulaire est valide, vous pouvez envoyer les données
-      console.log("Formulaire soumis avec succès :", formData);
-      alert("Inscription réussie !");
-      // Réinitialiser le formulaire après la soumission
-      setFormData({
-        Cin: "",
-        Nom_et_prénom: "",
-       
-        Téléphone: "",
-        email: "",
-        password: "",
-        confirmPassword: "",
-        filiere: "Étudiant", // Réinitialiser le rôle
-      });
+      try {
+        const { confirmPassword, ...dataToSend } = formData;
+        console.log("Données envoyées :", { ...dataToSend, confirmPassword }); // Debug
+
+        const response = await fetch("http://localhost:5000/etudiant", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ ...dataToSend, confirmPassword }), // Inclure confirmPassword
+        });
+
+        const data = await response.json();
+        if (response.ok) {
+          alert("Inscription réussie !");
+          setFormData({
+            Cin: "",
+            Nom_et_prénom: "",
+            Téléphone: "",
+            email: "",
+            password: "",
+            confirmPassword: "",
+            filière: "",
+          });
+        } else {
+          setErrors(data.errors || { message: data.message });
+        }
+      } catch (error) {
+        console.error("Erreur lors de l'inscription :", error);
+      } finally {
+        setIsSubmitting(false);
+      }
     } else {
-      console.log("Erreurs dans le formulaire :", errors);
+      setIsSubmitting(false);
     }
   };
 
@@ -84,45 +98,43 @@ const Inscription = () => {
     <div style={styles.container}>
       <h2 style={styles.title}>Inscription</h2>
       <form onSubmit={handleSubmit} style={styles.form}>
-       
-         {/* Champ cin */}
-         <div style={styles.formGroup}>
+        {/* Champs du formulaire */}
+        <div style={styles.formGroup}>
           <label style={styles.label}>CIN :</label>
           <input
-            type="int"
-            name="cin"
-            value={formData.cin}
+            type="text"
+            name="Cin"
+            value={formData.Cin}
             onChange={handleChange}
             style={styles.input}
           />
-          {errors.cin && <span style={styles.error}>{errors.cin}</span>}
+          {errors.Cin && <span style={styles.error}>{errors.Cin}</span>}
         </div>
-         {/* Champ Nom */}
-         <div style={styles.formGroup}>
+
+        <div style={styles.formGroup}>
           <label style={styles.label}>Nom et prénom :</label>
           <input
             type="text"
-            name="name"
-            value={formData.name}
+            name="Nom_et_prénom"
+            value={formData.Nom_et_prénom}
             onChange={handleChange}
             style={styles.input}
           />
-          {errors.name && <span style={styles.error}>{errors.name}</span>}
-        </div>
-         {/* Champ télé */}
-         <div style={styles.formGroup}>
-          <label style={styles.label}>Téléphone :</label>
-          <input
-            type="int"
-            name="tél"
-            value={formData.tél}
-            onChange={handleChange}
-            style={styles.input}
-          />
-          {errors.tél&& <span style={styles.error}>{errors.tél}</span>}
+          {errors.Nom_et_prénom && <span style={styles.error}>{errors.Nom_et_prénom}</span>}
         </div>
 
-        {/* Champ Email */}
+        <div style={styles.formGroup}>
+          <label style={styles.label}>Téléphone :</label>
+          <input
+            type="text"
+            name="Téléphone"
+            value={formData.Téléphone}
+            onChange={handleChange}
+            style={styles.input}
+          />
+          {errors.Téléphone && <span style={styles.error}>{errors.Téléphone}</span>}
+        </div>
+
         <div style={styles.formGroup}>
           <label style={styles.label}>Email :</label>
           <input
@@ -135,7 +147,6 @@ const Inscription = () => {
           {errors.email && <span style={styles.error}>{errors.email}</span>}
         </div>
 
-        {/* Champ Mot de passe */}
         <div style={styles.formGroup}>
           <label style={styles.label}>Mot de passe :</label>
           <input
@@ -145,57 +156,46 @@ const Inscription = () => {
             onChange={handleChange}
             style={styles.input}
           />
-          {errors.password && (
-            <span style={styles.error}>{errors.password}</span>
-          )}
+          {errors.password && <span style={styles.error}>{errors.password}</span>}
         </div>
 
-        {/* Champ Confirmation du mot de passe */}
         <div style={styles.formGroup}>
           <label style={styles.label}>Confirmer le mot de passe :</label>
           <input
-            type="password"
-            name="confirmPassword"
-            value={formData.confirmPassword}
-            onChange={handleChange}
-            style={styles.input}
-          />
-          {errors.confirmPassword && (
-            <span style={styles.error}>{errors.confirmPassword}</span>
-          )}
+  type="password"
+  name="confirmPassword" // Nom du champ
+  value={formData.confirmPassword}
+  onChange={handleChange}
+  style={styles.input}
+/>
+          {errors.confirmPassword && <span style={styles.error}>{errors.confirmPassword}</span>}
         </div>
 
-        {/* Liste déroulante  */}
         <div style={styles.formGroup}>
           <label style={styles.label}>Filière :</label>
           <select
-            name="filiere"
-            value={formData.filiere}
+            name="filière"
+            value={formData.filière}
             onChange={handleChange}
             style={styles.input}
           >
-            {Filière.map((filiere, index) => (
-              <option key={index} value={filiere}>
-                {filiere}
+            {Filière.map((filière, index) => (
+              <option key={index} value={filière}>
+                {filière}
               </option>
             ))}
           </select>
-          {errors.filiere && <span style={styles.error}>{errors.filiere}</span>}
+          {errors.filière && <span style={styles.error}>{errors.filière}</span>}
         </div>
 
-        {/* Bouton de soumission */}
-        <button type="submit" style={styles.button}>
-          S'inscrire
+        <button type="submit" style={styles.button} disabled={isSubmitting}>
+          {isSubmitting ? "En cours..." : "S'inscrire"}
         </button>
       </form>
     </div>
+  );
+};
 
-
-          );
-        }
-
-
-// Styles pour le formulaire
 const styles = {
   container: {
     maxWidth: "400px",

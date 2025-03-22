@@ -1,32 +1,38 @@
 import express from "express";
 import cors from "cors";
 import mysql from "mysql2";
-import bcrypt from "bcryptjs"; // Utilisation de bcryptjs
+import bcrypt from "bcryptjs";
 
-// Configuration de la connexion à MySQL
+const app = express();
+app.use(cors());
+app.use(express.json());
+
 const pool = mysql.createPool({
   host: "localhost",
   user: "root",
   password: "",
-  database: "mon_pfe",
+  database: "mon-pfe",
   waitForConnections: true,
   connectionLimit: 10,
   queueLimit: 0,
 }).promise();
 
-const app = express();
+const Filière = [
+  "Licence en Sciences Biologiques et Environnementales",
+  "Licence en Sciences de l'informatique : Génie logiciel et systèmes d'information",
+  "Licence en Sciences : Physique-Chimie",
+  "Licence en Sciences de Mathématique",
+  "Licence en Technologie de l’information et de la communication",
+  "Licence en Industries Agroalimentaires et Impacts Environnementaux",
+  "Master Recherche en Ecophysiologie et Adaptation Végétal",
+  "Master de Recherche Informatique décisionnelle",
+  "Master recherche Physique et Chimie des Matériaux de Hautes Performances",
+];
 
-// Middleware
-app.use(cors());
-app.use(express.json());
-
-// Route pour l'inscription
+// Route pour l'inscription des enseignants
 app.post("/enseignants", async (req, res) => {
   const { Cin, Nom_et_prénom, Email, Password, Confirmpassword } = req.body;
 
-  console.log("Données reçues :", { Cin, Nom_et_prénom, Email, Password, Confirmpassword });
-
-  // Validation
   const errors = {};
 
   if (!Cin) errors.Cin = "Le CIN est requis.";
@@ -46,36 +52,27 @@ app.post("/enseignants", async (req, res) => {
   }
 
   if (Object.keys(errors).length > 0) {
-    console.log("Erreurs de validation :", errors);
     return res.status(400).json({ errors });
   }
 
   try {
-    // Vérifier si l'enseignant existe déjà
     const [existing] = await pool.query(
       "SELECT * FROM enseignants WHERE Cin = ? OR Email = ?",
       [Cin, Email]
     );
 
     if (existing.length > 0) {
-      console.log("Enseignant existe déjà :", existing);
       return res.status(400).json({ message: "Un enseignant avec ce CIN ou cet email existe déjà." });
     }
 
-    // Hacher le mot de passe
     const saltRounds = 10;
     const hashedPassword = await bcrypt.hash(Password, saltRounds);
-    console.log("Mot de passe haché :", hashedPassword);
 
-    // Ajouter l'enseignant
     const [result] = await pool.query(
       "INSERT INTO enseignants (Cin, Nom_et_prénom, Email, Password) VALUES (?, ?, ?, ?)",
       [Cin, Nom_et_prénom, Email, hashedPassword]
     );
 
-    console.log("Résultat de l'insertion :", result);
-
-    // Réponse de succès
     res.status(201).json({ message: "Inscription réussie", data: { Cin, Nom_et_prénom, Email } });
   } catch (error) {
     console.error("Erreur lors de l'inscription :", error);
@@ -83,8 +80,55 @@ app.post("/enseignants", async (req, res) => {
   }
 });
 
-// Démarrer le serveur
-const PORT = 5000;
-app.listen(PORT, () => {
-  console.log(`Server is running on http://localhost:${PORT}`);
+// Route pour l'inscription des étudiants
+app.post("/etudiant", async (req, res) => {
+  const { Cin, Nom_et_prénom, Téléphone, email, password, confirmPassword, filière } = req.body;
+
+  let errors = {};
+
+  if (!Cin) errors.Cin = "Le CIN est requis.";
+  else if (!/^\d{8}$/.test(Cin)) errors.Cin = "Le CIN doit contenir exactement 8 chiffres.";
+
+  if (!Nom_et_prénom) errors.Nom_et_prénom = "Le nom est requis.";
+  if (!Téléphone) errors.Téléphone = "Le téléphone est requis.";
+  if (!email) errors.email = "L'email est requis.";
+  else if (!/\S+@\S+\.\S+/.test(email)) errors.email = "L'email est invalide.";
+  if (!password) errors.password = "Le mot de passe est requis.";
+  else if (password.length < 6) errors.password = "Le mot de passe doit contenir au moins 6 caractères.";
+  if (password !== confirmPassword) errors.confirmPassword = "Les mots de passe ne correspondent pas.";
+  if (!filière || !Filière.includes(filière)) {
+    errors.filière = "La filière est invalide ou manquante.";
+  }
+
+  if (Object.keys(errors).length > 0) {
+    return res.status(400).json({ errors });
+  }
+
+  try {
+    const [existing] = await pool.query(
+      "SELECT * FROM etudiant WHERE Cin = ? OR email = ?",
+      [Cin, email]
+    );
+
+    if (existing.length > 0) {
+      return res.status(400).json({ message: "Un étudiant avec ce CIN ou cet email existe déjà." });
+    }
+
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    await pool.query(
+      "INSERT INTO etudiant (Cin, Nom_et_prénom, Téléphone, email, password, filière) VALUES (?, ?, ?, ?, ?, ?)",
+      [Cin, Nom_et_prénom, Téléphone, email, hashedPassword, filière]
+    );
+
+    res.status(201).json({ message: "Inscription réussie" });
+  } catch (error) {
+    console.error("Erreur serveur :", error);
+    res.status(500).json({ message: "Erreur interne du serveur", error: error.message });
+  }
 });
+
+app.use(cors());
+/*app.listen(PORT, () => {
+  console.log(`Serveur en ligne sur http://localhost:${PORT}`);
+});*/
