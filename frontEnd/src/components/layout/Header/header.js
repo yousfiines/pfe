@@ -18,6 +18,7 @@ const Header = () => { // Correct name of the component
         <nav className="nav">
           <button onClick={() => scrollToSection(programsSectionRef)}>Formations</button>
           <button onClick={() => scrollToSection(newsSectionRef)}>Événement</button>
+          
           <a href="/contact">Contact</a>
           <a href="/connexion">Se connecter</a>
           <a href="/enseignant">Enseignant</a>
