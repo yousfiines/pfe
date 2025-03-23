@@ -1,7 +1,7 @@
-import React, { useRef } from "react"; // Import useRef
+import React, { useRef } from "react";
 import logoFac from "./../../../assets/logoFac.png";
 
-const Header = () => { // Correct name of the component
+const Header = () => {
   const newsSectionRef = useRef(null);
   const programsSectionRef = useRef(null);
 
@@ -16,10 +16,9 @@ const Header = () => { // Correct name of the component
           <img src={logoFac} width="100" height="100" alt="Logo de la Faculté" />
         </a>
         <nav className="nav">
-          <button onClick={() => scrollToSection(programsSectionRef)}>Formations</button>
-          <button onClick={() => scrollToSection(newsSectionRef)}>Événement</button>
-          
-          <a href="/contact">Contact</a>
+          <a href="#formations" onClick={() => scrollToSection(programsSectionRef)}>Formations</a>
+          <a href="#evenements" onClick={() => scrollToSection(newsSectionRef)}>Événement</a>
+          <a href="/footer">Contact</a>
           <a href="/connexion">Se connecter</a>
           <a href="/enseignant">Enseignant</a>
         </nav>
@@ -56,7 +55,7 @@ const Header = () => { // Correct name of the component
         </div>
       </section>
 
-      <section className="programs-section" ref={programsSectionRef}>
+      <section className="programs-section" ref={programsSectionRef} id="formations">
         <h2>Nos formations</h2>
         <div className="programs-grid">
           <div className="program-card">
@@ -74,7 +73,7 @@ const Header = () => { // Correct name of the component
         </div>
       </section>
 
-      <section className="news-section" ref={newsSectionRef}>
+      <section className="news-section" ref={newsSectionRef} id="evenements">
         <h2>Actualités et événements</h2>
         <div className="news-grid">
           <div className="news-card">
@@ -91,4 +90,4 @@ const Header = () => { // Correct name of the component
   );
 };
 
-export default Header; // Correct export
+export default Header;
