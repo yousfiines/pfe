@@ -145,7 +145,7 @@ const styles = {
     padding: "40px",
     borderRadius: "10px",
     boxShadow: "0 4px 8px rgba(0, 0, 0, 0.1)",
-    maxWidth: "400px",
+    maxWidth: "300px",
     width: "100%",
     marginRight: "50px",
   },
@@ -154,7 +154,7 @@ const styles = {
     flexDirection: "column",
   },
   formGroup: {
-    marginBottom: "20px",
+    marginBottom: "30px",
   },
   input: {
     width: "100%",

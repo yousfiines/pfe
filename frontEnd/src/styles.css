@@ -17,22 +17,24 @@ body {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 10px;
-  background-color: #386a9b;
+  padding: 1px;
+  background-color: #ffffffcb;
   color: #fff;
   width: 100%;
 }
 
 /* Style pour la navbar */
 .nav a {
-  color: #fff;
-  margin:  15px;
-  text-decoration: none;
-  font-size: 16px;
-  transition: color 0.3s ease;
+  margin: 0 15px; /* Espace entre les liens */
+  text-decoration: none; /* Supprime le soulignement */
+  color: #1b1a1a; /* Couleur du texte */
+  font-size: 18px;
 
 }
 /* Style pour le logo */
+
+
+
 
 /* Style pour la liste des liens */
 nav ul {
@@ -42,11 +44,7 @@ nav ul {
 }
 
 /* Style pour les éléments de la liste */
-nav ul li {
-  margin-left: 20px;
- 
 
-}
 
 /* Style pour les liens */
 nav ul li a {
