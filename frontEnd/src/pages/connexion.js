@@ -9,6 +9,7 @@ const Connexion = () => {
     password: "",
   });
 
+
   const [errors, setErrors] = useState({});
   const navigate = useNavigate(); // Pour la navigation
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -127,7 +128,7 @@ const Connexion = () => {
           loop={true}
         />
       </div>
-    </div>
+      </div>
   );
 };
 

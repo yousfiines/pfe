@@ -31,7 +31,7 @@ body {
   font-size: 18px;
 
 }
-/* Style pour le logo */
+
 
 
 
@@ -43,7 +43,6 @@ nav ul {
   align-items: center;
 }
 
-/* Style pour les éléments de la liste */
 
 
 /* Style pour les liens */
@@ -90,11 +89,13 @@ nav ul li a:hover {
 .hero-content h1 {
   font-size: 48px;
   margin-bottom: 20px;
+  color: #e8b9b9;
 }
 
-.hero-content p {
-  font-size: 24px;
+.hero-content h4 {
+  font-size: 32px;
   margin-bottom: 30px;
+  color:#186475;
 }
 
 .hero-buttons {
@@ -165,11 +166,6 @@ nav ul li a:hover {
   width: 45%;
 }
 
-/* Témoignages */
-.testimonials-section {
-  padding: 50px 20px;
-  text-align: center;
-}
 
 .testimonials-grid {
   display: flex;
@@ -187,9 +183,9 @@ nav ul li a:hover {
 
 /* Pied de page */
 .footer {
-  background-color: #003366;
+  background-color: #57778c;
   color: #fff;
-  padding: 50px 20px;
+  padding: 10px 20px;
   width: 100%;
   text-align: center;
 }
@@ -208,4 +204,37 @@ nav ul li a:hover {
   text-decoration: none;
   display: block;
   margin: 10px 0;
+}
+
+
+
+.image-container {
+  width: 700px;
+  height: 500px;
+}
+
+.text-overlay {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  text-align: center;
+  color: white;
+  background-color: rgba(0, 0, 0, 0.5); /* Fond semi-transparent */
+  padding: 20px;
+  border-radius: 10px;
+}
+
+
+/* Styles de base pour les cartes */
+.program-card, .news-card {
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+  transform: scale(1);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+/* Effet de grossissement et ombre au survol */
+.program-card:hover, .news-card:hover {
+  transform: scale(1.15);
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2);
 }

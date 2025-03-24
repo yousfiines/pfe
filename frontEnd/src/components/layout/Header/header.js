@@ -1,36 +1,70 @@
 import React, { useRef } from "react";
 import logoFac from "./../../../assets/logoFac.png";
-
+import Lottie from "lottie-react";
+import home from "../../../assets/lotties/home.json"
+import "../../../../src/styles.css"
 const Header = () => {
   const newsSectionRef = useRef(null);
   const programsSectionRef = useRef(null);
+  //const footerRef = useRef(null);
 
   const scrollToSection = (ref) => {
     ref.current.scrollIntoView({ behavior: "smooth" });
+
+
+  
+
+<Lottie animationData={home} loop={true} />;
+
+
   };
 
   return (
     <div className="home-page">
       <header className="header">
         <a href="/">
-          <img src={logoFac} width="100" height="100" alt="Logo de la Faculté" />
+          <img src={logoFac} width="80" height="80" alt="Logo de la Faculté" />
         </a>
         <nav className="nav">
           <a href="#formations" onClick={() => scrollToSection(programsSectionRef)}>Formations</a>
-          <a href="#evenements" onClick={() => scrollToSection(newsSectionRef)}>Événement</a>
+          <a href="#evenements" onClick={() => scrollToSection(newsSectionRef)}>Événements</a>
           <a href="/contact">Contact</a>
           <a href="/connexion">Se connecter</a>
           <a href="/enseignant">Enseignant</a>
         </nav>
       </header>
 
-      <section className="hero-section">
-        <div className="hero-content">
-          <h1>Bienvenue à la Faculté des Sciences et Techniques de Sidi Bouzid</h1>
-          <p>Formez-vous pour un avenir brillant</p>
-        </div>
-      </section>
 
+
+      <table>
+      <tbody>
+        <tr>
+          <td> <section className="hero-section">
+        <div className="hero-content">
+          <h1>Bienvenue à la Faculté des Sciences
+            et Techniques de Sidi Bouzid</h1>
+          <h4>Formez-vous pour un avenir brillant</h4>
+        </div>
+      </section></td>
+          <td> <div className="image-container">
+
+<div >
+    <Lottie
+        animationData={home}
+      
+        loop={true}
+    />
+</div>
+      </div></td>
+        </tr>
+      </tbody>
+    </table>
+
+
+
+
+     
+       
       <section className="about-section">
         <h2>À propos de nous</h2>
         <p>
@@ -53,7 +87,7 @@ const Header = () => {
             <p>Partenariats</p>
           </div>
         </div>
-      </section>
+      </section>*
 
       <section className="programs-section" ref={programsSectionRef} id="formations">
         <h2>Nos formations</h2>
@@ -70,6 +104,7 @@ const Header = () => {
             <h3>Doctorat</h3>
             <p>Participez à des recherches de pointe</p>
           </div>
+          
         </div>
       </section>
 
@@ -85,7 +120,7 @@ const Header = () => {
             <p>Participez à notre atelier de programmation avancée.</p>
           </div>
         </div>
-      </section>
+       </section>
     </div>
   );
 };
