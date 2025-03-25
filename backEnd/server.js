@@ -7,6 +7,11 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
+
+const express = require('express');
+const cookieParser = require('cookie-parser');
+
+
 const pool = mysql.createPool({
   host: "localhost",
   user: "root",
