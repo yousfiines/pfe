@@ -12,10 +12,14 @@ import CardContent from '@mui/material/CardContent';
 import CardMedia from '@mui/material/CardMedia';
 import Button from '@mui/material/Button';
 import Typography from '@mui/material/Typography';
+import { useNavigate } from "react-router-dom";
 import { FaGraduationCap, FaFlask, FaHandshake } from "react-icons/fa";
 
 const Header = () => {
 
+
+
+  const navigate = useNavigate();
   const newsSectionRef = useRef(null);
   const programsSectionRef = useRef(null);
   const contactSectionRef = useRef(null); // Ajout de la référence pour le contact
@@ -24,6 +28,30 @@ const Header = () => {
     ref.current.scrollIntoView({ behavior: "smooth" });
   };
 
+  const handleSeeMore = (programType) => {
+    navigate(`/${programType.toLowerCase()}`);
+  };
+
+  const programs = [
+    {
+      title: "Licence",
+      description: "Découvrir notre programme de licence",
+      image: licencee,
+      path: "licence",
+    },
+    {
+      title: "Master",
+      description: "Explorez notre programme de master",
+      image: master,
+      path: "master",
+    },
+    {
+      title: "Doctorat",
+      description: "Participez à des recherches de pointe",
+      image: doctorat,
+      path: "doctorat",
+    },
+  ];
   return (
     <div className="home-page">
       <header className="header">
@@ -146,82 +174,59 @@ const Header = () => {
       <section className="programs-section" ref={programsSectionRef} id="formations">
         <h2>Nos formations</h2>
         <div className="programs-grid">
-          <div className="program-card">
-            <Card sx={{ maxWidth: 345 }}>
-              <CardMedia
-                component="img"
-                height="140"
-                sx={{ height: 140 }}
-                image={licencee} // Utilisez l'image importée ici
-                alt="Licence" // Ajoutez un texte alternatif pour l'accessibilité
-              />
-              <CardContent>
-                <Typography gutterBottom variant="h5" component="div">
-                  Licence
-                </Typography>
-                <Typography variant="body2" sx={{ color: 'text.secondary' }}>
-                  découvrir notre programme de licence
-                </Typography>
-              </CardContent>
-              <CardActions>
-                <Button size="small">Learn More</Button>
-              </CardActions>
-            </Card>
-            
-          </div >
-          
-          <div className="program-card">
-            <Card sx={{ maxWidth: 345 }}>
-              <CardMedia
-                component="img"
-                height="140"
-                sx={{ height: 140 }}
-                image={master} // Utilisez l'image importée ici
-                alt="Licence" // Ajoutez un texte alternatif pour l'accessibilité
-              />
-              <CardContent>
-                <Typography gutterBottom variant="h5" component="div">
-                  Master
-                </Typography>
-                <Typography variant="body2" sx={{ color: 'text.secondary' }}>
-                  découvrir notre programme de licence
-                </Typography>
-              </CardContent>
-              <CardActions>
-                <Button size="small">Learn More</Button>
-              </CardActions>
-            </Card>
-            
-          </div >
-
-          <div className="program-card">
-            <Card sx={{ maxWidth: 345 }}>
-              <CardMedia
-                component="img"
-                height="140"
-                sx={{ height: 140 }}
-                image={doctorat} // Utilisez l'image importée ici
-                alt="Doctorat" // Ajoutez un texte alternatif pour l'accessibilité
-              />
-              <CardContent>
-                <Typography gutterBottom variant="h5" component="div">
-                 Doctorat
-                </Typography>
-                <Typography variant="body2" sx={{ color: 'text.secondary' }}>
-                 Participez à des recherches de pointe
-                </Typography>
-              </CardContent>
-              <CardActions>
-                <Button size="small">Learn More</Button>
-              </CardActions>
-            </Card>
-            
-          </div >
-
-
-    </div>
-    
-    </section>
+          {programs.map((program, index) => (
+            <div key={index} className="program-card">
+              <Card
+                sx={{
+                  maxWidth: 345,
+                  height: "100%",
+                  display: "flex",
+                  flexDirection: "column",
+                  justifyContent: "space-between",
+                  transition: "transform 0.3s, box-shadow 0.3s",
+                  "&:hover": {
+                    transform: "translateY(-5px)",
+                    boxShadow: "0 10px 20px rgba(0,0,0,0.1)",
+                  },
+                }}
+              >
+                <CardMedia
+                  component="img"
+                  height="140"
+                  image={program.image}
+                  alt={program.title}
+                  sx={{ objectFit: "cover" }}
+                />
+                <CardContent>
+                  <Typography gutterBottom variant="h5" component="div">
+                    {program.title}
+                  </Typography>
+                  <Typography variant="body2" sx={{ color: "text.secondary" }}>
+                    {program.description}
+                  </Typography>
+                </CardContent>
+                <CardActions sx={{ justifyContent: "flex-end", padding: 2 }}>
+                  <Button
+                    size="small"
+                    color="primary"
+                    variant="contained"
+                    onClick={() => handleSeeMore(program.path)}
+                    sx={{
+                      textTransform: "none",
+                      fontWeight: "bold",
+                      "&:hover": {
+                        backgroundColor: "primary.dark",
+                      },
+                    }}
+                  >
+                    Voir plus
+                  </Button>
+                </CardActions>
+              </Card>
+            </div>
+          ))}
+        </div>
+      </section>
    
       
 

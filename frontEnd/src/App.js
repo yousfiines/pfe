@@ -42,6 +42,7 @@ function AppContent() {
         <Route path="/inscription" element={<Inscription />} />
         <Route path="/inscriptionEn" element={<InscriptionEN />} />
         <Route path="/enseignant" element={<Enseignant />} />
+        
       </Routes>
 
       <Footer />
