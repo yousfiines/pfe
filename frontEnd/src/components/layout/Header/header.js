@@ -35,7 +35,7 @@ const Header = () => {
   const programs = [
     {
       title: "Licence",
-      description: "Découvrir notre programme de licence",
+      description: "Découvrir la liste des filières universitaire",
       image: licencee,
       path: "licence",
     },
@@ -63,7 +63,7 @@ const Header = () => {
           <a href="#evenements" onClick={() => scrollToSection(newsSectionRef)}>Événements</a>
           <a href="#contact" onClick={() => scrollToSection(contactSectionRef)}>Contact</a> {/* Lien modifié */}
           <a href="/connexion">Se connecter</a>
-          
+          < a href="/eventForm">event</a>
         </nav>
       </header>
 
@@ -233,8 +233,11 @@ const Header = () => {
       <section className="news-section" ref={newsSectionRef} id="evenements">
         <h2>Actualités et événements</h2>
         <div className="news-grid">
+       
           <div className="news-card">
+         
             <h3>Conférence sur l'IA</h3>
+           
             <p>Rejoignez notre conférence sur l'intelligence artificielle.</p>
           </div>
           <div className="news-card">

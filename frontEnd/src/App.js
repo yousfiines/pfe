@@ -8,8 +8,8 @@ import Inscription from "./pages/inscription.js";
 import InscriptionEN from "./pages/inscriptionEN.js";
 import Enseignant from "./pages/enseignant.js";
 import { useLocation } from "react-router-dom";
-
-
+import EventForm from "../src/pages/eventForm.js"
+import Licence from "./pages/licence.js"
 function App() {
   return (
     <Router>
@@ -42,7 +42,8 @@ function AppContent() {
         <Route path="/inscription" element={<Inscription />} />
         <Route path="/inscriptionEn" element={<InscriptionEN />} />
         <Route path="/enseignant" element={<Enseignant />} />
-        
+        <Route path="/eventForm" element={<EventForm/>}/>
+        <Route path="/licence" element={<Licence/>}/>
       </Routes>
 
       <Footer />
