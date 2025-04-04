@@ -215,7 +215,7 @@ const EventRegistrationForm = () => {
           style={{
             width: '100%',
             padding: '10px',
-            backgroundColor: '#4CAF50',
+            backgroundColor: '#007bff',
             color: 'white',
             border: 'none',
             borderRadius: '4px',

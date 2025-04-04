@@ -1,11 +1,11 @@
 import React, { useRef } from "react";
 import logoFac from "./../../../assets/logoFac.png";
 import Lottie from "lottie-react";
-import home from "../../../assets/lotties/home.json"
-import "../../../../src/styles.css"
+import home from "../../../assets/lotties/home.json";
+import "../../../../src/styles.css";
 import licencee from "../../../assets/img/licencee.png";
-import master from "../../../assets/img/master.png"
-import doctorat from "../../../assets/img/doctorat.png"
+import master from "../../../assets/img/master.png";
+import doctorat from "../../../assets/img/doctorat.png";
 import Card from '@mui/material/Card';
 import CardActions from '@mui/material/CardActions';
 import CardContent from '@mui/material/CardContent';
@@ -16,13 +16,10 @@ import { useNavigate } from "react-router-dom";
 import { FaGraduationCap, FaFlask, FaHandshake } from "react-icons/fa";
 
 const Header = () => {
-
-
-
   const navigate = useNavigate();
   const newsSectionRef = useRef(null);
   const programsSectionRef = useRef(null);
-  const contactSectionRef = useRef(null); // Ajout de la référence pour le contact
+  const contactSectionRef = useRef(null);
 
   const scrollToSection = (ref) => {
     ref.current.scrollIntoView({ behavior: "smooth" });
@@ -30,6 +27,10 @@ const Header = () => {
 
   const handleSeeMore = (programType) => {
     navigate(`/${programType.toLowerCase()}`);
+  };
+
+  const handleEventClick = (eventName) => {
+    navigate('/eventForm', { state: { selectedEvent: eventName } });
   };
 
   const programs = [
@@ -50,6 +51,17 @@ const Header = () => {
       description: "Participez à des recherches de pointe",
       image: doctorat,
       path: "doctorat",
+    },
+  ];
+
+  const events = [
+    {
+      title: "Conférence sur l'IA",
+      description: "Rejoignez notre conférence sur l'intelligence artificielle.",
+    },
+    {
+      title: "Atelier de programmation",
+      description: "Participez à notre atelier de programmation avancée.",
     },
   ];
   return (
@@ -233,17 +245,18 @@ const Header = () => {
       <section className="news-section" ref={newsSectionRef} id="evenements">
         <h2>Actualités et événements</h2>
         <div className="news-grid">
-       
-          <div className="news-card">
-         
-            <h3>Conférence sur l'IA</h3>
-           
-            <p>Rejoignez notre conférence sur l'intelligence artificielle.</p>
-          </div>
-          <div className="news-card">
-            <h3>Atelier de programmation</h3>
-            <p>Participez à notre atelier de programmation avancée.</p>
-          </div>
+          {events.map((event, index) => (
+            <div 
+              key={index} 
+              className="news-card"
+              onClick={() => handleEventClick(event.title)}
+              style={{ cursor: 'pointer' }}
+            >
+              <h3>{event.title}</h3>
+              <p>{event.description}</p>
+              
+            </div>
+          ))}
         </div>
       </section>
 
