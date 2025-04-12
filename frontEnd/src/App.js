@@ -1,5 +1,5 @@
 import React from "react";
-import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
+import { BrowserRouter as Router, Routes, Route, useLocation, Navigate } from "react-router-dom";
 import Header from "./components/layout/Header/header.js";
 import Footer from "./components/layout/Footer/footer.js";
 import "./styles.css";
@@ -7,9 +7,12 @@ import Connexion from "./pages/connexion.js";
 import Inscription from "./pages/inscription.js";
 import InscriptionEN from "./pages/inscriptionEN.js";
 import Enseignant from "./pages/enseignant.js";
-import { useLocation } from "react-router-dom";
-import EventForm from "../src/pages/eventForm.js"
-import Licence from "./pages/licence.js"
+import EventForm from "./pages/eventForm.js";
+import Licence from "./pages/licence.js";
+import AdminDashboard from "./AdminDashboard";
+import AdminLogin from "./pages/AdminLogin";
+import Home from "./pages/Home"; // Importez votre composant Home (ou le composant de votre page d'accueil)
+
 function App() {
   return (
     <Router>
@@ -19,34 +22,36 @@ function App() {
 }
 
 function AppContent() {
-  const location = useLocation(); // Hook pour obtenir le chemin actuel
+  const location = useLocation();
 
-  // Liste des chemins où le Header doit être affiché
+  const publicRoutes = ["/", "/connexion", "/inscription", "/inscriptionEN", "/enseignant", "/licence", "/eventForm"];
+  const isAdminRoute = location.pathname.startsWith("/admin");
+  const shouldShowHeader = publicRoutes.includes(location.pathname) && !isAdminRoute;
+  //Liste des chemins où le Header doit être affiché
   const pathsWithHeader = ["/" ];
 
-  // Vérifie si le chemin actuel est dans la liste
-  const shouldShowHeader = pathsWithHeader.includes(location.pathname);
 
   return (
     <div className="app">
-      {/* Affiche le Header uniquement si nécessaire */}
       {shouldShowHeader && <Header />}
-      <Routes>
-        {/* Redirige l'utilisateur vers /connexion lorsque l'URL est / */}
-        <Route path="/" element={<Navigate to="/" />} />
-        </Routes>
+      
 
       <Routes>
-       
+        {/* Routes publiques */}
+        <Route path="/" element={<Home />} /> {/* Utilisez votre composant Home ici */}
         <Route path="/connexion" element={<Connexion />} />
         <Route path="/inscription" element={<Inscription />} />
-        <Route path="/inscriptionEn" element={<InscriptionEN />} />
+        <Route path="/inscriptionEN" element={<InscriptionEN />} />
         <Route path="/enseignant" element={<Enseignant />} />
-        <Route path="/eventForm" element={<EventForm/>}/>
-        <Route path="/licence" element={<Licence/>}/>
+        <Route path="/eventForm" element={<EventForm />} />
+        <Route path="/licence" element={<Licence />} />
+
+        {/* Routes admin */}
+        <Route path="/admin/dashboard" element={<AdminDashboard />} />
+        <Route path="/admin/login" element={<AdminLogin />} />
       </Routes>
 
-      <Footer />
+      {shouldShowHeader && <Footer />}
     </div>
   );
 }
