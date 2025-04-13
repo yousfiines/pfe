@@ -6,6 +6,7 @@ import cookieParser from "cookie-parser"; // Ajout cohérent avec import
 
 const app = express();
 
+
 // Middlewares
 app.use(cors());
 app.use(express.json());
@@ -193,6 +194,63 @@ app.post("/etudiant", async (req, res) => {
     res.status(500).json({ message: "Erreur interne du serveur", error: error.message });
   }
 });
+
+
+
+// ✅ Afficher tous les utilisateurs depuis la vue
+app.get("/api/utilisateurs", async (req, res) => {
+  try {
+    const [rows] = await pool.query("SELECT * FROM vue_utilisateurs");
+    res.json(rows);
+  } catch (err) {
+    console.error("Erreur SQL :", err);
+    res.status(500).json({ error: "Erreur serveur" });
+  }
+});
+
+// ✅ Supprimer un utilisateur selon son rôle
+app.delete("/api/utilisateurs/:id", async (req, res) => {
+  const { id } = req.params;
+  const { role } = req.query;
+
+  try {
+    const table = role === "enseignant" ? "enseignants" : "etudiant";
+    await pool.query(`DELETE FROM ${table} WHERE id = ?`, [id]);
+    res.json({ message: "Utilisateur supprimé" });
+  } catch (err) {
+    console.error("Erreur lors de la suppression :", err);
+    res.status(500).json({ error: "Erreur serveur" });
+  }
+});
+
+// ✅ Modifier un utilisateur (enseignant ou étudiant)
+app.put("/api/utilisateurs/:id", async (req, res) => {
+  const { id } = req.params;
+  const { nom, email, formation, role } = req.body;
+
+  try {
+    if (role === "enseignant") {
+      await pool.query(
+        "UPDATE enseignants SET Nom_et_prénom = ?, Email = ? WHERE id = ?",
+        [nom, email, id]
+      );
+    } else if (role === "étudiant") {
+      await pool.query(
+        "UPDATE etudiant SET Nom_et_prénom = ?, email = ?, filière = ? WHERE id = ?",
+        [nom, email, formation, id]
+      );
+    }
+    res.json({ message: "Utilisateur mis à jour" });
+  } catch (err) {
+    console.error("Erreur lors de la modification :", err);
+    res.status(500).json({ error: "Erreur serveur" });
+  }
+});
+
+
+
+
+
 
 //app.use(cors());
 const PORT=5000;

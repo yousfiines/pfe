@@ -1,129 +1,115 @@
-import React, { useEffect, useState } from 'react';
-import { 
-  Box, 
-  Typography, 
-  Grid, 
-  Card, 
-  CardContent, 
-  Table, 
-  TableBody, 
-  TableCell, 
-  TableContainer, 
-  TableHead, 
-  TableRow, 
-  Paper,
-  CircularProgress
-} from '@mui/material';
-import { 
-  People as PeopleIcon, 
+import React from 'react';
+import { useNavigate } from 'react-router-dom';
+import { Grid, Card, CardContent, Typography, Button, Box } from '@mui/material';
+import {
+  People as PeopleIcon,
   School as SchoolIcon,
-  Event as EventIcon 
+  Description as DescriptionIcon,
+  BarChart as BarChartIcon,
+  Settings as SettingsIcon,
+  Event as EventIcon
 } from '@mui/icons-material';
-import { fetchDashboardStats } from '../../services/apiAdmin';
 
-const Dashboard = () => {
-  const [stats, setStats] = useState(null);
-  const [loading, setLoading] = useState(true);
+const AdminDashboard = () => {
+  const navigate = useNavigate();
 
-  useEffect(() => {
-    const loadData = async () => {
-      try {
-        const data = await fetchDashboardStats();
-        setStats(data);
-      } catch (error) {
-        console.error("Erreur lors du chargement:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
-    loadData();
-  }, []);
-
-  if (loading) {
-    return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}>
-        <CircularProgress />
-      </Box>
-    );
-  }
+  const features = [
+    {
+      title: "Gestion des Utilisateurs",
+      description: "Gérez les comptes étudiants, enseignants et administrateurs",
+      icon: <PeopleIcon fontSize="large" />,
+      path: "/admin/utilisateurs",
+      color: "#1976d2"
+    },
+    {
+      title: "Gestion des Cours",
+      description: "Ajoutez et modifiez les cours, TD, TP et ressources",
+      icon: <SchoolIcon fontSize="large" />,
+      path: "/admin/cours",
+      color: "#9c27b0"
+    },
+    {
+      title: "Documents",
+      description: "Gérez tous les documents partagés sur la plateforme",
+      icon: <DescriptionIcon fontSize="large" />,
+      path: "/admin/documents",
+      color: "#2e7d32"
+    },
+    {
+      title: "Statistiques",
+      description: "Consultez les données d'utilisation de la plateforme",
+      icon: <BarChartIcon fontSize="large" />,
+      path: "/admin/statistiques",
+      color: "#ff9800"
+    },
+    {
+      title: "Événements",
+      description: "Planifiez des conférences et ateliers",
+      icon: <EventIcon fontSize="large" />,
+      path: "/admin/evenements",
+      color: "#e91e63"
+    },
+    {
+      title: "Paramètres",
+      description: "Configurez les paramètres de la plateforme",
+      icon: <SettingsIcon fontSize="large" />,
+      path: "/admin/parametres",
+      color: "#607d8b"
+    }
+  ];
 
   return (
-    <Box>
-      <Typography variant="h4" gutterBottom>
-        Tableau de bord
+    <Box sx={{ flexGrow: 1, p: 3 }}>
+      <Typography color='blue' variant="h3" gutterBottom sx={{ mb: 4 }}>
+        Tableau de bord administratif
       </Typography>
-      
-      <Grid container spacing={3} sx={{ mb: 4 }}>
-        <Grid item xs={12} sm={6} md={4}>
-          <Card>
-            <CardContent sx={{ display: 'flex', alignItems: 'center' }}>
-              <PeopleIcon color="primary" sx={{ fontSize: 40, mr: 2 }} />
-              <Box>
-                <Typography variant="h5">{stats?.utilisateurs || 0}</Typography>
-                <Typography variant="body2">Utilisateurs</Typography>
+
+      <Grid container spacing={3}>
+        {features.map((feature, index) => (
+          <Grid item xs={12} sm={6} md={4} key={index}>
+            <Card 
+              sx={{ 
+                height: '100%', 
+                display: 'flex', 
+                flexDirection: 'column',
+                transition: 'transform 0.3s, box-shadow 0.3s',
+                '&:hover': {
+                  transform: 'translateY(-5px)',
+                  boxShadow: 6
+                }
+              }}
+            >
+              <CardContent sx={{ flexGrow: 1 }}>
+                <Box sx={{ 
+                  display: 'flex', 
+                  justifyContent: 'center',
+                  color: feature.color,
+                  mb: 2
+                }}>
+                  {feature.icon}
+                </Box>
+                <Typography gutterBottom variant="h5" component="h2" align="center">
+                  {feature.title}
+                </Typography>
+                <Typography variant="body2" color="text.secondary" align="center" sx={{ mb: 2 }}>
+                  {feature.description}
+                </Typography>
+              </CardContent>
+              <Box sx={{ p: 2, display: 'flex', justifyContent: 'center' }}>
+                <Button 
+                  variant="contained" 
+                  sx={{ backgroundColor: feature.color }}
+                  onClick={() => navigate(feature.path)}
+                >
+                  Accéder
+                </Button>
               </Box>
-            </CardContent>
-          </Card>
-        </Grid>
-        
-        <Grid item xs={12} sm={6} md={4}>
-          <Card>
-            <CardContent sx={{ display: 'flex', alignItems: 'center' }}>
-              <SchoolIcon color="secondary" sx={{ fontSize: 40, mr: 2 }} />
-              <Box>
-                <Typography variant="h5">{stats?.cours || 0}</Typography>
-                <Typography variant="body2">Cours</Typography>
-              </Box>
-            </CardContent>
-          </Card>
-        </Grid>
-        
-        <Grid item xs={12} sm={6} md={4}>
-          <Card>
-            <CardContent sx={{ display: 'flex', alignItems: 'center' }}>
-              <EventIcon color="success" sx={{ fontSize: 40, mr: 2 }} />
-              <Box>
-                <Typography variant="h5">{stats?.evenements || 0}</Typography>
-                <Typography variant="body2">Événements</Typography>
-              </Box>
-            </CardContent>
-          </Card>
-        </Grid>
+            </Card>
+          </Grid>
+        ))}
       </Grid>
-      
-      <Typography variant="h5" gutterBottom sx={{ mb: 2 }}>
-        Dernières inscriptions
-      </Typography>
-      <TableContainer component={Paper}>
-        <Table>
-          <TableHead>
-            <TableRow>
-              <TableCell>Nom</TableCell>
-              <TableCell>Email</TableCell>
-              <TableCell>Rôle</TableCell>
-              <TableCell>Date</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {stats?.dernieresInscriptions?.map((user) => (
-              <TableRow key={user._id}>
-                <TableCell>{user.prenom} {user.nom}</TableCell>
-                <TableCell>{user.email}</TableCell>
-                <TableCell>
-                  {user.role === 'admin' && 'Administrateur'}
-                  {user.role === 'enseignant' && 'Enseignant'}
-                  {user.role === 'etudiant' && 'Étudiant'}
-                </TableCell>
-                <TableCell>
-                  {new Date(user.dateInscription).toLocaleDateString()}
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </TableContainer>
     </Box>
   );
 };
 
-export default Dashboard;
+export default AdminDashboard;

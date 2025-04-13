@@ -34,7 +34,7 @@ const Header = () => { // Removed the extra curly braces here
   };
 
   const handleSeeMore = (programType) => {
-    navigate(`/${programType.toLowerCase()}`);
+    navigate('/${programType.toLowerCase()}');
   };
 
   const handleEventClick = (eventName) => {
@@ -97,6 +97,9 @@ const Header = () => { // Removed the extra curly braces here
           <a href="#evenements" onClick={() => scrollToSection(newsSectionRef)}>Événements</a>
           <a href="#contact" onClick={() => scrollToSection(contactSectionRef)}>Contact</a>
           <a href="/connexion">Se connecter</a>
+
+          <a href="/teacherUploadDoc">Seeeee</a>
+          <a href="/studentDoc">etudiant</a>
           <button
             className="admin-button"
             onClick={handleAdminClick}
