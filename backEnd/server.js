@@ -208,36 +208,48 @@ app.get("/api/utilisateurs", async (req, res) => {
   }
 });
 
-// ✅ Supprimer un utilisateur selon son rôle
-app.delete("/api/utilisateurs/:id", async (req, res) => {
-  const { id } = req.params;
+// Suppression d’un utilisateur
+app.delete('/api/utilisateurs/:cin', async (req, res) => {
+  const { cin } = req.params;
   const { role } = req.query;
 
   try {
-    const table = role === "enseignant" ? "enseignants" : "etudiant";
-    await pool.query(`DELETE FROM ${table} WHERE id = ?`, [id]);
-    res.json({ message: "Utilisateur supprimé" });
-  } catch (err) {
-    console.error("Erreur lors de la suppression :", err);
-    res.status(500).json({ error: "Erreur serveur" });
+    console.log(`Suppression de ${role} avec CIN: ${cin}`); // Debug
+
+    if (role === 'enseignant') {
+      await pool.query('DELETE FROM enseignants WHERE Cin = ?', [cin]);
+    } else if (role === 'étudiant') {
+      await pool.query('DELETE FROM etudiant WHERE Cin = ?', [cin]);
+    } else {
+      return res.status(400).json({ message: 'Rôle non valide' });
+    }
+
+    res.status(200).json({ message: 'Utilisateur supprimé avec succès' });
+  } catch (error) {
+    console.error('Erreur suppression utilisateur :', error);
+    res.status(500).json({ message: 'Erreur lors de la suppression', error: error.message });
   }
 });
 
+
+
+
+
 // ✅ Modifier un utilisateur (enseignant ou étudiant)
-app.put("/api/utilisateurs/:id", async (req, res) => {
-  const { id } = req.params;
+app.put("/api/utilisateurs/:cin", async (req, res) => {
+  const { cin } = req.params;
   const { nom, email, formation, role } = req.body;
 
   try {
     if (role === "enseignant") {
       await pool.query(
-        "UPDATE enseignants SET Nom_et_prénom = ?, Email = ? WHERE id = ?",
-        [nom, email, id]
+        "UPDATE enseignants SET Nom_et_prénom = ?, Email = ? WHERE CIN = ?",
+        [nom, email, cin]
       );
     } else if (role === "étudiant") {
       await pool.query(
-        "UPDATE etudiant SET Nom_et_prénom = ?, email = ?, filière = ? WHERE id = ?",
-        [nom, email, formation, id]
+        "UPDATE etudiant SET Nom_et_prénom = ?, email = ?, filière = ? WHERE CIN = ?",
+        [nom, email, formation, cin]
       );
     }
     res.json({ message: "Utilisateur mis à jour" });
@@ -246,6 +258,7 @@ app.put("/api/utilisateurs/:id", async (req, res) => {
     res.status(500).json({ error: "Erreur serveur" });
   }
 });
+
 
 
 

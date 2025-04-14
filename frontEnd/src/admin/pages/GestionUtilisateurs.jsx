@@ -1,20 +1,26 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from "react";
 import {
-  Box, Typography, Button, Table, TableBody, TableCell, TableContainer,
-  TableHead, TableRow, Paper, TextField, Dialog, DialogTitle,
-  DialogContent, DialogActions, IconButton, MenuItem, Select,
-  FormControl, InputLabel, Alert
-} from '@mui/material';
-import { Add, Edit, Delete } from '@mui/icons-material';
-import axios from 'axios';
+  Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
+  Paper, Button, Dialog, DialogActions, DialogContent, DialogTitle,
+  TextField, Snackbar, TablePagination, DialogContentText, IconButton
+} from "@mui/material";
+import MuiAlert from "@mui/material/Alert";
+import axios from "axios";
+import DeleteIcon from '@mui/icons-material/Delete';
+import EditIcon from '@mui/icons-material/Edit';
 
 const GestionUtilisateurs = () => {
-  const [users, setUsers] = useState([]);
-  const [openDialog, setOpenDialog] = useState(false);
-  const [currentUser, setCurrentUser] = useState(null);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [formData, setFormData] = useState({ Cin: '', Nom_et_prénom: '', email: '', type: 'étudiant' });
-  const [error, setError] = useState('');
+  const [utilisateurs, setUtilisateurs] = useState([]);
+  const [open, setOpen] = useState(false);
+  const [snackbar, setSnackbar] = useState({ open: false, message: "", severity: "success" });
+  const [form, setForm] = useState({ Cin: "", nom: "", email: "", formation: "", role: "" });
+  const [editing, setEditing] = useState(false);
+  const [search, setSearch] = useState("");
+  const [page, setPage] = useState(0);
+  const [rowsPerPage, setRowsPerPage] = useState(5);
+
+  const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
+  const [selectedUserToDelete, setSelectedUserToDelete] = useState(null);
 
   useEffect(() => {
     fetchUtilisateurs();
@@ -22,75 +28,88 @@ const GestionUtilisateurs = () => {
 
   const fetchUtilisateurs = async () => {
     try {
-      const response = await axios.get('http://localhost:5000/api/utilisateurs');
-      setUsers(response.data);
+      const res = await axios.get("http://localhost:5000/api/utilisateurs");
+      setUtilisateurs(res.data);
     } catch (error) {
-      console.error("Erreur chargement utilisateurs :", error);
+      console.error("Erreur chargement :", error);
     }
   };
 
-  const handleOpenDialog = (user = null) => {
-    if (user) {
-      setFormData(user);
-    } else {
-      setFormData({ Cin: '', Nom_et_prénom: '', email: '', type: 'étudiant' });
-    }
-    setError('');
-    setOpenDialog(true);
+  const handleEdit = (user) => {
+    setForm({
+      Cin: user.Cin,
+      nom: user.Nom_et_prénom,
+      email: user.email || user.Email,
+      formation: user.filière || "",
+      role: user.role,
+    });
+    setEditing(true);
+    setOpen(true);
   };
 
-  const handleCloseDialog = () => {
-    setOpenDialog(false);
-    setCurrentUser(null);
-  };
-
-  const handleChange = (e) => {
-    setFormData(prev => ({ ...prev, [e.target.name]: e.target.value }));
-  };
-
-  const handleSubmit = async () => {
+  const handleSave = async () => {
     try {
-      const response = await axios.post('http://localhost:5000/api/utilisateurs', formData);
+      await axios.put(`http://localhost:5000/api/utilisateurs/${form.Cin}`, form);
       fetchUtilisateurs();
-      handleCloseDialog();
-    } catch (err) {
-      if (err.response && err.response.status === 409) {
-        setError(err.response.data.message);
-      } else {
-        setError("Erreur lors de l'enregistrement.");
-      }
+      setSnackbar({ open: true, message: "Utilisateur mis à jour", severity: "success" });
+      setOpen(false);
+    } catch (error) {
+      console.error("Erreur modification :", error);
+      setSnackbar({ open: true, message: "Erreur lors de la modification", severity: "error" });
     }
   };
 
-  const handleDelete = async (id) => {
+  const handleConfirmDelete = (user) => {
+    setSelectedUserToDelete(user);
+    setConfirmDeleteOpen(true);
+  };
+
+  const handleCloseConfirmDialog = () => {
+    setConfirmDeleteOpen(false);
+    setSelectedUserToDelete(null);
+  };
+
+  const handleDelete = async () => {
+    if (!selectedUserToDelete) return;
     try {
-      await axios.delete(`http://localhost:5000/api/utilisateurs/${id}`);
-      fetchUtilisateurs();
+      await axios.delete(`http://localhost:5000/api/utilisateurs/${selectedUserToDelete.Cin}`, {
+        params: { role: selectedUserToDelete.role },
+      });
+      setUtilisateurs(utilisateurs.filter(u => u.Cin !== selectedUserToDelete.Cin));
+      setSnackbar({ open: true, message: "Utilisateur supprimé avec succès", severity: "success" });
     } catch (error) {
       console.error("Erreur suppression :", error);
+      setSnackbar({ open: true, message: "Erreur lors de la suppression", severity: "error" });
     }
+    handleCloseConfirmDialog();
   };
 
-  const filteredUsers = users.filter(user =>
-    user.Nom_et_prénom?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    user.email?.toLowerCase().includes(searchTerm.toLowerCase())
+  const handleCloseSnackbar = () => setSnackbar({ ...snackbar, open: false });
+
+  const handleChangePage = (event, newPage) => setPage(newPage);
+  const handleChangeRowsPerPage = (event) => {
+    setRowsPerPage(+event.target.value);
+    setPage(0);
+  };
+
+  const filteredUsers = utilisateurs.filter(
+    (u) =>
+      u.Nom_et_prénom.toLowerCase().includes(search.toLowerCase()) ||
+      u.Cin.toString().includes(search)
   );
 
   return (
-    <Box sx={{ p: 3 }}>
-      <Typography variant="h4" gutterBottom>Gestion des Utilisateurs</Typography>
+    <div style={{ padding: "2rem" }}>
+      <h2>Gestion des Utilisateurs</h2>
 
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 3 }}>
-        <TextField
-          label="Rechercher"
-          variant="outlined"
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-        />
-        <Button variant="contained" startIcon={<Add />} onClick={() => handleOpenDialog()}>
-          Ajouter un utilisateur
-        </Button>
-      </Box>
+      <TextField
+        label="Rechercher par nom ou CIN"
+        variant="outlined"
+        fullWidth
+        margin="normal"
+        value={search}
+        onChange={(e) => setSearch(e.target.value)}
+      />
 
       <TableContainer component={Paper}>
         <Table>
@@ -100,63 +119,81 @@ const GestionUtilisateurs = () => {
               <TableCell>Nom</TableCell>
               <TableCell>Email</TableCell>
               <TableCell>Rôle</TableCell>
+              <TableCell>Filière</TableCell>
               <TableCell>Actions</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
-            {filteredUsers.map((user) => (
-              <TableRow key={user.id}>
-                <TableCell>{user.Cin}</TableCell>
-                <TableCell>{user.Nom_et_prénom}</TableCell>
-                <TableCell>{user.email}</TableCell>
-                <TableCell>{user.role}</TableCell>
-                <TableCell>
-                  <IconButton onClick={() => handleOpenDialog(user)}><Edit /></IconButton>
-                  <IconButton onClick={() => handleDelete(user.id)}><Delete color="error" /></IconButton>
-                </TableCell>
-              </TableRow>
-            ))}
+            {filteredUsers
+              .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
+              .map((user) => (
+                <TableRow key={user.Cin}>
+                  <TableCell>{user.Cin}</TableCell>
+                  <TableCell>{user.Nom_et_prénom}</TableCell>
+                  <TableCell>{user.email || user.Email}</TableCell>
+                  <TableCell>{user.role}</TableCell>
+                  <TableCell>{user.filière || "-"}</TableCell>
+                  <TableCell>
+                    <IconButton color="primary" onClick={() => handleEdit(user)}><EditIcon /></IconButton>
+                    <IconButton color="error" onClick={() => handleConfirmDelete(user)}><DeleteIcon /></IconButton>
+                  </TableCell>
+                </TableRow>
+              ))}
           </TableBody>
         </Table>
+        <TablePagination
+          component="div"
+          count={filteredUsers.length}
+          page={page}
+          onPageChange={handleChangePage}
+          rowsPerPage={rowsPerPage}
+          onRowsPerPageChange={handleChangeRowsPerPage}
+        />
       </TableContainer>
 
-      <Dialog open={openDialog} onClose={handleCloseDialog}>
-        <DialogTitle>{currentUser ? 'Modifier' : 'Ajouter'} un utilisateur</DialogTitle>
+      {/* Dialog Modification */}
+      <Dialog open={open} onClose={() => setOpen(false)}>
+        <DialogTitle>{editing ? "Modifier Utilisateur" : "Ajouter Utilisateur"}</DialogTitle>
         <DialogContent>
-          {error && <Alert severity="error">{error}</Alert>}
-          <TextField
-            fullWidth margin="normal" label="CIN"
-            name="Cin" value={formData.Cin} onChange={handleChange}
-          />
-          <TextField
-            fullWidth margin="normal" label="Nom et Prénom"
-            name="Nom_et_prénom" value={formData.Nom_et_prénom} onChange={handleChange}
-          />
-          <TextField
-            fullWidth margin="normal" label="Email"
-            name="email" value={formData.email} onChange={handleChange}
-          />
-          <FormControl fullWidth margin="normal">
-            <InputLabel>Type</InputLabel>
-            <Select
-              name="type"
-              value={formData.type}
-              label="Type"
-              onChange={handleChange}
-            >
-              <MenuItem value="étudiant">Étudiant</MenuItem>
-              <MenuItem value="enseignant">Enseignant</MenuItem>
-            </Select>
-          </FormControl>
+          <TextField label="CIN" fullWidth margin="dense" value={form.Cin} disabled />
+          <TextField label="Nom" fullWidth margin="dense" value={form.nom} onChange={(e) => setForm({ ...form, nom: e.target.value })} />
+          <TextField label="Email" fullWidth margin="dense" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
+          {form.role === "étudiant" && (
+            <TextField label="Filière" fullWidth margin="dense" value={form.formation} onChange={(e) => setForm({ ...form, formation: e.target.value })} />
+          )}
         </DialogContent>
         <DialogActions>
-          <Button onClick={handleCloseDialog}>Annuler</Button>
-          <Button variant="contained" onClick={handleSubmit}>
-            {currentUser ? 'Mettre à jour' : 'Ajouter'}
-          </Button>
+          <Button onClick={() => setOpen(false)}>Annuler</Button>
+          <Button onClick={handleSave} color="primary">Enregistrer</Button>
         </DialogActions>
       </Dialog>
-    </Box>
+
+      {/* Dialog de Confirmation Suppression */}
+      <Dialog open={confirmDeleteOpen} onClose={handleCloseConfirmDialog}>
+        <DialogTitle>Confirmation</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            Êtes-vous sûr de vouloir supprimer l'utilisateur <strong>{selectedUserToDelete?.Nom_et_prénom}</strong> ?
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleCloseConfirmDialog}>Annuler</Button>
+          <Button onClick={handleDelete} color="error">Supprimer</Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Snackbar Message */}
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={3000}
+        onClose={handleCloseSnackbar}
+        anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
+      >
+        <MuiAlert onClose={handleCloseSnackbar} severity={snackbar.severity} sx={{ width: "100%" }}>
+          {snackbar.message}
+        </MuiAlert>
+      </Snackbar>
+    </div>
   );
 };
 
