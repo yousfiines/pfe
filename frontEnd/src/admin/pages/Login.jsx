@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Box, TextField, Button, Typography, Paper } from '@mui/material';
-import logo from '../../assets/logo.png'; // <-- change ce chemin selon ton projet
+import axios from 'axios';
+import logo from '../../assets/logo.png';
 
 const AdminLogin = () => {
   const [credentials, setCredentials] = useState({ email: '', password: '' });
@@ -10,25 +11,30 @@ const AdminLogin = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setError(''); // Réinitialise l'erreur
+    
     try {
-      const response = await fakeLogin(credentials);
-      if (response.success) {
-        localStorage.setItem('adminToken', response.token);
+      const response = await axios.post(
+        'http://localhost:5000/admin/login', // URL corrigée
+        credentials,
+        {
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        }
+      );
+
+      if (response.data.success) {
+        localStorage.setItem('adminToken', response.data.token);
         localStorage.setItem('isAdmin', 'true');
         navigate('/admin/dashboard');
       } else {
-        setError('Identifiants incorrects');
+        setError(response.data.message || 'Identifiants incorrects');
       }
     } catch (err) {
-      setError('Une erreur est survenue');
+      console.error('Erreur de connexion:', err);
+      setError(err.response?.data?.message || 'Erreur de connexion au serveur');
     }
-  };
-
-  const fakeLogin = async ({ email, password }) => {
-    if (email === 'admin@faculte.com' && password === 'admin123') {
-      return { success: true, token: 'fake-admin-token' };
-    }
-    return { success: false };
   };
 
   return (
@@ -43,7 +49,7 @@ const AdminLogin = () => {
         </Typography>
 
         {error && (
-          <Typography color="error" sx={{ mb: 2 }}>
+          <Typography color="error" sx={{ mb: 2, textAlign: 'center' }}>
             {error}
           </Typography>
         )}
@@ -51,11 +57,13 @@ const AdminLogin = () => {
         <form onSubmit={handleSubmit}>
           <TextField
             label="Email"
+            type="email"
             variant="outlined"
             fullWidth
             margin="normal"
             value={credentials.email}
             onChange={(e) => setCredentials({ ...credentials, email: e.target.value })}
+            required
           />
 
           <TextField
@@ -66,6 +74,7 @@ const AdminLogin = () => {
             margin="normal"
             value={credentials.password}
             onChange={(e) => setCredentials({ ...credentials, password: e.target.value })}
+            required
           />
 
           <Button

@@ -15,8 +15,8 @@ import Statistiques from './admin/pages/Statistiques';
 import GestionCours from './admin/pages/GestionCours';
 import GestionEvenements from './admin/pages/GestionEvenements';
 import Parametres from './admin/pages/Parametres';
-import StudentDoc from "./components/studentDoc.js"
-import TeacherUploadDocument from "./components/teacherUploadDoc.js"
+import StudentDoc from "./components/studentDoc.js";
+import TeacherUploadDocument from "./components/teacherUploadDoc.js";
 
 // Routes publiques
 import Connexion from "./pages/connexion.js";
@@ -43,9 +43,9 @@ function AppContent() {
     return isAdmin ? children : <Navigate to="/admin/login" />;
   };
 
-  const publicRoutes = ["/", "/connexion", "/inscription", "/inscriptionEN", "/enseignant", "/licence", "/eventForm"];
   const isAdminRoute = location.pathname.startsWith("/admin");
-  const shouldShowHeader = publicRoutes.includes(location.pathname) && !isAdminRoute;
+  const shouldShowHeader = location.pathname === "/" && !isAdminRoute;
+  const shouldShowFooter = !isAdminRoute; // Footer sur toutes les pages publiques
 
   return (
     <div className="app">
@@ -74,14 +74,13 @@ function AppContent() {
           <Route path="documents" element={<GestionDocuments />} />
           <Route path="formations" element={<GestionFormations />} />
           <Route path="statistiques" element={<Statistiques />} />
-          {/* Ajout des pages spécifiques admin */}
           <Route path="cours" element={<GestionCours />} />
           <Route path="evenements" element={<GestionEvenements />} />
           <Route path="parametres" element={<Parametres />} />
         </Route>
       </Routes>
 
-      {shouldShowHeader && <Footer />}
+      {shouldShowFooter && <Footer />}
     </div>
   );
 }

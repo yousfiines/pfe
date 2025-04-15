@@ -1,82 +1,103 @@
 import React, { useState } from 'react';
+import {
+  Container,
+  Typography,
+  TextField,
+  Button,
+  Snackbar,
+  Paper,
+  Box
+} from '@mui/material';
+import MuiAlert from '@mui/material/Alert';
 import { useNavigate } from 'react-router-dom';
-import { TextField, Button, Container, Typography, Box } from '@mui/material';
-import axios from 'axios'; // Importez axios pour les requêtes HTTP
+import axios from 'axios';
+
+const Alert = React.forwardRef(function Alert(props, ref) {
+  return <MuiAlert elevation={6} ref={ref} variant="filled" {...props} />;
+});
 
 const AdminLogin = () => {
-  const [credentials, setCredentials] = useState({
-    email: '',
-    password: ''
-  });
-  const [error, setError] = useState('');
   const navigate = useNavigate();
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [errorMessage, setErrorMessage] = useState('');
+  const [openSnackbar, setOpenSnackbar] = useState(false);
 
-  const handleChange = (e) => {
-    setCredentials({
-      ...credentials,
-      [e.target.name]: e.target.value
-    });
-  };
-
-  const handleSubmit = async (e) => {
+  const handleLogin = async (e) => {
     e.preventDefault();
+
     try {
-      // Envoyer les identifiants au serveur pour vérification
-      const response = await axios.post('http://localhost/votre_api/admin_login.php', {
-        email: credentials.email,
-        password: credentials.password
+      const response = await axios.post('http://localhost:5000/admin/login', {
+        email,
+        password
       });
 
       if (response.data.success) {
-        localStorage.setItem('isAdmin', 'true');
+        // Authentification réussie, redirection
         navigate('/admin/dashboard');
       } else {
-        setError('Identifiants incorrects');
+        // Échec
+        setErrorMessage('Email ou mot de passe incorrect.');
+        setOpenSnackbar(true);
       }
-    } catch (err) {
-      setError('Erreur de connexion au serveur');
-      console.error('Erreur:', err);
+    } catch (error) {
+      setErrorMessage('Une erreur est survenue. Veuillez réessayer.');
+      setOpenSnackbar(true);
     }
   };
 
+  const handleCloseSnackbar = () => {
+    setOpenSnackbar(false);
+  };
+
   return (
-    <Container maxWidth="sm">
-      <Box sx={{ mt: 8, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-        <Typography variant="h4" gutterBottom>
+    <Container maxWidth="sm" sx={{ mt: 10 }}>
+      <Paper elevation={3} sx={{ p: 4, borderRadius: 3 }}>
+        <Typography variant="h4" align="center" gutterBottom>
           Connexion Admin
         </Typography>
-        {error && <Typography color="error">{error}</Typography>}
-        <form onSubmit={handleSubmit} style={{ width: '100%', marginTop: '1rem' }}>
+        <Box component="form" onSubmit={handleLogin}>
           <TextField
+            label="Email"
+            type="email"
+            variant="outlined"
             fullWidth
             margin="normal"
-            label="Email"
-            name="email"
-            type="email"
-            value={credentials.email}
-            onChange={handleChange}
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
             required
           />
           <TextField
+            label="Mot de passe"
+            type="password"
+            variant="outlined"
             fullWidth
             margin="normal"
-            label="Mot de passe"
-            name="password"
-            type="password"
-            value={credentials.password}
-            onChange={handleChange}
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
             required
           />
           <Button
             type="submit"
-            fullWidth
             variant="contained"
-            sx={{ mt: 3, mb: 2 }}
+            color="primary"
+            fullWidth
+            sx={{ mt: 2 }}
           >
             Se connecter
           </Button>
-        </form>
-      </Box>
+        </Box>
+      </Paper>
+
+      <Snackbar
+        open={openSnackbar}
+        autoHideDuration={6000}
+        onClose={handleCloseSnackbar}
+      >
+        <Alert onClose={handleCloseSnackbar} severity="error" sx={{ width: '100%' }}>
+          {errorMessage}
+        </Alert>
+      </Snackbar>
     </Container>
   );
 };

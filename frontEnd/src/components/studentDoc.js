@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import {
   Card, List, ListItem, ListItemText, Typography,
-  Button, Chip, Snackbar, Alert, Box, Divider, Badge,
-  Avatar, Tabs, Tab, Paper, styled, InputBase, IconButton
+  Button, Chip, Snackbar, Alert, Box, Avatar, Tabs,
+  Tab, Paper, styled, InputBase, IconButton,Badge
 } from '@mui/material';
 import {
   Description as DescriptionIcon,
@@ -28,30 +28,27 @@ const SearchField = styled(Paper)(({ theme }) => ({
   boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
 }));
 
-const StudentDocuments = () => {
+const StudentDoc = () => {
   const [documents, setDocuments] = useState([]);
   const [filteredDocs, setFilteredDocs] = useState([]);
   const [newDocsCount, setNewDocsCount] = useState(0);
-  const [snackbar, setSnackbar] = useState({
-    open: false,
-    message: '',
-    severity: 'info'
-  });
-  const [tabValue, setTabValue] = useState('all');
+  const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'info' });
+  const [tabValue, setTabValue] = useState('S1');
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedSubject, setSelectedSubject] = useState(null);
+  const [selectedSubject, setSelectedSubject] = useState('');
 
-  // Données simulées de l'étudiant
+  const subjectsBySemester = {
+    S1: ['Algorithmique', 'Base de données'],
+    S2: ['Web', 'Réseaux']
+  };
+
   const studentData = {
     filiere: 'Informatique',
-    classe: 'L2',
-    subjects: ['Algorithmique', 'Base de données', 'Web', 'Réseaux']
+    classe: 'L2'
   };
 
   useEffect(() => {
-    // ✅ Correction JSON.parse + fallback
     const savedDocs = JSON.parse(localStorage.getItem('teacherDocuments') || '[]');
-
     const relevantDocs = savedDocs.filter(doc =>
       doc.filiere === studentData.filiere &&
       doc.classe === studentData.classe
@@ -74,14 +71,10 @@ const StudentDocuments = () => {
   }, []);
 
   useEffect(() => {
-    let results = documents;
+    let results = documents.filter(doc => doc.semester === tabValue);
 
-    if (tabValue !== 'all') {
-      results = results.filter(doc =>
-        tabValue === 'new'
-          ? new Date(doc.createdAt) > new Date(localStorage.getItem('lastDocumentView'))
-          : doc.subject === tabValue
-      );
+    if (selectedSubject) {
+      results = results.filter(doc => doc.subject === selectedSubject);
     }
 
     if (searchTerm) {
@@ -92,14 +85,15 @@ const StudentDocuments = () => {
     }
 
     setFilteredDocs(results);
-  }, [documents, tabValue, searchTerm]);
-
-  const showNotification = (message, severity) => {
-    setSnackbar({ open: true, message, severity });
-  };
+  }, [documents, tabValue, selectedSubject, searchTerm]);
 
   const handleTabChange = (event, newValue) => {
     setTabValue(newValue);
+    setSelectedSubject('');
+  };
+
+  const showNotification = (message, severity) => {
+    setSnackbar({ open: true, message, severity });
   };
 
   const markAsViewed = () => {
@@ -141,7 +135,6 @@ const StudentDocuments = () => {
 
   return (
     <Box sx={{ p: 3, maxWidth: '1200px', margin: '0 auto' }}>
-      {/* Header sans Lottie */}
       <Box display="flex" justifyContent="space-between" alignItems="center" mb={4}>
         <Box display="flex" alignItems="center">
           <Avatar sx={{ bgcolor: 'primary.main', width: 64, height: 64, mr: 2 }}>
@@ -158,143 +151,144 @@ const StudentDocuments = () => {
           </Box>
         </Box>
 
-        <Badge badgeContent={newDocsCount} color="error" overlap="circular" onClick={markAsViewed} sx={{ cursor: 'pointer' }}>
+        <Badge badgeContent={newDocsCount} color="error" onClick={markAsViewed} sx={{ cursor: 'pointer' }}>
           <Avatar sx={{ bgcolor: 'primary.main' }}>
             <NotificationsIcon />
           </Avatar>
         </Badge>
       </Box>
 
-      {/* Barre de recherche et filtres */}
-      <Box display="flex" justifyContent="space-between" mb={4}>
-        <SearchField>
-          <InputBase
-            placeholder="Rechercher un document..."
-            sx={{ ml: 2, flex: 1 }}
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-          />
-          <IconButton type="submit">
-            <SearchIcon />
-          </IconButton>
-        </SearchField>
+      <Box display="flex" justifyContent="space-between" alignItems="flex-start" mb={4}>
+        <Box>
+          <Tabs
+            value={tabValue}
+            onChange={handleTabChange}
+            textColor="primary"
+            indicatorColor="primary"
+            orientation="vertical"
+          >
+            <StyledTab label="Semestre 1" value="S1" />
+            <StyledTab label="Semestre 2" value="S2" />
+          </Tabs>
 
-        <Tabs
-          value={tabValue}
-          onChange={handleTabChange}
-          textColor="primary"
-          indicatorColor="primary"
-          sx={{ minHeight: 'auto' }}
-        >
-          <StyledTab label="Tous" value="all" />
-          <StyledTab label="Nouveaux" value="new" />
-          {studentData.subjects.map(subject => (
-            <StyledTab
-              key={subject}
-              label={subject}
-              value={subject}
-              onClick={() => setSelectedSubject(subject)}
-              sx={{
-                backgroundColor: selectedSubject === subject ? 'rgba(25, 118, 210, 0.08)' : 'inherit',
-                borderRadius: '8px'
-              }}
-            />
-          ))}
-        </Tabs>
-      </Box>
-
-      {/* Liste des documents */}
-      {filteredDocs.length === 0 ? (
-        <Box textAlign="center" mt={6}>
-          <Typography variant="h6" color="textSecondary">
-            {searchTerm
-              ? "Aucun document ne correspond à votre recherche"
-              : "Aucun document disponible pour le moment"}
-          </Typography>
-          <Typography variant="body2" sx={{ mt: 1 }}>
-            {searchTerm
-              ? "Essayez avec d'autres termes"
-              : "Vos enseignants partageront bientôt du contenu"}
-          </Typography>
+          <Box mt={2} ml={1}>
+            {subjectsBySemester[tabValue].map(subject => (
+              <Button
+                key={subject}
+                variant={subject === selectedSubject ? 'contained' : 'outlined'}
+                color="primary"
+                fullWidth
+                sx={{ mb: 1, textTransform: 'none', justifyContent: 'flex-start' }}
+                onClick={() => setSelectedSubject(subject)}
+              >
+                {subject}
+              </Button>
+            ))}
+          </Box>
         </Box>
-      ) : (
-        <List sx={{ width: '100%' }}>
-          {filteredDocs.map((doc) => (
-            <Card
-              key={doc.id}
-              sx={{
-                mb: 2,
-                transition: 'all 0.3s',
-                borderLeft: '4px solid',
-                borderColor: new Date(doc.createdAt) > new Date(localStorage.getItem('lastDocumentView'))
-                  ? 'secondary.main'
-                  : 'transparent',
-                '&:hover': {
-                  transform: 'translateY(-2px)',
-                  boxShadow: 3
-                }
-              }}
-            >
-              <ListItem sx={{ py: 2 }}>
-                <Box sx={{ fontSize: '2rem', mr: 2 }}>
-                  {getFileIcon(doc.file.type.split('/')[1])}
-                </Box>
 
-                <ListItemText
-                  primary={
-                    <Box display="flex" alignItems="center">
-                      <Typography
-                        variant="h6"
-                        sx={{
-                          fontWeight: 'bold',
-                          color: doc.subject === selectedSubject ? 'primary.main' : 'inherit'
-                        }}
-                      >
-                        {doc.title}
-                      </Typography>
-                      {new Date(doc.createdAt) > new Date(localStorage.getItem('lastDocumentView')) && (
-                        <Chip label="Nouveau" color="secondary" size="small" sx={{ ml: 1 }} />
-                      )}
-                    </Box>
-                  }
-                  secondary={
-                    <>
-                      <Typography variant="body2" sx={{ mt: 0.5 }}>
-                        {doc.description}
-                      </Typography>
-                      <Box display="flex" sx={{ mt: 1 }}>
-                        <Chip label={doc.subject} size="small" variant="outlined" sx={{ mr: 1 }} />
-                        <Typography variant="caption" color="textSecondary">
-                          {formatDate(doc.createdAt)} • {(doc.file.size / 1024).toFixed(1)} KB
-                        </Typography>
-                      </Box>
-                    </>
-                  }
-                  sx={{ flex: 1 }}
-                />
+        <Box flex={1} ml={4}>
+          <SearchField sx={{ mb: 3 }}>
+            <InputBase
+              placeholder="Rechercher un document..."
+              sx={{ ml: 2, flex: 1 }}
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+            <IconButton type="submit">
+              <SearchIcon />
+            </IconButton>
+          </SearchField>
 
-                <Button
-                  variant="contained"
-                  color="primary"
-                  onClick={() => downloadFile(doc.file, doc.title)}
+          {filteredDocs.length === 0 ? (
+            <Box textAlign="center" mt={6}>
+              <Typography variant="h6" color="textSecondary">
+                {searchTerm
+                  ? "Aucun document ne correspond à votre recherche"
+                  : "Aucun document disponible pour le moment"}
+              </Typography>
+              <Typography variant="body2" sx={{ mt: 1 }}>
+                {searchTerm
+                  ? "Essayez avec d'autres termes"
+                  : "Vos enseignants partageront bientôt du contenu"}
+              </Typography>
+            </Box>
+          ) : (
+            <List sx={{ width: '100%' }}>
+              {filteredDocs.map((doc) => (
+                <Card
+                  key={doc.id}
                   sx={{
-                    minWidth: '140px',
-                    borderRadius: '20px',
-                    boxShadow: 'none',
+                    mb: 2,
+                    transition: 'all 0.3s',
+                    borderLeft: '4px solid',
+                    borderColor: new Date(doc.createdAt) > new Date(localStorage.getItem('lastDocumentView'))
+                      ? 'secondary.main'
+                      : 'transparent',
                     '&:hover': {
-                      boxShadow: '0 2px 8px rgba(0,0,0,0.2)'
+                      transform: 'translateY(-2px)',
+                      boxShadow: 3
                     }
                   }}
                 >
-                  Télécharger
-                </Button>
-              </ListItem>
-            </Card>
-          ))}
-        </List>
-      )}
+                  <ListItem sx={{ py: 2 }}>
+                    <Box sx={{ fontSize: '2rem', mr: 2 }}>
+                      {getFileIcon(doc.file.type.split('/')[1])}
+                    </Box>
 
-      {/* Snackbar de notification */}
+                    <ListItemText
+                      primary={
+                        <Box display="flex" alignItems="center">
+                          <Typography
+                            variant="h6"
+                            sx={{ fontWeight: 'bold' }}
+                          >
+                            {doc.title}
+                          </Typography>
+                          {new Date(doc.createdAt) > new Date(localStorage.getItem('lastDocumentView')) && (
+                            <Chip label="Nouveau" color="secondary" size="small" sx={{ ml: 1 }} />
+                          )}
+                        </Box>
+                      }
+                      secondary={
+                        <>
+                          <Typography variant="body2" sx={{ mt: 0.5 }}>
+                            {doc.description}
+                          </Typography>
+                          <Box display="flex" sx={{ mt: 1 }}>
+                            <Chip label={doc.subject} size="small" variant="outlined" sx={{ mr: 1 }} />
+                            <Typography variant="caption" color="textSecondary">
+                              {formatDate(doc.createdAt)} • {(doc.file.size / 1024).toFixed(1)} KB
+                            </Typography>
+                          </Box>
+                        </>
+                      }
+                      sx={{ flex: 1 }}
+                    />
+
+                    <Button
+                      variant="contained"
+                      color="primary"
+                      onClick={() => downloadFile(doc.file, doc.title)}
+                      sx={{
+                        minWidth: '140px',
+                        borderRadius: '20px',
+                        boxShadow: 'none',
+                        '&:hover': {
+                          boxShadow: '0 2px 8px rgba(0,0,0,0.2)'
+                        }
+                      }}
+                    >
+                      Télécharger
+                    </Button>
+                  </ListItem>
+                </Card>
+              ))}
+            </List>
+          )}
+        </Box>
+      </Box>
+
       <Snackbar
         open={snackbar.open}
         autoHideDuration={4000}
@@ -313,4 +307,4 @@ const StudentDocuments = () => {
   );
 };
 
-export default StudentDocuments;
+export default StudentDoc;

@@ -34,7 +34,7 @@ const Header = () => { // Removed the extra curly braces here
   };
 
   const handleSeeMore = (programType) => {
-    navigate('/${programType.toLowerCase()}');
+    navigate('/licence');
   };
 
   const handleEventClick = (eventName) => {
