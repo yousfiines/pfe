@@ -1,4 +1,7 @@
 import React, { useState } from "react";
+import { useNavigate } from "react-router-dom";
+import inscriptionEnAnim from "../assets/lotties/inscription.json"; // Animation Lottie spécifique
+import Lottie from "lottie-react";
 
 const InscriptionEn = () => {
   const [formData, setFormData] = useState({
@@ -11,6 +14,7 @@ const InscriptionEn = () => {
 
   const [errors, setErrors] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const navigate = useNavigate();
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -66,17 +70,9 @@ const InscriptionEn = () => {
         const data = await response.json();
 
         if (response.ok) {
-          console.log("Réponse du serveur :", data);
           alert("Inscription réussie !");
-          setFormData({
-            Cin: "",
-            Nom_et_prénom: "",
-            email: "",
-            password: "",
-            confirmPassword: "",
-          });
+          navigate("/connexion");
         } else {
-          console.error("Erreur lors de l'inscription :", data);
           if (data.errors) {
             setErrors(data.errors);
           } else {
@@ -89,133 +85,192 @@ const InscriptionEn = () => {
       } finally {
         setIsSubmitting(false);
       }
-    } else {
-      console.log("Formulaire invalide", errors);
     }
   };
 
   return (
     <div style={styles.container}>
-      <h2 style={styles.title}>Inscription</h2>
-      <form onSubmit={handleSubmit} style={styles.form}>
-        {/* Champ CIN */}
-        <div style={styles.formGroup}>
-          <label style={styles.label}>CIN :</label>
-          <input
-            type="text"
-            name="Cin"
-            value={formData.Cin}
-            onChange={handleChange}
-            style={styles.input}
-          />
-          {errors.Cin && <span style={styles.error}>{errors.Cin}</span>}
-        </div>
+      <table style={styles.table}>
+        <tbody>
+          <tr>
+            <td style={styles.formCell}>
+              <div style={styles.card}>
+                <h2 style={styles.title}>Inscription Enseignant</h2>
+                <form onSubmit={handleSubmit} style={styles.form}>
+                  <div style={styles.formGroup}>
+                    <input
+                      type="text"
+                      name="Cin"
+                      value={formData.Cin}
+                      onChange={handleChange}
+                      style={styles.input}
+                      placeholder="Numéro CIN"
+                    />
+                    {errors.Cin && <span style={styles.error}>{errors.Cin}</span>}
+                  </div>
 
-        {/* Champ Nom et prénom */}
-        <div style={styles.formGroup}>
-          <label style={styles.label}>Nom et prénom :</label>
-          <input
-            type="text"
-            name="Nom_et_prénom"
-            value={formData.Nom_et_prénom}
-            onChange={handleChange}
-            style={styles.input}
-          />
-          {errors.Nom_et_prénom && <span style={styles.error}>{errors.Nom_et_prénom}</span>}
-        </div>
+                  <div style={styles.formGroup}>
+                    <input
+                      type="text"
+                      name="Nom_et_prénom"
+                      value={formData.Nom_et_prénom}
+                      onChange={handleChange}
+                      style={styles.input}
+                      placeholder="Nom et prénom"
+                    />
+                    {errors.Nom_et_prénom && <span style={styles.error}>{errors.Nom_et_prénom}</span>}
+                  </div>
 
-        {/* Champ Email */}
-        <div style={styles.formGroup}>
-          <label style={styles.label}>Email :</label>
-          <input
-            type="email"
-            name="email"
-            value={formData.email}
-            onChange={handleChange}
-            style={styles.input}
-          />
-          {errors.email && <span style={styles.error}>{errors.email}</span>}
-        </div>
+                  <div style={styles.formGroup}>
+                    <input
+                      type="email"
+                      name="email"
+                      value={formData.email}
+                      onChange={handleChange}
+                      style={styles.input}
+                      placeholder="Adresse email académique"
+                    />
+                    {errors.email && <span style={styles.error}>{errors.email}</span>}
+                  </div>
 
-        {/* Champ Mot de passe */}
-        <div style={styles.formGroup}>
-          <label style={styles.label}>Mot de passe :</label>
-          <input
-            type="password"
-            name="password"
-            value={formData.password}
-            onChange={handleChange}
-            style={styles.input}
-          />
-          {errors.password && <span style={styles.error}>{errors.password}</span>}
-        </div>
+                  <div style={styles.formGroup}>
+                    <input
+                      type="password"
+                      name="password"
+                      value={formData.password}
+                      onChange={handleChange}
+                      style={styles.input}
+                      placeholder="Mot de passe (6 caractères min)"
+                    />
+                    {errors.password && <span style={styles.error}>{errors.password}</span>}
+                  </div>
 
-        {/* Champ Confirmation du mot de passe */}
-        <div style={styles.formGroup}>
-          <label style={styles.label}>Confirmer le mot de passe :</label>
-          <input
-            type="password"
-            name="confirmPassword"
-            value={formData.confirmPassword}
-            onChange={handleChange}
-            style={styles.input}
-          />
-          {errors.confirmPassword && (
-            <span style={styles.error}>{errors.confirmPassword}</span>
-          )}
-        </div>
+                  <div style={styles.formGroup}>
+                    <input
+                      type="password"
+                      name="confirmPassword"
+                      value={formData.confirmPassword}
+                      onChange={handleChange}
+                      style={styles.input}
+                      placeholder="Confirmer le mot de passe"
+                    />
+                    {errors.confirmPassword && <span style={styles.error}>{errors.confirmPassword}</span>}
+                  </div>
 
-        {/* Bouton de soumission */}
-        <button type="submit" style={styles.button} disabled={isSubmitting}>
-          {isSubmitting ? "En cours..." : "S'inscrire"}
-        </button>
-      </form>
+                  <button type="submit" style={styles.button} disabled={isSubmitting}>
+                    {isSubmitting ? "En cours..." : "S'inscrire"}
+                  </button>
+                </form>
+
+                <p style={styles.loginLink}>
+                  Déjà inscrit? <a href="/connexion" style={styles.link}>Connectez-vous</a>
+                </p>
+              </div>
+            </td>
+            <td style={styles.animationCell}>
+              <div style={styles.lottieContainer}>
+                <Lottie
+                  animationData={inscriptionEnAnim}
+                  loop={true}
+                  style={styles.lottieAnimation}
+                />
+              </div>
+            </td>
+          </tr>
+        </tbody>
+      </table>
     </div>
   );
 };
 
-// Styles pour le formulaire
 const styles = {
   container: {
-    maxWidth: "400px",
-    margin: "0 auto",
+    display: "flex",
+    justifyContent: "center",
+    alignItems: "center",
+    minHeight: "100vh",
+    backgroundColor: "#f0f2f5",
     padding: "20px",
-    border: "1px solid #ccc",
-    borderRadius: "8px",
-    backgroundColor: "#f9f9f9",
+  },
+  table: {
+    borderCollapse: "collapse",
+    width: "auto",
+  },
+  formCell: {
+    paddingRight: "50px",
+    verticalAlign: "middle",
+  },
+  animationCell: {
+    verticalAlign: "middle",
+  },
+  card: {
+    backgroundColor: "#fff",
+    padding: "40px",
+    borderRadius: "10px",
+    boxShadow: "0 4px 8px rgba(0, 0, 0, 0.1)",
+    width: "100%",
+    maxWidth: "400px",
   },
   title: {
     textAlign: "center",
-    marginBottom: "20px",
+    marginBottom: "30px",
+    color: "#333",
   },
   form: {
     display: "flex",
     flexDirection: "column",
   },
   formGroup: {
-    marginBottom: "15px",
-  },
-  label: {
-    marginBottom: "5px",
-    fontWeight: "bold",
+    marginBottom: "20px",
   },
   input: {
-    padding: "10px",
-    borderRadius: "4px",
-    border: "1px solid #ccc",
     width: "100%",
+    padding: "12px",
+    border: "1px solid #ddd",
+    borderRadius: "5px",
+    fontSize: "14px",
+    boxSizing: "border-box",
+  },
+  button: {
+    width: "100%",
+    padding: "12px",
+    backgroundColor: "#007bff",
+    color: "#fff",
+    border: "none",
+    borderRadius: "5px",
+    fontSize: "16px",
+    cursor: "pointer",
+    marginTop: "10px",
+    transition: "background-color 0.3s",
+  },
+  link: {
+    color: "#007bff",
+    textDecoration: "none",
+    fontWeight: "500",
   },
   error: {
     color: "red",
-    fontSize: "14px",
+    fontSize: "12px",
+    marginTop: "5px",
+    display: "block",
   },
-  button: {
-    padding: "10px",
-    borderRadius: "4px",
-    border: "none",
-    backgroundColor: "#007bff",
-    color: "white",
-    cursor: "pointer",
+  loginLink: {
+    marginTop: "20px",
+    textAlign: "center",
+    fontSize: "14px",
+    color: "#666",
+  },
+  lottieContainer: {
+    display: "flex",
+    justifyContent: "center",
+    alignItems: "center",
+    minHeight: "500px",
+  },
+  lottieAnimation: {
+    width: "100%",
+    height: "100%",
+    maxWidth: "450px",
+    maxHeight: "450px",
   },
 };
 

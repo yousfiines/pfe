@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { useNavigate } from "react-router-dom"; // Pour la redirection
+import { useNavigate } from "react-router-dom";
 import login from "../assets/lotties/login.json";
 import Lottie from "lottie-react";
 
@@ -9,9 +9,8 @@ const Connexion = () => {
     password: "",
   });
 
-
   const [errors, setErrors] = useState({});
-  const navigate = useNavigate(); // Pour la navigation
+  const navigate = useNavigate();
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleChange = (e) => {
@@ -59,12 +58,12 @@ const Connexion = () => {
         if (response.ok) {
           alert(data.message);
           if (data.role === "enseignant") {
-            navigate("/enseignant"); // Rediriger vers la page enseignant
+            navigate("/enseignant");
           } else if (data.role === "etudiant") {
-            navigate("/etudiant"); // Rediriger vers la page étudiant
+            navigate("/etudiant");
           }
         } else {
-          alert(data.message); // Afficher le message d'erreur
+          alert(data.message);
         }
       } catch (error) {
         console.error("Erreur réseau :", error);
@@ -77,58 +76,64 @@ const Connexion = () => {
 
   return (
     <div style={styles.container}>
-      <div style={styles.card}>
-        <form onSubmit={handleSubmit} style={styles.form}>
-          <div style={styles.formGroup}>
-            <input
-              type="email"
-              name="email"
-              value={formData.email}
-              onChange={handleChange}
-              style={styles.input}
-              placeholder="Saisir votre email"
-            />
-            {errors.email && <span style={styles.error}>{errors.email}</span>}
+      <div style={styles.contentWrapper}>
+        <div style={styles.formContainer}>
+          <div style={styles.card}>
+            <h2 style={styles.title}>Connexion</h2>
+            <form onSubmit={handleSubmit} style={styles.form}>
+              <div style={styles.formGroup}>
+                <input
+                  type="email"
+                  name="email"
+                  value={formData.email}
+                  onChange={handleChange}
+                  style={styles.input}
+                  placeholder="Saisir votre email"
+                />
+                {errors.email && <span style={styles.error}>{errors.email}</span>}
+              </div>
+
+              <div style={styles.formGroup}>
+                <input
+                  type="password"
+                  name="password"
+                  value={formData.password}
+                  onChange={handleChange}
+                  style={styles.input}
+                  placeholder="Saisir votre mot de passe"
+                />
+                {errors.password && <span style={styles.error}>{errors.password}</span>}
+              </div>
+
+              <button type="submit" style={styles.button} disabled={isSubmitting}>
+                {isSubmitting ? "En cours..." : "Se Connecter"}
+              </button>
+            </form>
+
+            <div style={styles.linksContainer}>
+              <p style={styles.signupLink}>
+                Pas encore de compte ?{" "}
+                <a href="/inscriptionEN" style={styles.link}>
+                  Enseignant
+                </a>{" "}
+                ou{" "}
+                <a href="/inscription" style={styles.link}>
+                  Étudiant
+                </a>
+              </p>
+            </div>
           </div>
+        </div>
 
-          <div style={styles.formGroup}>
-            <input
-              type="password"
-              name="password"
-              value={formData.password}
-              onChange={handleChange}
-              style={styles.input}
-              placeholder="Saisir votre mot de passe"
-            />
-            {errors.password && <span style={styles.error}>{errors.password}</span>}
-          </div>
-
-          <button type="submit" style={styles.button} disabled={isSubmitting}>
-          {isSubmitting ? "En cours..." : "Se Connecter"}
-        </button>
-        </form>
-
-        <p style={styles.signupLink}>
-          Pas encore de compte ?{" "}
-          <a href="/inscriptionEN" style={styles.link}>
-            Inscrivez-vous en tant qu'enseignant
-          </a>
-        </p>
-        <p style={styles.signupLink}>
-          <a href="/inscription" style={styles.link}>
-            Inscrivez-vous en tant qu'étudiant
-          </a>
-        </p>
+        <div style={styles.animationContainer}>
+          <Lottie
+            animationData={login}
+            loop={true}
+            style={styles.lottieAnimation}
+          />
+        </div>
       </div>
-
-      <div style={styles.lottieContainer}>
-        <Lottie
-          animationData={login}
-          style={{ width: "300px", height: "300px" }}
-          loop={true}
-        />
-      </div>
-      </div>
+    </div>
   );
 };
 
@@ -141,50 +146,93 @@ const styles = {
     backgroundColor: "#f0f2f5",
     padding: "20px",
   },
+  contentWrapper: {
+    display: "flex",
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    maxWidth: "900px",
+    width: "100%",
+    gap: "40px",
+  },
+  formContainer: {
+    flex: 1,
+    maxWidth: "400px",
+    minWidth: "300px",
+  },
+  animationContainer: {
+    flex: 1,
+    display: "flex",
+    justifyContent: "center",
+    alignItems: "center",
+    minHeight: "450px", // Ajustez selon la hauteur de votre formulaire
+  },
+  lottieAnimation: {
+    width: "100%",
+    height: "100%",
+    maxWidth: "450px",
+    maxHeight: "450px",
+  },
   card: {
     backgroundColor: "#fff",
     padding: "40px",
     borderRadius: "10px",
     boxShadow: "0 4px 8px rgba(0, 0, 0, 0.1)",
-    maxWidth: "300px",
     width: "100%",
-    marginRight: "50px",
+  },
+  title: {
+    textAlign: "center",
+    marginBottom: "30px",
+    color: "#333",
   },
   form: {
     display: "flex",
     flexDirection: "column",
   },
   formGroup: {
-    marginBottom: "30px",
+    marginBottom: "25px",
   },
   input: {
     width: "100%",
-    padding: "10px",
-    border: "1px solid #ccc",
+    padding: "12px",
+    border: "1px solid #ddd",
     borderRadius: "5px",
     fontSize: "14px",
+    boxSizing: "border-box",
   },
   button: {
     width: "100%",
-    padding: "10px",
+    padding: "12px",
     backgroundColor: "#007bff",
     color: "#fff",
     border: "none",
     borderRadius: "5px",
     fontSize: "16px",
     cursor: "pointer",
+    marginTop: "10px",
+    transition: "background-color 0.3s",
+  },
+  buttonHover: {
+    backgroundColor: "#0056b3",
   },
   link: {
     color: "#007bff",
     textDecoration: "none",
-  },
-  lottieContainer: {
-    maxWidth: "400px",
-    width: "100%",
+    fontWeight: "500",
   },
   error: {
     color: "red",
+    fontSize: "12px",
+    marginTop: "5px",
+    display: "block",
+  },
+  linksContainer: {
+    marginTop: "20px",
+    textAlign: "center",
+  },
+  signupLink: {
     fontSize: "14px",
+    color: "#666",
   },
 };
 

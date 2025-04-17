@@ -1,4 +1,7 @@
 import React, { useState } from "react";
+import { useNavigate } from "react-router-dom";
+import inscriptionAnim from "../assets/lotties/inscription.json"; // Assurez-vous d'avoir ce fichier Lottie
+import Lottie from "lottie-react";
 
 const Inscription = () => {
   const [formData, setFormData] = useState({
@@ -13,6 +16,7 @@ const Inscription = () => {
 
   const [errors, setErrors] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const navigate = useNavigate();
 
   const Filière = [
     "",
@@ -20,7 +24,7 @@ const Inscription = () => {
     "Licence en Sciences de l'informatique : Génie logiciel et systèmes d'information",
     "Licence en Sciences : Physique-Chimie",
     "Licence en Sciences de Mathématique",
-    "Licence en Technologie de l’information et de la communication",
+    "Licence en Technologie de l'information et de la communication",
     "Licence en Industries Agroalimentaires et Impacts Environnementaux",
     "Master Recherche en Ecophysiologie et Adaptation Végétal",
     "Master de Recherche Informatique décisionnelle",
@@ -29,7 +33,6 @@ const Inscription = () => {
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    console.log(`Champ ${name} mis à jour :`, value); // Debug
     setFormData({
       ...formData,
       [name]: value,
@@ -61,31 +64,23 @@ const Inscription = () => {
     if (validateForm()) {
       try {
         const { confirmPassword, ...dataToSend } = formData;
-        console.log("Données envoyées :", { ...dataToSend, confirmPassword }); // Debug
 
         const response = await fetch("http://localhost:5000/etudiant", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ ...dataToSend, confirmPassword }), // Inclure confirmPassword
+          body: JSON.stringify(dataToSend),
         });
 
         const data = await response.json();
         if (response.ok) {
           alert("Inscription réussie !");
-          setFormData({
-            Cin: "",
-            Nom_et_prénom: "",
-            Téléphone: "",
-            email: "",
-            password: "",
-            confirmPassword: "",
-            filière: "",
-          });
+          navigate("/connexion");
         } else {
-          setErrors(data.errors || { message: data.message });
+          alert(data.message || "Erreur lors de l'inscription");
         }
       } catch (error) {
         console.error("Erreur lors de l'inscription :", error);
+        alert("Erreur réseau. Veuillez réessayer.");
       } finally {
         setIsSubmitting(false);
       }
@@ -96,147 +91,215 @@ const Inscription = () => {
 
   return (
     <div style={styles.container}>
-      <h2 style={styles.title}>Inscription</h2>
-      <form onSubmit={handleSubmit} style={styles.form}>
-        {/* Champs du formulaire */}
-        <div style={styles.formGroup}>
-          <label style={styles.label}>CIN :</label>
-          <input
-            type="text"
-            name="Cin"
-            value={formData.Cin}
-            onChange={handleChange}
-            style={styles.input}
-          />
-          {errors.Cin && <span style={styles.error}>{errors.Cin}</span>}
-        </div>
+      <table style={styles.table}>
+        <tbody>
+          <tr>
+            <td style={styles.formCell}>
+              <div style={styles.card}>
+                <h2 style={styles.title}>Inscription Étudiant</h2>
+                <form onSubmit={handleSubmit} style={styles.form}>
+                  <div style={styles.formGroup}>
+                    <input
+                      type="text"
+                      name="Cin"
+                      value={formData.Cin}
+                      onChange={handleChange}
+                      style={styles.input}
+                      placeholder="Numéro CIN (8 chiffres)"
+                    />
+                    {errors.Cin && <span style={styles.error}>{errors.Cin}</span>}
+                  </div>
 
-        <div style={styles.formGroup}>
-          <label style={styles.label}>Nom et prénom :</label>
-          <input
-            type="text"
-            name="Nom_et_prénom"
-            value={formData.Nom_et_prénom}
-            onChange={handleChange}
-            style={styles.input}
-          />
-          {errors.Nom_et_prénom && <span style={styles.error}>{errors.Nom_et_prénom}</span>}
-        </div>
+                  <div style={styles.formGroup}>
+                    <input
+                      type="text"
+                      name="Nom_et_prénom"
+                      value={formData.Nom_et_prénom}
+                      onChange={handleChange}
+                      style={styles.input}
+                      placeholder="Nom et prénom"
+                    />
+                    {errors.Nom_et_prénom && <span style={styles.error}>{errors.Nom_et_prénom}</span>}
+                  </div>
 
-        <div style={styles.formGroup}>
-          <label style={styles.label}>Téléphone :</label>
-          <input
-            type="text"
-            name="Téléphone"
-            value={formData.Téléphone}
-            onChange={handleChange}
-            style={styles.input}
-          />
-          {errors.Téléphone && <span style={styles.error}>{errors.Téléphone}</span>}
-        </div>
+                  <div style={styles.formGroup}>
+                    <input
+                      type="text"
+                      name="Téléphone"
+                      value={formData.Téléphone}
+                      onChange={handleChange}
+                      style={styles.input}
+                      placeholder="Numéro de téléphone"
+                    />
+                    {errors.Téléphone && <span style={styles.error}>{errors.Téléphone}</span>}
+                  </div>
 
-        <div style={styles.formGroup}>
-          <label style={styles.label}>Email :</label>
-          <input
-            type="email"
-            name="email"
-            value={formData.email}
-            onChange={handleChange}
-            style={styles.input}
-          />
-          {errors.email && <span style={styles.error}>{errors.email}</span>}
-        </div>
+                  <div style={styles.formGroup}>
+                    <input
+                      type="email"
+                      name="email"
+                      value={formData.email}
+                      onChange={handleChange}
+                      style={styles.input}
+                      placeholder="Adresse email"
+                    />
+                    {errors.email && <span style={styles.error}>{errors.email}</span>}
+                  </div>
 
-        <div style={styles.formGroup}>
-          <label style={styles.label}>Mot de passe :</label>
-          <input
-            type="password"
-            name="password"
-            value={formData.password}
-            onChange={handleChange}
-            style={styles.input}
-          />
-          {errors.password && <span style={styles.error}>{errors.password}</span>}
-        </div>
+                  <div style={styles.formGroup}>
+                    <input
+                      type="password"
+                      name="password"
+                      value={formData.password}
+                      onChange={handleChange}
+                      style={styles.input}
+                      placeholder="Mot de passe (6 caractères min)"
+                    />
+                    {errors.password && <span style={styles.error}>{errors.password}</span>}
+                  </div>
 
-        <div style={styles.formGroup}>
-          <label style={styles.label}>Confirmer le mot de passe :</label>
-          <input
-  type="password"
-  name="confirmPassword" // Nom du champ
-  value={formData.confirmPassword}
-  onChange={handleChange}
-  style={styles.input}
-/>
-          {errors.confirmPassword && <span style={styles.error}>{errors.confirmPassword}</span>}
-        </div>
+                  <div style={styles.formGroup}>
+                    <input
+                      type="password"
+                      name="confirmPassword"
+                      value={formData.confirmPassword}
+                      onChange={handleChange}
+                      style={styles.input}
+                      placeholder="Confirmer le mot de passe"
+                    />
+                    {errors.confirmPassword && <span style={styles.error}>{errors.confirmPassword}</span>}
+                  </div>
 
-        <div style={styles.formGroup}>
-          <label style={styles.label}>Filière :</label>
-          <select
-            name="filière"
-            value={formData.filière}
-            onChange={handleChange}
-            style={styles.input}
-          >
-            {Filière.map((filière, index) => (
-              <option key={index} value={filière}>
-                {filière}
-              </option>
-            ))}
-          </select>
-          {errors.filière && <span style={styles.error}>{errors.filière}</span>}
-        </div>
+                  <div style={styles.formGroup}>
+                    <select
+                      name="filière"
+                      value={formData.filière}
+                      onChange={handleChange}
+                      style={styles.input}
+                    >
+                      {Filière.map((filière, index) => (
+                        <option key={index} value={filière}>
+                          {filière || "Sélectionnez une filière"}
+                        </option>
+                      ))}
+                    </select>
+                    {errors.filière && <span style={styles.error}>{errors.filière}</span>}
+                  </div>
 
-        <button type="submit" style={styles.button} disabled={isSubmitting}>
-          {isSubmitting ? "En cours..." : "S'inscrire"}
-        </button>
-      </form>
+                  <button type="submit" style={styles.button} disabled={isSubmitting}>
+                    {isSubmitting ? "En cours..." : "S'inscrire"}
+                  </button>
+                </form>
+
+                <p style={styles.loginLink}>
+                  Déjà inscrit? <a href="/connexion" style={styles.link}>Connectez-vous</a>
+                </p>
+              </div>
+            </td>
+            <td style={styles.animationCell}>
+              <div style={styles.lottieContainer}>
+                <Lottie
+                  animationData={inscriptionAnim}
+                  loop={true}
+                  style={styles.lottieAnimation}
+                />
+              </div>
+            </td>
+          </tr>
+        </tbody>
+      </table>
     </div>
   );
 };
 
 const styles = {
   container: {
-    maxWidth: "400px",
-    margin: "0 auto",
+    display: "flex",
+    justifyContent: "center",
+    alignItems: "center",
+    minHeight: "100vh",
+    backgroundColor: "#f0f2f5",
     padding: "20px",
-    border: "1px solid #ccc",
-    borderRadius: "8px",
-    backgroundColor: "#f9f9f9",
+  },
+  table: {
+    borderCollapse: "collapse",
+    width: "auto",
+  },
+  formCell: {
+    paddingRight: "50px",
+    verticalAlign: "middle",
+  },
+  animationCell: {
+    verticalAlign: "middle",
+  },
+  card: {
+    backgroundColor: "#fff",
+    padding: "40px",
+    borderRadius: "10px",
+    boxShadow: "0 4px 8px rgba(0, 0, 0, 0.1)",
+    width: "100%",
+    maxWidth: "400px",
   },
   title: {
     textAlign: "center",
-    marginBottom: "20px",
+    marginBottom: "30px",
+    color: "#333",
   },
   form: {
     display: "flex",
     flexDirection: "column",
   },
   formGroup: {
-    marginBottom: "15px",
-  },
-  label: {
-    marginBottom: "5px",
-    fontWeight: "bold",
+    marginBottom: "20px",
   },
   input: {
-    padding: "10px",
-    borderRadius: "4px",
-    border: "1px solid #ccc",
     width: "100%",
+    padding: "12px",
+    border: "1px solid #ddd",
+    borderRadius: "5px",
+    fontSize: "14px",
+    boxSizing: "border-box",
+  },
+  button: {
+    width: "100%",
+    padding: "12px",
+    backgroundColor: "#007bff",
+    color: "#fff",
+    border: "none",
+    borderRadius: "5px",
+    fontSize: "16px",
+    cursor: "pointer",
+    marginTop: "10px",
+    transition: "background-color 0.3s",
+  },
+  link: {
+    color: "#007bff",
+    textDecoration: "none",
+    fontWeight: "500",
   },
   error: {
     color: "red",
-    fontSize: "14px",
+    fontSize: "12px",
+    marginTop: "5px",
+    display: "block",
   },
-  button: {
-    padding: "10px",
-    borderRadius: "4px",
-    border: "none",
-    backgroundColor: "#007bff",
-    color: "white",
-    cursor: "pointer",
+  loginLink: {
+    marginTop: "20px",
+    textAlign: "center",
+    fontSize: "14px",
+    color: "#666",
+  },
+  lottieContainer: {
+    display: "flex",
+    justifyContent: "center",
+    alignItems: "center",
+    minHeight: "500px",
+  },
+  lottieAnimation: {
+    width: "100%",
+    height: "100%",
+    maxWidth: "450px",
+    maxHeight: "450px",
   },
 };
 
