@@ -26,7 +26,7 @@ import Enseignant from "./pages/enseignant.js";
 import EventForm from "./pages/eventForm.js";
 import Licence from "./pages/licence.js";
 import Home from "./pages/Home";
-
+import Teacher from "./pages/teacher.js"
 function App() {
   return (
     <Router>
@@ -60,6 +60,7 @@ function AppContent() {
         <Route path="/enseignant" element={<Enseignant />} />
         <Route path="/eventForm" element={<EventForm />} />
         <Route path="/licence" element={<Licence />} />
+        <Route path="/teacher" element={<Teacher />} />
         <Route path="/studentdoc" element={<StudentDoc />} />
         <Route path="/teacheruploaddoc" element={<TeacherUploadDocument />} />
 

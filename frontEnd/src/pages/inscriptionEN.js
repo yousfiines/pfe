@@ -71,7 +71,7 @@ const InscriptionEn = () => {
 
         if (response.ok) {
           alert("Inscription réussie !");
-          navigate("/connexion");
+          navigate("/teacher");
         } else {
           if (data.errors) {
             setErrors(data.errors);

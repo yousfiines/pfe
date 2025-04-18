@@ -58,7 +58,7 @@ const Connexion = () => {
         if (response.ok) {
           alert(data.message);
           if (data.role === "enseignant") {
-            navigate("/enseignant");
+            navigate("/teacher");
           } else if (data.role === "etudiant") {
             navigate("/etudiant");
           }
@@ -75,6 +75,11 @@ const Connexion = () => {
   };
 
   return (
+
+    
+
+
+    
     <div style={styles.container}>
       <div style={styles.contentWrapper}>
         <div style={styles.formContainer}>

@@ -23,6 +23,18 @@ export default function Footer() {
               <FaFacebook />
             </a>
           </div>
+          <div className="footer-section">
+            
+            <a href="/teacher">
+              enseignant
+            </a>
+          </div>
+          <div className="footer-section">
+            
+            <a href="/studentDoc">
+              étudiant
+            </a>
+          </div>
 
         </div>
         <p style={{ margin: '0' }}>© {new Date().getFullYear()} Faculté des Sciences et Technologies - Tous droits réservés</p>

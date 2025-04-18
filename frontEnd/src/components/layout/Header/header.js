@@ -398,7 +398,7 @@ const Header = () => {
             marginTop: '60px'
           }}>
             {[
-              { value: "31500+", label: "Étudiants", icon: "👨‍🎓" },
+              { value: "1500+", label: "Étudiants", icon: "👨‍🎓" },
               { value: "40+", label: "Programmes", icon: "📚" },
               { value: "10+", label: "Partenariats", icon: "🤝" },
               { value: "5+", label: "Laboratoires", icon: "🔬" }
