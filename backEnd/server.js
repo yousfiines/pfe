@@ -6,6 +6,7 @@ import cookieParser from "cookie-parser";
 import jwt from 'jsonwebtoken';
 
 const app = express();
+const router = express.Router();
 
 // Middlewares
 app.use(cors());
@@ -118,31 +119,62 @@ app.post("/connexion", async (req, res) => {
   }
 });
 
-// Route pour l'inscription des enseignants
 app.post("/enseignants", async (req, res) => {
   const { Cin, Nom_et_prénom, Email, Password, Confirmpassword } = req.body;
 
   const errors = {};
+  const passwordFeedback = {
+    requirements: {
+      minLength: false,
+      hasUpper: false,
+      hasLower: false,
+      hasNumber: false,
+      hasSpecial: false
+    },
+    strength: 0
+  };
 
   // Validation des champs
-  if (!Cin) errors.Cin = "Le CIN est requis.";
+  if (!Cin) {
+    errors.Cin = "Le CIN est requis.";
+  } else if (!/^[01]\d{7}$/.test(Cin)) {
+    errors.Cin = "Le CIN doit contenir exactement 8 chiffres commençant par 0 ou 1.";
+  }
   if (!Nom_et_prénom) errors.Nom_et_prénom = "Le nom est requis.";
+  
   if (!Email) {
     errors.email = "L'email est requis.";
   } else if (!/\S+@\S+\.\S+/.test(Email)) {
     errors.email = "L'email est invalide.";
   }
+
   if (!Password) {
     errors.password = "Le mot de passe est requis.";
-  } else if (Password.length < 6) {
-    errors.password = "Le mot de passe doit contenir au moins 6 caractères.";
+  } else {
+    // Vérification des exigences
+    passwordFeedback.requirements.minLength = Password.length >= 10;
+    passwordFeedback.requirements.hasUpper = /[A-Z]/.test(Password);
+    passwordFeedback.requirements.hasLower = /[a-z]/.test(Password);
+    passwordFeedback.requirements.hasNumber = /[0-9]/.test(Password);
+    passwordFeedback.requirements.hasSpecial = /[!@#$%^&*(),.?":{}|<>]/.test(Password);
+
+    // Calcul du score de force (0-5)
+    passwordFeedback.strength = Object.values(passwordFeedback.requirements).filter(Boolean).length;
+
+    if (!passwordFeedback.requirements.minLength) {
+      errors.password = "Le mot de passe doit contenir au moins 10 caractères.";
+    }
   }
+
   if (Password !== Confirmpassword) {
     errors.confirmPassword = "Les mots de passe ne correspondent pas.";
   }
 
   if (Object.keys(errors).length > 0) {
-    return res.status(400).json({ errors });
+    return res.status(400).json({ 
+      errors,
+      passwordFeedback
+    });
   }
 
   try {
@@ -169,30 +201,66 @@ app.post("/enseignants", async (req, res) => {
     res.status(500).json({ message: "Erreur serveur", error: error.message });
   }
 });
-
-// Route pour l'inscription des étudiants
 app.post("/etudiant", async (req, res) => {
   const { Cin, Nom_et_prénom, Téléphone, email, password, confirmPassword, filière } = req.body;
 
-  let errors = {};
+  const errors = {};
+  const passwordFeedback = {
+    requirements: {
+      minLength: false,
+      hasUpper: false,
+      hasLower: false,
+      hasNumber: false,
+      hasSpecial: false
+    },
+    strength: 0
+  };
 
   // Validation des champs
-  if (!Cin) errors.Cin = "Le CIN est requis.";
-  else if (!/^\d{8}$/.test(Cin)) errors.Cin = "Le CIN doit contenir exactement 8 chiffres.";
-
+  if (!Cin) {
+    errors.Cin = "Le CIN est requis.";
+  } else if (!/^[01]\d{7}$/.test(Cin)) {
+    errors.Cin = "Le CIN doit contenir exactement 8 chiffres commençant par 0 ou 1.";
+  }
   if (!Nom_et_prénom) errors.Nom_et_prénom = "Le nom est requis.";
   if (!Téléphone) errors.Téléphone = "Le téléphone est requis.";
-  if (!email) errors.email = "L'email est requis.";
-  else if (!/\S+@\S+\.\S+/.test(email)) errors.email = "L'email est invalide.";
-  if (!password) errors.password = "Le mot de passe est requis.";
-  else if (password.length < 6) errors.password = "Le mot de passe doit contenir au moins 6 caractères.";
-  if (password !== confirmPassword) errors.confirmPassword = "Les mots de passe ne correspondent pas.";
+  if (!email) {
+    errors.email = "L'email est requis.";
+  } else if (!/\S+@\S+\.\S+/.test(email)) {
+    errors.email = "L'email est invalide.";
+  }
+
+  if (!password) {
+    errors.password = "Le mot de passe est requis.";
+  } else {
+    // Vérification des exigences
+    passwordFeedback.requirements.minLength = password.length >= 10;
+    passwordFeedback.requirements.hasUpper = /[A-Z]/.test(password);
+    passwordFeedback.requirements.hasLower = /[a-z]/.test(password);
+    passwordFeedback.requirements.hasNumber = /[0-9]/.test(password);
+    passwordFeedback.requirements.hasSpecial = /[!@#$%^&*(),.?":{}|<>]/.test(password);
+
+    // Calcul du score de force (0-5)
+    passwordFeedback.strength = Object.values(passwordFeedback.requirements).filter(Boolean).length;
+
+    if (!passwordFeedback.requirements.minLength) {
+      errors.password = "Le mot de passe doit contenir au moins 10 caractères.";
+    }
+  }
+
+  if (password !== confirmPassword) {
+    errors.confirmPassword = "Les mots de passe ne correspondent pas.";
+  }
+
   if (!filière || !Filière.includes(filière)) {
     errors.filière = "La filière est invalide ou manquante.";
   }
 
   if (Object.keys(errors).length > 0) {
-    return res.status(400).json({ errors });
+    return res.status(400).json({ 
+      errors,
+      passwordFeedback
+    });
   }
 
   try {
@@ -205,7 +273,8 @@ app.post("/etudiant", async (req, res) => {
       return res.status(400).json({ message: "Un étudiant avec ce CIN ou cet email existe déjà." });
     }
 
-    const hashedPassword = await bcrypt.hash(password, 10);
+    const saltRounds = 10;
+    const hashedPassword = await bcrypt.hash(password, saltRounds);
 
     await pool.query(
       "INSERT INTO etudiant (Cin, Nom_et_prénom, Téléphone, email, password, filière) VALUES (?, ?, ?, ?, ?, ?)",
@@ -218,7 +287,6 @@ app.post("/etudiant", async (req, res) => {
     res.status(500).json({ message: "Erreur serveur", error: error.message });
   }
 });
-
 // Route pour afficher tous les utilisateurs
 app.get("/api/utilisateurs", async (req, res) => {
   try {
@@ -274,6 +342,32 @@ app.put("/api/utilisateurs/:cin", async (req, res) => {
     res.status(500).json({ error: "Erreur serveur" });
   }
 });
+
+
+router.post('/extend-session', (req, res) => {
+  const token = req.headers.authorization?.split(' ')[1];
+  
+  if (!token) {
+    return res.status(401).json({ error: 'Token manquant' });
+  }
+
+  try {
+    // Vérifie et décode le token
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    
+    // Crée un nouveau token avec 3 minutes supplémentaires
+    const newToken = jwt.sign(
+      { userId: decoded.userId },
+      process.env.JWT_SECRET,
+      { expiresIn: '3m' } // Nouvelle expiration
+    );
+
+    res.json({ token: newToken });
+  } catch (error) {
+    res.status(403).json({ error: 'Token invalide' });
+  }
+});
+
 
 // Démarrer le serveur
 const PORT = 5000;

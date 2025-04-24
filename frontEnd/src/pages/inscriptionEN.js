@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import inscriptionEnAnim from "../assets/lotties/inscription.json"; // Animation Lottie spécifique
+import inscriptionEnAnim from "../assets/lotties/inscription.json";
 import Lottie from "lottie-react";
 
 const InscriptionEn = () => {
@@ -14,6 +14,7 @@ const InscriptionEn = () => {
 
   const [errors, setErrors] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [passwordFeedback, setPasswordFeedback] = useState(null);
   const navigate = useNavigate();
 
   const handleChange = (e) => {
@@ -22,12 +23,50 @@ const InscriptionEn = () => {
       ...formData,
       [name]: value,
     });
+
+    // Validation en temps réel pour le mot de passe
+    if (name === "password") {
+      validatePassword(value);
+    }
+  };
+
+  const validatePassword = (password) => {
+    if (!password) {
+      setPasswordFeedback(null);
+      return;
+    }
+
+    const requirements = {
+      minLength: password.length >= 10,
+      hasUpper: /[A-Z]/.test(password),
+      hasLower: /[a-z]/.test(password),
+      hasNumber: /[0-9]/.test(password),
+      hasSpecial: /[!@#$%^&*(),.?":{}|<>]/.test(password),
+    };
+
+    const strength = Object.values(requirements).filter(Boolean).length;
+
+    setPasswordFeedback({
+      requirements,
+      strength,
+      percentage: (strength / 5) * 100,
+    });
+  };
+
+  const getStrengthColor = (percentage) => {
+    if (percentage < 40) return "#ff0000";
+    if (percentage < 70) return "#ffa500";
+    return "#00cc00";
   };
 
   const validateForm = () => {
     const newErrors = {};
 
-    if (!formData.Cin) newErrors.Cin = "Le CIN est requis.";
+    if (!formData.Cin) {
+      newErrors.Cin = "Le CIN est requis.";
+    } else if (!/^[01]\d{7}$/.test(formData.Cin)) {
+      newErrors.Cin = "Le CIN doit contenir exactement 8 chiffres commençant par 0 ou 1.";
+    }
     if (!formData.Nom_et_prénom) newErrors.Nom_et_prénom = "Le nom est requis.";
     if (!formData.email) {
       newErrors.email = "L'email est requis.";
@@ -36,8 +75,14 @@ const InscriptionEn = () => {
     }
     if (!formData.password) {
       newErrors.password = "Le mot de passe est requis.";
-    } else if (formData.password.length < 6) {
-      newErrors.password = "Le mot de passe doit contenir au moins 6 caractères.";
+    } else if (formData.password.length < 10) {
+      newErrors.password = "Le mot de passe doit contenir au moins 10 caractères.";
+    } else if (!/[A-Z]/.test(formData.password)) {
+      newErrors.password = "Le mot de passe doit contenir au moins une majuscule.";
+    } else if (!/[a-z]/.test(formData.password)) {
+      newErrors.password = "Le mot de passe doit contenir au moins une minuscule.";
+    } else if (!/[0-9!@#$%^&*(),.?":{}|<>]/.test(formData.password)) {
+      newErrors.password = "Le mot de passe doit contenir au moins un chiffre ou caractère spécial.";
     }
     if (formData.password !== formData.confirmPassword) {
       newErrors.confirmPassword = "Les mots de passe ne correspondent pas.";
@@ -75,9 +120,11 @@ const InscriptionEn = () => {
         } else {
           if (data.errors) {
             setErrors(data.errors);
-          } else {
-            alert(`Erreur : ${data.message || "Une erreur s'est produite."}`);
           }
+          if (data.passwordFeedback) {
+            setPasswordFeedback(data.passwordFeedback);
+          }
+          alert(`Erreur : ${data.message || "Une erreur s'est produite."}`);
         }
       } catch (error) {
         console.error("Erreur réseau :", error);
@@ -118,7 +165,9 @@ const InscriptionEn = () => {
                       style={styles.input}
                       placeholder="Nom et prénom"
                     />
-                    {errors.Nom_et_prénom && <span style={styles.error}>{errors.Nom_et_prénom}</span>}
+                    {errors.Nom_et_prénom && (
+                      <span style={styles.error}>{errors.Nom_et_prénom}</span>
+                    )}
                   </div>
 
                   <div style={styles.formGroup}>
@@ -140,9 +189,49 @@ const InscriptionEn = () => {
                       value={formData.password}
                       onChange={handleChange}
                       style={styles.input}
-                      placeholder="Mot de passe (6 caractères min)"
+                      placeholder="Mot de passe (10 caractères min)"
                     />
                     {errors.password && <span style={styles.error}>{errors.password}</span>}
+                    
+                    {/* Barre de force du mot de passe */}
+                    {passwordFeedback && (
+                      <div style={{ marginTop: "10px" }}>
+                        <div style={{
+                          height: "5px",
+                          backgroundColor: "#e0e0e0",
+                          borderRadius: "5px",
+                          marginBottom: "5px"
+                        }}>
+                          <div style={{
+                            width: `${passwordFeedback.percentage}%`,
+                            height: "100%",
+                            backgroundColor: getStrengthColor(passwordFeedback.percentage),
+                            borderRadius: "5px",
+                            transition: "all 0.3s ease"
+                          }}></div>
+                        </div>
+                        <small>Force du mot de passe: {passwordFeedback.strength}/5</small>
+                        
+                        {/* Liste des exigences */}
+                        <ul style={{ margin: "10px 0 0 0", paddingLeft: "20px", fontSize: "12px" }}>
+                          <li style={{ color: passwordFeedback.requirements.minLength ? "green" : "red" }}>
+                            Au moins 10 caractères
+                          </li>
+                          <li style={{ color: passwordFeedback.requirements.hasUpper ? "green" : "red" }}>
+                            Au moins une majuscule
+                          </li>
+                          <li style={{ color: passwordFeedback.requirements.hasLower ? "green" : "red" }}>
+                            Au moins une minuscule
+                          </li>
+                          <li style={{ color: passwordFeedback.requirements.hasNumber ? "green" : "red" }}>
+                            Au moins un chiffre
+                          </li>
+                          <li style={{ color: passwordFeedback.requirements.hasSpecial ? "green" : "red" }}>
+                            Au moins un caractère spécial
+                          </li>
+                        </ul>
+                      </div>
+                    )}
                   </div>
 
                   <div style={styles.formGroup}>
@@ -154,16 +243,25 @@ const InscriptionEn = () => {
                       style={styles.input}
                       placeholder="Confirmer le mot de passe"
                     />
-                    {errors.confirmPassword && <span style={styles.error}>{errors.confirmPassword}</span>}
+                    {errors.confirmPassword && (
+                      <span style={styles.error}>{errors.confirmPassword}</span>
+                    )}
                   </div>
 
-                  <button type="submit" style={styles.button} disabled={isSubmitting}>
+                  <button
+                    type="submit"
+                    style={styles.button}
+                    disabled={isSubmitting}
+                  >
                     {isSubmitting ? "En cours..." : "S'inscrire"}
                   </button>
                 </form>
 
                 <p style={styles.loginLink}>
-                  Déjà inscrit? <a href="/connexion" style={styles.link}>Connectez-vous</a>
+                  Déjà inscrit?{" "}
+                  <a href="/connexion" style={styles.link}>
+                    Connectez-vous
+                  </a>
                 </p>
               </div>
             </td>

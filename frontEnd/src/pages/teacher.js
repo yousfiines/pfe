@@ -1,80 +1,28 @@
 import React, { useRef, useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom"; // Import useNavigate
+import { useNavigate } from "react-router-dom";
 import logoFac from "./../assets/logoFac.png";
-import licencee from "./../assets/img/licencee.png";
-import master from "../e.png../../assets/img/master.png";
 import Lottie from "lottie-react";
-import home from "./../assets/lotties/home.json"
-import doctorat from "./../assets/img/doctorat.png";
-import Card from '@mui/material/Card';
-import CardActions from '@mui/material/CardActions';
-import CardContent from '@mui/material/CardContent';
-import CardMedia from '@mui/material/CardMedia';
-import Button from '@mui/material/Button';
-import Typography from '@mui/material/Typography';
-import { FaGraduationCap, FaFlask, FaHandshake } from "react-icons/fa";
+import home from "./../assets/lotties/home.json";
+import { FaChalkboardTeacher, FaCalendarAlt, FaClock, FaBook, FaGraduationCap, FaUniversity } from "react-icons/fa";
+import { MdEmail, MdPhone, MdLocationOn } from "react-icons/md";
+import FullCalendar from "@fullcalendar/react";
+import dayGridPlugin from "@fullcalendar/daygrid";
+import timeGridPlugin from "@fullcalendar/timegrid";
+import interactionPlugin from "@fullcalendar/interaction";
 
-const Teacher = () => { // Removed the extra curly braces here
-  const navigate = useNavigate();
+import downloadImage from "./../assets/img/téléchargement.jpeg";
 
-  const [isAdmin, setIsAdmin] = useState(false);
+const Teacher = () => {
   const newsSectionRef = useRef(null);
-  const programsSectionRef = useRef(null);
-  const contactSectionRef = useRef(null);
 
-  const scrollToSection = (ref) => {
-    ref.current.scrollIntoView({ behavior: "smooth" });
+  const navigate = useNavigate();
+  const [isAdmin, setIsAdmin] = useState(false);
+  const handleLoginClick = () => {
+    // Fonction pour gérer le clic sur le bouton de connexion
+    console.log("Bouton de connexion cliqué");
+    // Redirection vers la page de connexion
+    // window.location.href = "/login";
   };
-
-
-  const checkAdminStatus = () => {
-    // Implémentez votre logique de vérification ici
-    // Par exemple, vérifier dans localStorage ou via une API
-    return localStorage.getItem('isAdmin') === 'true';
-  };
-
-  const handleSeeMore = (programType) => {
-    navigate('/licence');
-  };
-
-  const handleEventClick = (eventName) => {
-    navigate('/eventForm', { state: { selectedEvent: eventName } });
-  };
-
-
-  useEffect(() => {
-    setIsAdmin(checkAdminStatus());
-  }, []);
-
-  const handleAdminClick = () => {
-    if (isAdmin) {
-      navigate('/admin/dashboard');
-    } else {
-      navigate('/admin/login');
-    }
-  };
-
-
-  const programs = [
-    {
-      title: "Licence",
-      description: "Découvrir la liste des filières universitaire",
-      image: licencee,
-      path: "licence",
-    },
-    {
-      title: "Master",
-      description: "Explorez notre programme de master",
-      image: master,
-      path: "master",
-    },
-    {
-      title: "Doctorat",
-      description: "Participez à des recherches de pointe",
-      image: doctorat,
-      path: "doctorat",
-    },
-  ];
 
   const events = [
     {
@@ -86,34 +34,163 @@ const Teacher = () => { // Removed the extra curly braces here
       description: "Participez à notre atelier de programmation avancée.",
     },
   ];
-  return (
-    <div className="home-page">
-      <header className="header">
-        <a href="/">
-          <img src={logoFac} width="80" height="80" alt="Logo de la Faculté" />
-        </a>
-        <nav className="nav">
-          <a href="#formations" onClick={() => scrollToSection(programsSectionRef)}>Formations</a><a href="#evenements" onClick={() => scrollToSection(newsSectionRef)}>Événements</a>
-         
 
-          <a href="/teacherUploadDoc">Seeeee</a>
-          <a href="/studentDoc">etudiant</a>
-          <a href="/teacherUploadDoc">Diffuser_cours</a>
-          {/*<button
-            className="admin-button"
-            onClick={handleAdminClick}
+
+
+  const handleEventClick = (eventName) => {
+    navigate('/eventForm', { state: { selectedEvent: eventName } });
+  };
+
+
+  return (
+    <div style={{
+      fontFamily: "'Georgia', 'Times New Roman', serif",
+      backgroundColor: "#f8f9fa",
+      minHeight: "100vh"
+    }}>
+      {/* Navbar */}
+      <header style={{
+        display: "flex",
+        alignItems: "center",
+        padding: "1rem 5%",
+        backgroundColor: "#fff",
+        borderBottom: "1px solid #e0e0e0",
+        boxShadow: "0 2px 12px rgba(0, 0, 0, 0.08)",
+        position: "sticky",
+        top: 0,
+        zIndex: 1000
+      }}>
+        <a href="/" style={{
+          display: "flex",
+          alignItems: "center",
+          textDecoration: "none"
+        }}>
+          <img
+            src={logoFac}
+            width="80"
+            height="80"
+            alt="Logo Faculté"
+            style={{
+              objectFit: "contain",
+              marginRight: "1rem",
+              filter: "drop-shadow(0 2px 4px rgba(0,0,0,0.1))"
+            }}
+          />
+          <div style={{
+            borderLeft: "2px solid #0056b3",
+            paddingLeft: "1rem",
+            height: "50px",
+            display: "flex",
+            flexDirection: "column",
+            justifyContent: "center"
+          }}>
+            <span style={{
+              fontSize: "1.2rem",
+              fontWeight: "bold",
+              color: "#0056b3"
+            }}>Faculté des Sciences</span>
+            <span style={{
+              fontSize: "0.9rem",
+              color: "#555"
+            }}>Université de Kairouan</span>
+          </div>
+        </a>
+
+        <div style={{ flexGrow: 13 }}></div>
+        <a href='/teacherProfil'>
+          <button
+            onClick={handleLoginClick}
+            style={{
+              background: "linear-gradient(to right, #0056b3, #0077cc)",
+              color: "white",
+              border: "none",
+              padding: "0.7rem 1.8rem",
+              borderRadius: "30px",
+              fontSize: "1rem",
+              fontWeight: "600",
+              cursor: "pointer",
+              transition: "all 0.3s ease",
+              boxShadow: "0 3px 6px rgba(0, 86, 179, 0.2)",
+              letterSpacing: "0.5px"
+            }}
+            onMouseOver={(e) => {
+              e.currentTarget.style.background = "linear-gradient(to right, #004494, #0066b3)";
+              e.currentTarget.style.boxShadow = "0 4px 8px rgba(0, 86, 179, 0.3)";
+            }}
+            onMouseOut={(e) => {
+              e.currentTarget.style.background = "linear-gradient(to right, #0056b3, #0077cc)";
+              e.currentTarget.style.boxShadow = "0 3px 6px rgba(0, 86, 179, 0.2)";
+            }}
           >
-            {isAdmin ? 'Espace Admin' : 'Admin'}
-          </button>*/ }
-        </nav>
+            Profil
+          </button>
+        </a>
+
+
+        <div style={{ flexGrow: 1 }}></div>
+        <a href="/teacherUploadDoc" style={{
+          display: "flex",
+          alignItems: "center",
+          textDecoration: "none"
+        }}>
+          
+          <div style={{
+            
+            paddingLeft: "1rem",
+            height: "50px",
+            display: "flex",
+            flexDirection: "column",
+            justifyContent: "center"
+          }}>
+            <span style={{
+              fontSize: "1.2rem",
+              fontWeight: "bold",
+              color: "#0056b3"
+            }}>Diffuser cours</span>
+           
+          </div>
+        </a>
+
+        
+        
       </header>
-      {/* ... The rest of your Header component's JSX ... */}
-      
-                   
-                
-                   
-             
-                   <section className="news-section" ref={newsSectionRef} id="evenements">
+
+      {/* Hero Section avec image de fond */}
+            <section style={{
+              background: `linear-gradient(rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.5)), url(${downloadImage})`,
+              backgroundSize: 'cover',
+              backgroundPosition: 'center',
+              backgroundRepeat: 'no-repeat',
+              height: '100vh',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              textAlign: 'center',
+              color: 'white',
+              position: 'relative',
+              marginTop: '-3px' // Compensation pour la bande défilante
+            }}>
+              <div style={{
+                maxWidth: '800px',
+                padding: '20px',
+                zIndex: 2
+              }}>
+                <p style={{
+                  fontSize: '2.5rem',
+                  marginBottom: '20px',
+                  fontWeight: '700',
+                  textShadow: '2px 2px 4px rgba(0, 0, 0, 0.5)'
+                }}>    Un établissement d'excellence académique dédié à la formation des leaders scientifiques de demain.</p>
+                <p style={{
+                  fontSize: '1.5rem',
+                  opacity: '0.9',
+                  textShadow: '1px 1px 2px rgba(0, 0, 0, 0.5)'
+                }}>Excellence académique, innovation et recherche de pointe</p>
+              </div>
+            </section>
+          
+
+            <section className="news-section" ref={newsSectionRef} id="evenements">
                      <h2>Actualités et événements</h2>
                      <div className="news-grid">
                        {events.map((event, index) => (
@@ -130,13 +207,10 @@ const Teacher = () => { // Removed the extra curly braces here
                        ))}
                      </div>
                    </section>
-             
-                   <section className="contact-section" ref={contactSectionRef} id="contact"> {/* Section contact ajoutée */}
-                     
-                     {/* Ajoutez ici le contenu de votre section contact */}
-                   </section>
-                 </div>
-               );
-             };
-             
+
+        
+            </div>
+            
+  );
+};
 export default Teacher;

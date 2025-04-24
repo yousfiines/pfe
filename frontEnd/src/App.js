@@ -26,7 +26,8 @@ import Enseignant from "./pages/enseignant.js";
 import EventForm from "./pages/eventForm.js";
 import Licence from "./pages/licence.js";
 import Home from "./pages/Home";
-import Teacher from "./pages/teacher.js"
+import Teacher from "./pages/teacher.js";
+import TeacherProfil from "./components/layout/teacherProfil.js"
 function App() {
   return (
     <Router>
@@ -62,6 +63,7 @@ function AppContent() {
         <Route path="/licence" element={<Licence />} />
         <Route path="/teacher" element={<Teacher />} />
         <Route path="/studentdoc" element={<StudentDoc />} />
+        <Route path="/teacherProfil" element={<TeacherProfil />} />
         <Route path="/teacheruploaddoc" element={<TeacherUploadDocument />} />
 
         {/* Route login admin (hors layout) */}
