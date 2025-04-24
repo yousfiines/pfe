@@ -1,7 +1,8 @@
 import React from 'react';
-import { FaGraduationCap, FaFlask, FaHandshake } from 'react-icons/fa';
-import downloadImage from '../../../assets/img/téléchargement.jpeg';
+import { FaGraduationCap, FaFlask } from 'react-icons/fa';
+import IMG from "../../../assets/img/IMG.JPG";
 import logoFac from "./../../../assets/logoFac.png";
+import Fac from "../../../assets/img/fac.JPG";
 
 const Header = () => {
   const handleLoginClick = () => {
@@ -57,7 +58,7 @@ const Header = () => {
               fontSize: "1.2rem",
               fontWeight: "bold",
               color: "#0056b3"
-            }}>Faculté des Sciences</span>
+            }}>Faculté des Sciences et Techniques FSTSBZ</span>
             <span style={{
               fontSize: "0.9rem",
               color: "#555"
@@ -66,34 +67,33 @@ const Header = () => {
         </a>
 
         <div style={{ flexGrow: 1 }}></div>
-<a href='/connexion'>
-        <button
-          onClick={handleLoginClick}
-          style={{
-            background: "linear-gradient(to right, #0056b3, #0077cc)",
-            color: "white",
-            border: "none",
-            padding: "0.7rem 1.8rem",
-            borderRadius: "30px",
-            fontSize: "1rem",
-            fontWeight: "600",
-            cursor: "pointer",
-            transition: "all 0.3s ease",
-            boxShadow: "0 3px 6px rgba(0, 86, 179, 0.2)",
-            letterSpacing: "0.5px"
-          }}
-          onMouseOver={(e) => {
-            e.currentTarget.style.background = "linear-gradient(to right, #004494, #0066b3)";
-            e.currentTarget.style.boxShadow = "0 4px 8px rgba(0, 86, 179, 0.3)";
-          }}
-          onMouseOut={(e) => {
-            e.currentTarget.style.background = "linear-gradient(to right, #0056b3, #0077cc)";
-            e.currentTarget.style.boxShadow = "0 3px 6px rgba(0, 86, 179, 0.2)";
-          }}
-        >
-         Se connecter
-         
-        </button>
+        <a href='/connexion'>
+          <button
+            onClick={handleLoginClick}
+            style={{
+              background: "linear-gradient(to right, #0056b3, #0077cc)",
+              color: "white",
+              border: "none",
+              padding: "0.7rem 1.8rem",
+              borderRadius: "30px",
+              fontSize: "1rem",
+              fontWeight: "600",
+              cursor: "pointer",
+              transition: "all 0.3s ease",
+              boxShadow: "0 3px 6px rgba(0, 86, 179, 0.2)",
+              letterSpacing: "0.5px"
+            }}
+            onMouseOver={(e) => {
+              e.currentTarget.style.background = "linear-gradient(to right, #004494, #0066b3)";
+              e.currentTarget.style.boxShadow = "0 4px 8px rgba(0, 86, 179, 0.3)";
+            }}
+            onMouseOut={(e) => {
+              e.currentTarget.style.background = "linear-gradient(to right, #0056b3, #0077cc)";
+              e.currentTarget.style.boxShadow = "0 3px 6px rgba(0, 86, 179, 0.2)";
+            }}
+          >
+            Se connecter
+          </button>
         </a>
       </header>
 
@@ -128,7 +128,7 @@ const Header = () => {
 
       {/* Hero Section avec image de fond */}
       <section style={{
-        background: `linear-gradient(rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.5)), url(${downloadImage})`,
+        background: `linear-gradient(rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.5)), url(${IMG})`,
         backgroundSize: 'cover',
         backgroundPosition: 'center',
         backgroundRepeat: 'no-repeat',
@@ -151,7 +151,7 @@ const Header = () => {
             marginBottom: '20px',
             fontWeight: '700',
             textShadow: '2px 2px 4px rgba(0, 0, 0, 0.5)'
-          }}>    Un établissement d'excellence académique dédié à la formation des leaders scientifiques de demain.</p>
+          }}>Un établissement d'excellence académique dédié à la formation des leaders scientifiques de demain.</p>
           <p style={{
             fontSize: '1.5rem',
             opacity: '0.9',
@@ -178,7 +178,7 @@ const Header = () => {
               color: '#1e3c72',
               fontWeight: '600',
               marginBottom: '10px'
-            }}>Notre Institution</h2>
+            }}>Notre faculté</h2>
             <div style={{
               width: '80px',
               height: '4px',
@@ -209,7 +209,7 @@ const Header = () => {
                 position: 'relative'
               }}>
                 <img 
-                  src="https://images.unsplash.com/photo-1523050854058-8df90110c9f1?ixlib=rb-1.2.1&auto=format&fit=crop&w=500&q=80" 
+                  src={Fac}
                   alt="Campus universitaire" 
                   style={{
                     width: '100%',
@@ -263,7 +263,7 @@ const Header = () => {
                     <p style={{
                       color: '#555',
                       fontSize: '0.95rem'
-                    }}>Créée le 4 septembre 2012 par décret n°1645</p>
+                    }}>Crée le 4 septembre 2012 par décret n°1645</p>
                   </div>
                 </div>
                 <div style={{
@@ -385,7 +385,6 @@ const Header = () => {
                     fontSize: '0.9rem'
                   }}>Encouragement à l'innovation et recherche scientifique</p>
                 </div>
-               
               </div>
             </div>
           </div>
@@ -443,7 +442,7 @@ const Header = () => {
           fontWeight: '600',
           position: 'relative',
           paddingBottom: '15px'
-        }}>Nos Valeurs Fondamentales</h2>
+        }}>Nos Valeurs Fondamentaux</h2>
         <div style={{
           display: 'grid',
           gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))',
@@ -467,7 +466,7 @@ const Header = () => {
             <div style={{
               fontSize: '3rem',
               marginBottom: '20px'
-            }}>🏛️</div>
+            }}>🏛</div>
             <h3 style={{
               color: '#1e3c72',
               fontSize: '1.5rem',
@@ -545,7 +544,7 @@ const Header = () => {
       {/* Programs Section */}
       <section style={{
         padding: '80px 20px',
-        
+        background: 'linear-gradient(135deg, #2c3e50 0%, #4a6491 100%)'
       }}>
         <div style={{
           maxWidth: '1200px',
@@ -558,271 +557,243 @@ const Header = () => {
             color: '#fff',
             fontWeight: '600',
             position: 'relative',
-            paddingBottom: '15px',
+            paddingBottom: '15px'
           }}>
-<section style={{
-  padding: '80px 20px',
- 
-  background: 'linear-gradient(135deg, #2c3e50 0%, #4a6491 100%)'
-}}>
-  <div style={{
-    maxWidth: '1200px',
-    margin: '0 auto'
-  }}>
-    <h2 style={{
-      textAlign: 'center',
-      fontSize: '2.5rem',
-      marginBottom: '20px',
-      color: '#fff',
-      fontWeight: '600',
-      position: 'relative',
-      paddingBottom: '15px'
-    }}>
-      </h2>
-      Nos Formations
-      <div style={{
-        width: '80px',
-        height: '4px',
-        backgroundColor: '#f1c40f',
-        margin: '15px auto 0',
-        borderRadius: '2px'
-      }}></div>
-    </div>
-    <p style={{
-      textAlign: 'center',
-      fontSize: '1.2rem',
-      color: 'rgba(255,255,255,0.85)',
-      maxWidth: '800px',
-      margin: '0 auto 50px',
-      lineHeight: '1.6'
-    }}>
-      Des programmes académiques conçus pour former les experts de demain et répondre aux défis scientifiques contemporains
-    </p>
-    
-    <div style={{
-      display: 'grid',
-      gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
-      gap: '30px',
-      marginTop: '40px'
-    }}>
-      {/* Licence */}
-      <div style={{
-        background: '#fff',
-        padding: '35px 30px',
-        borderRadius: '10px',
-        boxShadow: '0 10px 30px rgba(0, 0, 0, 0.15)',
-        transition: 'all 0.3s ease',
-        borderTop: '5px solid #3498db',
-        ':hover': {
-          transform: 'translateY(-10px)',
-          boxShadow: '0 15px 35px rgba(0, 0, 0, 0.2)'
-        }
-      }}>
-        <div style={{
-          display: 'flex',
-          alignItems: 'center',
-          marginBottom: '25px'
-        }}>
+            Nos Formations
+          </h2>
           <div style={{
-            width: '60px',
-            height: '60px',
-            backgroundColor: '#e8f4fc',
-            borderRadius: '50%',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            marginRight: '15px'
+            width: '80px',
+            height: '4px',
+            backgroundColor: '#f1c40f',
+            margin: '15px auto 0',
+            borderRadius: '2px'
+          }}></div>
+          <p style={{
+            textAlign: 'center',
+            fontSize: '1.2rem',
+            color: 'rgba(255,255,255,0.85)',
+            maxWidth: '800px',
+            margin: '0 auto 50px',
+            lineHeight: '1.6'
           }}>
-            <span style={{
-              fontSize: '1.8rem',
-              color: '#3498db'
-            }}>🎓</span>
-          </div>
-          <h3 style={{
-            color: '#2c3e50',
-            fontSize: '1.6rem',
-            fontWeight: '600',
-            margin: 0
-          }}>Licence</h3>
-        </div>
-        
-        <ul style={{
-          listStyleType: 'none',
-          padding: 0,
-          marginBottom: '30px'
-        }}>
-          {['Science de l’Informatique "Computer Science"', 'Technologies de l’Information et de la Communication', 'Physique Chimie', 'Technologies Agroalimentaires et Environnement'].map((item, index) => (
-            <li key={index} style={{
-              padding: '14px 0',
-              borderBottom: '1px solid #f0f0f0',
-              fontSize: '1.05rem',
-              color: '#555',
-              display: 'flex',
-              alignItems: 'center'
-            }}>
-              <span style={{
-                display: 'inline-block',
-                width: '8px',
-                height: '8px',
-                backgroundColor: '#3498db',
-                borderRadius: '50%',
-                marginRight: '12px'
-              }}></span>
-              {item}
-            </li>
-          ))}
-        </ul>
-        
-        
-      </div>
-      
-      {/* Master */}
-      <div style={{
-        background: '#fff',
-        padding: '35px 30px',
-        borderRadius: '10px',
-        boxShadow: '0 10px 30px rgba(0, 0, 0, 0.15)',
-        transition: 'all 0.3s ease',
-        borderTop: '5px solid #e74c3c',
-        ':hover': {
-          transform: 'translateY(-10px)',
-          boxShadow: '0 15px 35px rgba(0, 0, 0, 0.2)'
-        }
-      }}>
-        <div style={{
-          display: 'flex',
-          alignItems: 'center',
-          marginBottom: '25px'
-        }}>
+            Des programmes académiques conçus pour former les experts de demain et répondre aux défis scientifiques contemporains
+          </p>
+          
           <div style={{
-            width: '60px',
-            height: '60px',
-            backgroundColor: '#fdedec',
-            borderRadius: '50%',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            marginRight: '15px'
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
+            gap: '30px',
+            marginTop: '40px'
           }}>
-            <span style={{
-              fontSize: '1.8rem',
-              color: '#e74c3c'
-            }}>🔬</span>
-          </div>
-          <h3 style={{
-            color: '#2c3e50',
-            fontSize: '1.6rem',
-            fontWeight: '600',
-            margin: 0
-          }}>Master</h3>
-        </div>
-        
-        <ul style={{
-          listStyleType: 'none',
-          padding: 0,
-          marginBottom: '30px'
-        }}>
-          {['Intelligence Artificielle', 'Data Science', 'Énergies Renouvelables', 'Biotechnologie', 'Chimie Avancée', 'Modélisation Mathématique'].map((item, index) => (
-            <li key={index} style={{
-              padding: '14px 0',
-              borderBottom: '1px solid #f0f0f0',
-              fontSize: '1.05rem',
-              color: '#555',
-              display: 'flex',
-              alignItems: 'center'
+            {/* Licence */}
+            <div style={{
+              background: '#fff',
+              padding: '35px 30px',
+              borderRadius: '10px',
+              boxShadow: '0 10px 30px rgba(0, 0, 0, 0.15)',
+              transition: 'all 0.3s ease',
+              borderTop: '5px solid #3498db',
+              ':hover': {
+                transform: 'translateY(-10px)',
+                boxShadow: '0 15px 35px rgba(0, 0, 0, 0.2)'
+              }
             }}>
-              <span style={{
-                display: 'inline-block',
-                width: '8px',
-                height: '8px',
-                backgroundColor: '#e74c3c',
-                borderRadius: '50%',
-                marginRight: '12px'
-              }}></span>
-              {item}
-            </li>
-          ))}
-        </ul>
-        
-      
-      </div>
-      
-      {/* Doctorat */}
-      <div style={{
-        background: '#fff',
-        padding: '35px 30px',
-        borderRadius: '10px',
-        boxShadow: '0 10px 30px rgba(0, 0, 0, 0.15)',
-        transition: 'all 0.3s ease',
-        borderTop: '5px solid #2ecc71',
-        ':hover': {
-          transform: 'translateY(-10px)',
-          boxShadow: '0 15px 35px rgba(0, 0, 0, 0.2)'
-        }
-      }}>
-        <div style={{
-          display: 'flex',
-          alignItems: 'center',
-          marginBottom: '25px'
-        }}>
-          <div style={{
-            width: '60px',
-            height: '60px',
-            backgroundColor: '#e8f8f0',
-            borderRadius: '50%',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            marginRight: '15px'
-          }}>
-            <span style={{
-              fontSize: '1.8rem',
-              color: '#2ecc71'
-            }}>📚</span>
-          </div>
-          <h3 style={{
-            color: '#2c3e50',
-            fontSize: '1.6rem',
-            fontWeight: '600',
-            margin: 0
-          }}>Doctorat</h3>
-        </div>
-        
-        <ul style={{
-          listStyleType: 'none',
-          padding: 0,
-          marginBottom: '30px'
-        }}>
-          {['Informatique et Systèmes', 'Physique Théorique', 'Chimie des Matériaux', 'Biologie Moléculaire', 'Sciences de la Terre', 'Mathématiques Pures'].map((item, index) => (
-            <li key={index} style={{
-              padding: '14px 0',
-              borderBottom: '1px solid #f0f0f0',
-              fontSize: '1.05rem',
-              color: '#555',
-              display: 'flex',
-              alignItems: 'center'
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                marginBottom: '25px'
+              }}>
+                <div style={{
+                  width: '60px',
+                  height: '60px',
+                  backgroundColor: '#e8f4fc',
+                  borderRadius: '50%',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  marginRight: '15px'
+                }}>
+                  <span style={{
+                    fontSize: '1.8rem',
+                    color: '#3498db'
+                  }}>🎓</span>
+                </div>
+                <h3 style={{
+                  color: '#2c3e50',
+                  fontSize: '1.6rem',
+                  fontWeight: '600',
+                  margin: 0
+                }}>Licence</h3>
+              </div>
+              
+              <ul style={{
+                listStyleType: 'none',
+                padding: 0,
+                marginBottom: '30px'
+              }}>
+                {['Science de l\'Informatique "Computer Science"', 'Technologies de l\'Information et de la Communication', 'Physique Chimie', 'Technologies Agroalimentaires et Environnement'].map((item, index) => (
+                  <li key={index} style={{
+                    padding: '14px 0',
+                    borderBottom: '1px solid #f0f0f0',
+                    fontSize: '1.05rem',
+                    color: '#555',
+                    display: 'flex',
+                    alignItems: 'center'
+                  }}>
+                    <span style={{
+                      display: 'inline-block',
+                      width: '8px',
+                      height: '8px',
+                      backgroundColor: '#3498db',
+                      borderRadius: '50%',
+                      marginRight: '12px'
+                    }}></span>
+                    {item}
+                  </li>
+                ))}
+              </ul>
+            </div>
+            
+            {/* Master */}
+            <div style={{
+              background: '#fff',
+              padding: '35px 30px',
+              borderRadius: '10px',
+              boxShadow: '0 10px 30px rgba(0, 0, 0, 0.15)',
+              transition: 'all 0.3s ease',
+              borderTop: '5px solid #e74c3c',
+              ':hover': {
+                transform: 'translateY(-10px)',
+                boxShadow: '0 15px 35px rgba(0, 0, 0, 0.2)'
+              }
             }}>
-              <span style={{
-                display: 'inline-block',
-                width: '8px',
-                height: '8px',
-                backgroundColor: '#2ecc71',
-                borderRadius: '50%',
-                marginRight: '12px'
-              }}></span>
-              {item}
-            </li>
-          ))}
-        </ul>
-        
-      </div>
-    </div>
-    </section>
-</h2>
-
-     
-     </div>
-     </section>
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                marginBottom: '25px'
+              }}>
+                <div style={{
+                  width: '60px',
+                  height: '60px',
+                  backgroundColor: '#fdedec',
+                  borderRadius: '50%',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  marginRight: '15px'
+                }}>
+                  <span style={{
+                    fontSize: '1.8rem',
+                    color: '#e74c3c'
+                  }}>🔬</span>
+                </div>
+                <h3 style={{
+                  color: '#2c3e50',
+                  fontSize: '1.6rem',
+                  fontWeight: '600',
+                  margin: 0
+                }}>Master</h3>
+              </div>
+              
+              <ul style={{
+                listStyleType: 'none',
+                padding: 0,
+                marginBottom: '30px'
+              }}>
+                {['Intelligence Artificielle', 'Data Science', 'Énergies Renouvelables', 'Biotechnologie', 'Chimie Avancée', 'Modélisation Mathématique'].map((item, index) => (
+                  <li key={index} style={{
+                    padding: '14px 0',
+                    borderBottom: '1px solid #f0f0f0',
+                    fontSize: '1.05rem',
+                    color: '#555',
+                    display: 'flex',
+                    alignItems: 'center'
+                  }}>
+                    <span style={{
+                      display: 'inline-block',
+                      width: '8px',
+                      height: '8px',
+                      backgroundColor: '#e74c3c',
+                      borderRadius: '50%',
+                      marginRight: '12px'
+                    }}></span>
+                    {item}
+                  </li>
+                ))}
+              </ul>
+            </div>
+            
+            {/* Doctorat */}
+            <div style={{
+              background: '#fff',
+              padding: '35px 30px',
+              borderRadius: '10px',
+              boxShadow: '0 10px 30px rgba(0, 0, 0, 0.15)',
+              transition: 'all 0.3s ease',
+              borderTop: '5px solid #2ecc71',
+              ':hover': {
+                transform: 'translateY(-10px)',
+                boxShadow: '0 15px 35px rgba(0, 0, 0, 0.2)'
+              }
+            }}>
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                marginBottom: '25px'
+              }}>
+                <div style={{
+                  width: '60px',
+                  height: '60px',
+                  backgroundColor: '#e8f8f0',
+                  borderRadius: '50%',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  marginRight: '15px'
+                }}>
+                  <span style={{
+                    fontSize: '1.8rem',
+                    color: '#2ecc71'
+                  }}>📚</span>
+                </div>
+                <h3 style={{
+                  color: '#2c3e50',
+                  fontSize: '1.6rem',
+                  fontWeight: '600',
+                  margin: 0
+                }}>Doctorat</h3>
+              </div>
+              
+              <ul style={{
+                listStyleType: 'none',
+                padding: 0,
+                marginBottom: '30px'
+              }}>
+                {['Informatique et Systèmes', 'Physique Théorique', 'Chimie des Matériaux', 'Biologie Moléculaire', 'Sciences de la Terre', 'Mathématiques Pures'].map((item, index) => (
+                  <li key={index} style={{
+                    padding: '14px 0',
+                    borderBottom: '1px solid #f0f0f0',
+                    fontSize: '1.05rem',
+                    color: '#555',
+                    display: 'flex',
+                    alignItems: 'center'
+                  }}>
+                    <span style={{
+                      display: 'inline-block',
+                      width: '8px',
+                      height: '8px',
+                      backgroundColor: '#2ecc71',
+                      borderRadius: '50%',
+                      marginRight: '12px'
+                    }}></span>
+                    {item}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </div>
+        </div>
+      </section>
     </div>
   );
 };

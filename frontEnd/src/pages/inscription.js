@@ -111,34 +111,46 @@ const Inscription = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setIsSubmitting(true);
-
+  
     if (validateForm()) {
       try {
-        const { confirmPassword, ...dataToSend } = formData;
-
         const response = await fetch("http://localhost:5000/etudiant", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: { 
+            "Content-Type": "application/json" 
+          },
           body: JSON.stringify({
-            ...dataToSend,
-            // Ajout du feedback mot de passe pour le backend
-            passwordFeedback: passwordFeedback
+            Cin: formData.Cin,
+            Nom_et_prénom: formData.Nom_et_prénom,
+            Téléphone: formData.Téléphone,
+            email: formData.email, // Changé de Email à email
+            password: formData.password, // Changé de Password à password
+            confirmPassword: formData.confirmPassword,
+            filière: formData.filière
           }),
         });
-
+  
         const data = await response.json();
-        if (response.ok) {
-          // Stocker la filière dans le localStorage
-          localStorage.setItem('selectedFiliere', dataToSend.filière);
-          alert("Inscription réussie !");
-          navigate("/connexion");
-        } else {
-          if (data.errors) setErrors(data.errors);
-          if (data.passwordFeedback) setPasswordFeedback(data.passwordFeedback);
+        
+        if (!response.ok) {
+          // Gestion des erreurs venant du backend
+          if (data.errors) {
+            setErrors(data.errors);
+          }
+          if (data.passwordFeedback) {
+            setPasswordFeedback(data.passwordFeedback);
+          }
           alert(data.message || "Erreur lors de l'inscription");
+          return;
         }
+  
+        // Si succès
+        localStorage.setItem('selectedFiliere', formData.filière);
+        alert("Inscription réussie !");
+        navigate("/connexion");
+        
       } catch (error) {
-        console.error("Erreur lors de l'inscription :", error);
+        console.error("Erreur réseau:", error);
         alert("Erreur réseau. Veuillez réessayer.");
       } finally {
         setIsSubmitting(false);

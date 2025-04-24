@@ -83,39 +83,60 @@ app.post("/connexion", async (req, res) => {
 
   try {
     // Vérification enseignant
-    const [enseignant] = await pool.query("SELECT * FROM enseignants WHERE Email = ?", [email]);
-
-    if (enseignant.length > 0) {
-      const isPasswordValid = await bcrypt.compare(password, enseignant[0].Password);
+    const [enseignants] = await pool.query("SELECT * FROM enseignants WHERE Email = ?", [email]);
+    
+    if (enseignants.length > 0) {
+      const enseignant = enseignants[0];
+      // Debug: Afficher le hash stocké et le mot de passe tenté
+      console.log("Hash stocké (enseignant):", enseignant.Password);
+      console.log("Mot de passe tenté:", password);
+      
+      const isPasswordValid = await bcrypt.compare(password, enseignant.Password);
+      
       if (isPasswordValid) {
         return res.status(200).json({ 
           message: "Connexion réussie", 
           role: "enseignant", 
-          user: enseignant[0] 
+          cin: enseignant.CIN, // Ajout du CIN
+          user: enseignant 
         });
+      } else {
+        console.log("Comparaison bcrypt échouée pour enseignant");
+        return res.status(401).json({ message: "Mot de passe incorrect." });
       }
-      return res.status(400).json({ message: "Mot de passe incorrect." });
     }
 
     // Vérification étudiant
-    const [etudiant] = await pool.query("SELECT * FROM etudiant WHERE email = ?", [email]);
-
-    if (etudiant.length > 0) {
-      const isPasswordValid = await bcrypt.compare(password, etudiant[0].password);
+    const [etudiants] = await pool.query("SELECT * FROM etudiant WHERE email = ?", [email]);
+    
+    if (etudiants.length > 0) {
+      const etudiant = etudiants[0];
+      // Debug: Afficher le hash stocké et le mot de passe tenté
+      console.log("Hash stocké (étudiant):", etudiant.Password);
+      console.log("Mot de passe tenté:", password);
+      
+      const isPasswordValid = await bcrypt.compare(password, etudiant.Password);
+      
       if (isPasswordValid) {
         return res.status(200).json({ 
           message: "Connexion réussie", 
           role: "etudiant", 
-          user: etudiant[0] 
+          cin: etudiant.CIN, // Ajout du CIN
+          user: etudiant 
         });
+      } else {
+        console.log("Comparaison bcrypt échouée pour étudiant");
+        return res.status(401).json({ message: "Mot de passe incorrect." });
       }
-      return res.status(400).json({ message: "Mot de passe incorrect." });
     }
 
     return res.status(404).json({ message: "Aucun utilisateur trouvé avec cet email." });
   } catch (error) {
     console.error("Erreur lors de la connexion :", error);
-    return res.status(500).json({ message: "Erreur interne du serveur", error: error.message });
+    return res.status(500).json({ 
+      message: "Erreur interne du serveur", 
+      error: error.message 
+    });
   }
 });
 
@@ -204,6 +225,7 @@ app.post("/enseignants", async (req, res) => {
 app.post("/etudiant", async (req, res) => {
   const { Cin, Nom_et_prénom, Téléphone, email, password, confirmPassword, filière } = req.body;
 
+  // Validation des champs
   const errors = {};
   const passwordFeedback = {
     requirements: {
@@ -216,14 +238,20 @@ app.post("/etudiant", async (req, res) => {
     strength: 0
   };
 
-  // Validation des champs
   if (!Cin) {
     errors.Cin = "Le CIN est requis.";
   } else if (!/^[01]\d{7}$/.test(Cin)) {
     errors.Cin = "Le CIN doit contenir exactement 8 chiffres commençant par 0 ou 1.";
   }
-  if (!Nom_et_prénom) errors.Nom_et_prénom = "Le nom est requis.";
-  if (!Téléphone) errors.Téléphone = "Le téléphone est requis.";
+
+  if (!Nom_et_prénom || Nom_et_prénom.trim().length === 0) {
+    errors.Nom_et_prénom = "Le nom complet est requis.";
+  }
+
+  if (!Téléphone || !/^\d{8}$/.test(Téléphone)) {
+    errors.Téléphone = "Un numéro de téléphone valide (8 chiffres) est requis.";
+  }
+
   if (!email) {
     errors.email = "L'email est requis.";
   } else if (!/\S+@\S+\.\S+/.test(email)) {
@@ -233,18 +261,19 @@ app.post("/etudiant", async (req, res) => {
   if (!password) {
     errors.password = "Le mot de passe est requis.";
   } else {
-    // Vérification des exigences
-    passwordFeedback.requirements.minLength = password.length >= 10;
-    passwordFeedback.requirements.hasUpper = /[A-Z]/.test(password);
-    passwordFeedback.requirements.hasLower = /[a-z]/.test(password);
-    passwordFeedback.requirements.hasNumber = /[0-9]/.test(password);
-    passwordFeedback.requirements.hasSpecial = /[!@#$%^&*(),.?":{}|<>]/.test(password);
+    // Vérification des exigences du mot de passe
+    passwordFeedback.requirements = {
+      minLength: password.length >= 10,
+      hasUpper: /[A-Z]/.test(password),
+      hasLower: /[a-z]/.test(password),
+      hasNumber: /[0-9]/.test(password),
+      hasSpecial: /[!@#$%^&*(),.?":{}|<>]/.test(password)
+    };
 
-    // Calcul du score de force (0-5)
     passwordFeedback.strength = Object.values(passwordFeedback.requirements).filter(Boolean).length;
 
-    if (!passwordFeedback.requirements.minLength) {
-      errors.password = "Le mot de passe doit contenir au moins 10 caractères.";
+    if (passwordFeedback.strength < 3) { // Au moins 3 critères sur 5
+      errors.password = "Le mot de passe est trop faible. Il doit contenir au moins : 10 caractères, une majuscule, une minuscule, un chiffre et un caractère spécial.";
     }
   }
 
@@ -253,38 +282,59 @@ app.post("/etudiant", async (req, res) => {
   }
 
   if (!filière || !Filière.includes(filière)) {
-    errors.filière = "La filière est invalide ou manquante.";
+    errors.filière = "Veuillez sélectionner une filière valide.";
   }
 
   if (Object.keys(errors).length > 0) {
     return res.status(400).json({ 
+      success: false,
       errors,
       passwordFeedback
     });
   }
 
   try {
+    // Vérification de l'unicité du CIN et de l'email
     const [existing] = await pool.query(
       "SELECT * FROM etudiant WHERE Cin = ? OR email = ?",
       [Cin, email]
     );
 
     if (existing.length > 0) {
-      return res.status(400).json({ message: "Un étudiant avec ce CIN ou cet email existe déjà." });
+      return res.status(400).json({ 
+        success: false,
+        message: "Un étudiant avec ce CIN ou cet email existe déjà." 
+      });
     }
 
+    // Hachage du mot de passe
     const saltRounds = 10;
     const hashedPassword = await bcrypt.hash(password, saltRounds);
+    const hashedConfirmPassword = await bcrypt.hash(confirmPassword, saltRounds);
 
+    // Insertion dans la base de données
     await pool.query(
-      "INSERT INTO etudiant (Cin, Nom_et_prénom, Téléphone, email, password, filière) VALUES (?, ?, ?, ?, ?, ?)",
-      [Cin, Nom_et_prénom, Téléphone, email, hashedPassword, filière]
+      "INSERT INTO etudiant (Cin, Nom_et_prénom, Téléphone, email, password, Confirmpassword, Filière) VALUES (?, ?, ?, ?, ?, ?, ?)",
+      [Cin, Nom_et_prénom.trim(), Téléphone, email.toLowerCase(), hashedPassword, hashedConfirmPassword, filière]
     );
 
-    res.status(201).json({ message: "Inscription réussie" });
+    return res.status(201).json({ 
+      success: true,
+      message: "Inscription réussie",
+      data: {
+        Cin,
+        Nom_et_prénom,
+        email
+      }
+    });
+
   } catch (error) {
     console.error("Erreur serveur :", error);
-    res.status(500).json({ message: "Erreur serveur", error: error.message });
+    return res.status(500).json({ 
+      success: false,
+      message: "Erreur lors de l'inscription",
+      error: error.message 
+    });
   }
 });
 // Route pour afficher tous les utilisateurs
@@ -370,7 +420,7 @@ router.post('/extend-session', (req, res) => {
 
 
 // Démarrer le serveur
-const PORT = 5000;
-app.listen(PORT, () => {
-  console.log(`Serveur en ligne sur http://localhost:${PORT}`);
-});
+app.use(cors({
+  origin: 'http://localhost:3000', // ou l'URL de votre frontend
+  credentials: true
+}));

@@ -3,7 +3,7 @@ import { BrowserRouter as Router, Routes, Route, useLocation, Navigate } from "r
 import Header from "./components/layout/Header/header.js";
 import Footer from "./components/layout/Footer/footer.js";
 import "./styles.css";
-
+import ProtectedRoute from './pages/ProtectedRoute.js';
 // Routes Admin
 import AdminLayout from './admin/layouts/AdminLayout.jsx';
 import AdminDashboard from './admin/pages/Dashboard';
@@ -65,7 +65,8 @@ function AppContent() {
         <Route path="/studentdoc" element={<StudentDoc />} />
         <Route path="/teacherProfil" element={<TeacherProfil />} />
         <Route path="/teacheruploaddoc" element={<TeacherUploadDocument />} />
-
+        <Route path="/teacher" element={
+  <ProtectedRoute><TeacherProfil /></ProtectedRoute>} />
         {/* Route login admin (hors layout) */}
         <Route path="/admin/login" element={<AdminLogin />} />
 

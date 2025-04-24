@@ -42,7 +42,7 @@ const Connexion = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setIsSubmitting(true);
-
+  
     if (validateForm()) {
       try {
         const response = await fetch("http://localhost:5000/connexion", {
@@ -56,21 +56,28 @@ const Connexion = () => {
         const data = await response.json();
   
         if (response.ok) {
-          alert(data.message);
+          // Stockage des informations de session
+          localStorage.setItem('userRole', data.role);
+          localStorage.setItem('userCin', data.cin);
+          localStorage.setItem('userData', JSON.stringify(data.user));
+  
+          // Redirection
           if (data.role === "enseignant") {
             navigate("/teacher");
           } else if (data.role === "etudiant") {
             navigate("/etudiant");
           }
         } else {
-          alert(data.message);
+          alert(data.message || "Erreur lors de la connexion");
         }
       } catch (error) {
         console.error("Erreur réseau :", error);
         alert("Erreur réseau. Veuillez réessayer.");
+      } finally {
+        setIsSubmitting(false);
       }
     } else {
-      console.log("Erreurs dans le formulaire :", errors);
+      setIsSubmitting(false);
     }
   };
 
