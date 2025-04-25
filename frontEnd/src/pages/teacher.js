@@ -81,7 +81,7 @@ const Teacher = () => {
               fontSize: "1.2rem",
               fontWeight: "bold",
               color: "#0056b3"
-            }}>Faculté des Sciences</span>
+            }}>Faculté des Sciences et Techniques FSTSBZ</span>
             <span style={{
               fontSize: "0.9rem",
               color: "#555"

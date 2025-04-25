@@ -421,6 +421,14 @@ router.post('/extend-session', (req, res) => {
 
 // Démarrer le serveur
 app.use(cors({
-  origin: 'http://localhost:3000', // ou l'URL de votre frontend
+  origin: 'http://localhost:5000',
   credentials: true
 }));
+
+const PORT = 5000;
+
+app.listen(PORT, () => {
+  console.log(`🚀 Serveur en écoute sur http://localhost:${PORT}`);
+}).on('error', (err) => {
+  console.error('❌ Erreur du serveur :', err.message);
+});

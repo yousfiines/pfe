@@ -40,7 +40,7 @@ export default function Footer() {
           </div>
           
           <div className="footer-section">
-            <a href="/studentDoc">Étudiant</a>
+            <a href="/eudiant">Étudiant</a>
           </div>
         </div>
         
