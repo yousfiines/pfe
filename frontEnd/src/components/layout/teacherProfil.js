@@ -12,7 +12,25 @@ import interactionPlugin from "@fullcalendar/interaction";
 
 const TeacherProfil = () => {
   const navigate = useNavigate();
+  const newsSectionRef = useRef(null);
+  
   const [isAdmin, setIsAdmin] = useState(false);
+  const events = [
+    {
+      title: "Conférence sur l'IA",
+      description: "Rejoignez notre conférence sur l'intelligence artificielle.",
+    },
+    {
+      title: "Atelier de programmation",
+      description: "Participez à notre atelier de programmation avancée.",
+    },
+  ];
+
+
+
+  const handleEventClick = (eventName) => {
+    navigate('/eventForm', { state: { selectedEvent: eventName } });
+  };
 
   // Données de l'enseignant (à remplacer par des données réelles)
   const [teacherData, setTeacherData] = useState({
@@ -112,6 +130,29 @@ const TeacherProfil = () => {
               fontSize: "0.9rem",
               color: "#555"
             }}>Université de Kairouan</span>
+          </div>
+        </a>
+        <div style={{ flexGrow: 1 }}></div>
+        <a href="/teacherUploadDoc" style={{
+          display: "flex",
+          alignItems: "center",
+          textDecoration: "none"
+        }}>
+          
+          <div style={{
+            
+            paddingLeft: "1rem",
+            height: "50px",
+            display: "flex",
+            flexDirection: "column",
+            justifyContent: "center"
+          }}>
+            <span style={{
+              fontSize: "1.2rem",
+              fontWeight: "bold",
+              color: "#0056b3"
+            }}>Diffuser cours</span>
+           
           </div>
         </a>
 
@@ -327,6 +368,23 @@ const TeacherProfil = () => {
                   </div>
                 </div>
               ))}
+              <section className="news-section" ref={newsSectionRef} id="evenements">
+                     <h2>Actualités et événements</h2>
+                     <div className="news-grid">
+                       {events.map((event, index) => (
+                         <div 
+                           key={index} 
+                           className="news-card"
+                           onClick={() => handleEventClick(event.title)}
+                           style={{ cursor: 'pointer' }}
+                         >
+                           <h3>{event.title}</h3>
+                           <p>{event.description}</p>
+                           
+                         </div>
+                       ))}
+                     </div>
+                   </section>
             </div>
           </div>
         </div>

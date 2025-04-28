@@ -115,8 +115,8 @@ const InscriptionEn = () => {
         const data = await response.json();
 
         if (response.ok) {
-          alert("Inscription réussie !");
-          navigate("/teacher");
+          //alert("Inscription réussie !");
+          navigate("/suivant");
         } else {
           if (data.errors) {
             setErrors(data.errors);
@@ -253,7 +253,7 @@ const InscriptionEn = () => {
                     style={styles.button}
                     disabled={isSubmitting}
                   >
-                    {isSubmitting ? "En cours..." : "S'inscrire"}
+                    Suivant
                   </button>
                 </form>
 

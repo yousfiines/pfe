@@ -63,9 +63,9 @@ const Connexion = () => {
   
           // Redirection
           if (data.role === "enseignant") {
-            navigate("/teacher");
+            navigate("/teacherProfil");
           } else if (data.role === "etudiant") {
-            navigate("/etudiant");
+            navigate("/etudiantProfil");
           }
         } else {
           alert(data.message || "Erreur lors de la connexion");

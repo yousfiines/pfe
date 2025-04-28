@@ -207,6 +207,7 @@ const EventRegistrationForm = () => {
             <option value="Licence">Licence</option>
             <option value="Master">Master</option>
             <option value="Doctorat">Doctorat</option>
+            <option value="Enseignant">Enseignant</option>
           </select>
         </div>
 

@@ -28,7 +28,9 @@ import Licence from "./pages/licence.js";
 import Home from "./pages/Home";
 import Teacher from "./pages/teacher.js";
 import Etudiant from "./pages/etudiant.js";
-import TeacherProfil from "./components/layout/teacherProfil.js"
+import Suivant from "./pages/suivant.js";
+import TeacherProfil from "./components/layout/teacherProfil.js";
+import EtudiantProfil from "./pages/etudiantProfil.js";
 function App() {
   return (
     <Router>
@@ -63,9 +65,11 @@ function AppContent() {
         <Route path="/eventForm" element={<EventForm />} />
         <Route path="/licence" element={<Licence />} />
         <Route path="/teacher" element={<Teacher />} />
+        <Route path="/suivant" element={<Suivant />} />
         <Route path="/etudiant" element={<Etudiant />} />
         <Route path="/studentdoc" element={<StudentDoc />} />
         <Route path="/teacherProfil" element={<TeacherProfil />} />
+        <Route path="/etudiantProfil" element={<EtudiantProfil />} />
         <Route path="/teacheruploaddoc" element={<TeacherUploadDocument />} />
         <Route path="/teacher" element={
   <ProtectedRoute><TeacherProfil /></ProtectedRoute>} />
