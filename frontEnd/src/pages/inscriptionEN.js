@@ -7,11 +7,15 @@ const InscriptionEn = () => {
   const [formData, setFormData] = useState({
     Cin: "",
     Nom_et_prénom: "",
-    email: "",
-    password: "",
-    confirmPassword: "",
+    Email: "",
+    Password: "",
+    ConfirmPassword: "",
+    Numero_tel: "",
+    Classement: "",
+    Description: ""
   });
 
+  const [currentStep, setCurrentStep] = useState(1);
   const [errors, setErrors] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [passwordFeedback, setPasswordFeedback] = useState(null);
@@ -19,37 +23,29 @@ const InscriptionEn = () => {
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setFormData({
-      ...formData,
-      [name]: value,
-    });
+    setFormData(prev => ({
+      ...prev,
+      [name]: value
+    }));
 
-    // Validation en temps réel pour le mot de passe
-    if (name === "password") {
+    if (name === "Password") {
       validatePassword(value);
     }
   };
 
   const validatePassword = (password) => {
-    if (!password) {
-      setPasswordFeedback(null);
-      return;
-    }
-
     const requirements = {
       minLength: password.length >= 10,
       hasUpper: /[A-Z]/.test(password),
       hasLower: /[a-z]/.test(password),
       hasNumber: /[0-9]/.test(password),
-      hasSpecial: /[!@#$%^&*(),.?":{}|<>]/.test(password),
+      hasSpecial: /[!@#$%^&*(),.?":{}|<>]/.test(password)
     };
-
-    const strength = Object.values(requirements).filter(Boolean).length;
 
     setPasswordFeedback({
       requirements,
-      strength,
-      percentage: (strength / 5) * 100,
+      strength: Object.values(requirements).filter(Boolean).length,
+      percentage: (Object.values(requirements).filter(Boolean).length / 5) * 100
     });
   };
 
@@ -59,76 +55,95 @@ const InscriptionEn = () => {
     return "#00cc00";
   };
 
-  const validateForm = () => {
+  const validateStep1 = () => {
     const newErrors = {};
-
+    
     if (!formData.Cin) {
       newErrors.Cin = "Le CIN est requis.";
     } else if (!/^[01]\d{7}$/.test(formData.Cin)) {
       newErrors.Cin = "Le CIN doit contenir exactement 8 chiffres commençant par 0 ou 1.";
     }
-    if (!formData.Nom_et_prénom) newErrors.Nom_et_prénom = "Le nom est requis.";
-    if (!formData.email) {
-      newErrors.email = "L'email est requis.";
-    } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
-      newErrors.email = "L'email est invalide.";
+    
+    if (!formData.Nom_et_prénom?.trim()) {
+      newErrors.Nom_et_prénom = "Le nom est requis.";
     }
-    if (!formData.password) {
-      newErrors.password = "Le mot de passe est requis.";
-    } else if (formData.password.length < 10) {
-      newErrors.password = "Le mot de passe doit contenir au moins 10 caractères.";
-    } else if (!/[A-Z]/.test(formData.password)) {
-      newErrors.password = "Le mot de passe doit contenir au moins une majuscule.";
-    } else if (!/[a-z]/.test(formData.password)) {
-      newErrors.password = "Le mot de passe doit contenir au moins une minuscule.";
-    } else if (!/[0-9!@#$%^&*(),.?":{}|<>]/.test(formData.password)) {
-      newErrors.password = "Le mot de passe doit contenir au moins un chiffre ou caractère spécial.";
+    
+    if (!formData.Email?.trim()) {
+      newErrors.Email = "L'email est requis.";
+    } else if (!/\S+@\S+\.\S+/.test(formData.Email)) {
+      newErrors.Email = "L'email est invalide.";
     }
-    if (formData.password !== formData.confirmPassword) {
-      newErrors.confirmPassword = "Les mots de passe ne correspondent pas.";
+    
+    if (!formData.Password) {
+      newErrors.Password = "Le mot de passe est requis.";
+    } else if (passwordFeedback?.strength < 3) {
+      newErrors.Password = "Le mot de passe est trop faible.";
+    }
+    
+    if (formData.Password !== formData.ConfirmPassword) {
+      newErrors.ConfirmPassword = "Les mots de passe ne correspondent pas.";
     }
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
 
+  const validateStep2 = () => {
+    const newErrors = {};
+    
+    if (!formData.Numero_tel) {
+      newErrors.Numero_tel = "Le numéro de téléphone est requis.";
+    } else if (!/^\d{8}$/.test(formData.Numero_tel)) {
+      newErrors.Numero_tel = "Le numéro doit contenir exactement 8 chiffres.";
+    }
+    
+    if (!formData.Classement?.trim()) {
+      newErrors.Classement = "Le classement est requis.";
+    }
+    
+    if (!formData.Description?.trim()) {
+      newErrors.Description = "La description est requise.";
+    }
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  const handleNext = () => {
+    if (validateStep1()) {
+      setCurrentStep(2);
+    }
+  };
+
+  const handleBack = () => {
+    setCurrentStep(1);
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
-
-    if (validateForm()) {
+    
+    if (validateStep2()) {
       setIsSubmitting(true);
+      
       try {
         const response = await fetch("http://localhost:5000/enseignants", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
           },
-          body: JSON.stringify({
-            Cin: formData.Cin,
-            Nom_et_prénom: formData.Nom_et_prénom,
-            Email: formData.email,
-            Password: formData.password,
-            Confirmpassword: formData.confirmPassword,
-          }),
+          body: JSON.stringify(formData),
         });
 
         const data = await response.json();
 
-        if (response.ok) {
-          //alert("Inscription réussie !");
-          navigate("/suivant");
-        } else {
-          if (data.errors) {
-            setErrors(data.errors);
-          }
-          if (data.passwordFeedback) {
-            setPasswordFeedback(data.passwordFeedback);
-          }
-          alert(`Erreur : ${data.message || "Une erreur s'est produite."}`);
+        if (!response.ok) {
+          throw new Error(data.message || "Erreur lors de l'inscription");
         }
+
+        navigate("/teacherProfil", { state: { success: true } });
       } catch (error) {
-        console.error("Erreur réseau :", error);
-        alert("Erreur réseau. Veuillez réessayer.");
+        console.error("Erreur:", error);
+        alert(error.message || "Une erreur est survenue");
       } finally {
         setIsSubmitting(false);
       }
@@ -142,120 +157,177 @@ const InscriptionEn = () => {
           <tr>
             <td style={styles.formCell}>
               <div style={styles.card}>
-                <h2 style={styles.title}>Inscription Enseignant</h2>
-                <form onSubmit={handleSubmit} style={styles.form}>
-                  <div style={styles.formGroup}>
-                    <input
-                      type="text"
-                      name="Cin"
-                      value={formData.Cin}
-                      onChange={handleChange}
-                      style={styles.input}
-                      placeholder="Numéro CIN"
-                    />
-                    {errors.Cin && <span style={styles.error}>{errors.Cin}</span>}
-                  </div>
+                <h2 style={styles.title}>Inscription Enseignant - Étape {currentStep}/2</h2>
+                
+                {currentStep === 1 ? (
+                  <div style={styles.form}>
+                    <div style={styles.formGroup}>
+                      <input
+                        type="text"
+                        name="Cin"
+                        value={formData.Cin}
+                        onChange={handleChange}
+                        style={styles.input}
+                        placeholder="Numéro CIN"
+                      />
+                      {errors.Cin && <span style={styles.error}>{errors.Cin}</span>}
+                    </div>
 
-                  <div style={styles.formGroup}>
-                    <input
-                      type="text"
-                      name="Nom_et_prénom"
-                      value={formData.Nom_et_prénom}
-                      onChange={handleChange}
-                      style={styles.input}
-                      placeholder="Nom et prénom"
-                    />
-                    {errors.Nom_et_prénom && (
-                      <span style={styles.error}>{errors.Nom_et_prénom}</span>
-                    )}
-                  </div>
+                    <div style={styles.formGroup}>
+                      <input
+                        type="text"
+                        name="Nom_et_prénom"
+                        value={formData.Nom_et_prénom}
+                        onChange={handleChange}
+                        style={styles.input}
+                        placeholder="Nom et prénom"
+                      />
+                      {errors.Nom_et_prénom && (
+                        <span style={styles.error}>{errors.Nom_et_prénom}</span>
+                      )}
+                    </div>
 
-                  <div style={styles.formGroup}>
-                    <input
-                      type="email"
-                      name="email"
-                      value={formData.email}
-                      onChange={handleChange}
-                      style={styles.input}
-                      placeholder="Adresse email académique"
-                    />
-                    {errors.email && <span style={styles.error}>{errors.email}</span>}
-                  </div>
+                    <div style={styles.formGroup}>
+                      <input
+                        type="email"
+                        name="Email"
+                        value={formData.Email}
+                        onChange={handleChange}
+                        style={styles.input}
+                        placeholder="Adresse email académique"
+                      />
+                      {errors.Email && <span style={styles.error}>{errors.Email}</span>}
+                    </div>
 
-                  <div style={styles.formGroup}>
-                    <input
-                      type="password"
-                      name="password"
-                      value={formData.password}
-                      onChange={handleChange}
-                      style={styles.input}
-                      placeholder="Mot de passe (10 caractères min)"
-                    />
-                    {errors.password && <span style={styles.error}>{errors.password}</span>}
-                    
-                    {/* Barre de force du mot de passe */}
-                    {passwordFeedback && (
-                      <div style={{ marginTop: "10px" }}>
-                        <div style={{
-                          height: "5px",
-                          backgroundColor: "#e0e0e0",
-                          borderRadius: "5px",
-                          marginBottom: "5px"
-                        }}>
+                    <div style={styles.formGroup}>
+                      <input
+                        type="password"
+                        name="Password"
+                        value={formData.Password}
+                        onChange={handleChange}
+                        style={styles.input}
+                        placeholder="Mot de passe (10 caractères min)"
+                      />
+                      {errors.Password && <span style={styles.error}>{errors.Password}</span>}
+                      
+                      {passwordFeedback && (
+                        <div style={{ marginTop: "10px" }}>
                           <div style={{
-                            width: `${passwordFeedback.percentage}%`,
-                            height: "100%",
-                            backgroundColor: getStrengthColor(passwordFeedback.percentage),
+                            height: "5px",
+                            backgroundColor: "#e0e0e0",
                             borderRadius: "5px",
-                            transition: "all 0.3s ease"
-                          }}></div>
+                            marginBottom: "5px"
+                          }}>
+                            <div style={{
+                              width: `${passwordFeedback.percentage}%`,
+                              height: "100%",
+                              backgroundColor: getStrengthColor(passwordFeedback.percentage),
+                              borderRadius: "5px",
+                              transition: "all 0.3s ease"
+                            }}></div>
+                          </div>
+                          <small>Force du mot de passe: {passwordFeedback.strength}/5</small>
+                          
+                          <ul style={{ margin: "10px 0 0 0", paddingLeft: "20px", fontSize: "12px" }}>
+                            <li style={{ color: passwordFeedback.requirements.minLength ? "green" : "red" }}>
+                              Au moins 10 caractères
+                            </li>
+                            <li style={{ color: passwordFeedback.requirements.hasUpper ? "green" : "red" }}>
+                              Au moins une majuscule
+                            </li>
+                            <li style={{ color: passwordFeedback.requirements.hasLower ? "green" : "red" }}>
+                              Au moins une minuscule
+                            </li>
+                            <li style={{ color: passwordFeedback.requirements.hasNumber ? "green" : "red" }}>
+                              Au moins un chiffre
+                            </li>
+                            <li style={{ color: passwordFeedback.requirements.hasSpecial ? "green" : "red" }}>
+                              Au moins un caractère spécial
+                            </li>
+                          </ul>
                         </div>
-                        <small>Force du mot de passe: {passwordFeedback.strength}/5</small>
-                        
-                        {/* Liste des exigences */}
-                        <ul style={{ margin: "10px 0 0 0", paddingLeft: "20px", fontSize: "12px" }}>
-                          <li style={{ color: passwordFeedback.requirements.minLength ? "green" : "red" }}>
-                            Au moins 10 caractères
-                          </li>
-                          <li style={{ color: passwordFeedback.requirements.hasUpper ? "green" : "red" }}>
-                            Au moins une majuscule
-                          </li>
-                          <li style={{ color: passwordFeedback.requirements.hasLower ? "green" : "red" }}>
-                            Au moins une minuscule
-                          </li>
-                          <li style={{ color: passwordFeedback.requirements.hasNumber ? "green" : "red" }}>
-                            Au moins un chiffre
-                          </li>
-                          <li style={{ color: passwordFeedback.requirements.hasSpecial ? "green" : "red" }}>
-                            Au moins un caractère spécial
-                          </li>
-                        </ul>
-                      </div>
-                    )}
-                  </div>
+                      )}
+                    </div>
 
-                  <div style={styles.formGroup}>
-                    <input
-                      type="password"
-                      name="confirmPassword"
-                      value={formData.confirmPassword}
-                      onChange={handleChange}
-                      style={styles.input}
-                      placeholder="Confirmer le mot de passe"
-                    />
-                    {errors.confirmPassword && (
-                      <span style={styles.error}>{errors.confirmPassword}</span>
-                    )}
-                  </div>
+                    <div style={styles.formGroup}>
+                      <input
+                        type="password"
+                        name="ConfirmPassword"
+                        value={formData.ConfirmPassword}
+                        onChange={handleChange}
+                        style={styles.input}
+                        placeholder="Confirmer le mot de passe"
+                      />
+                      {errors.ConfirmPassword && (
+                        <span style={styles.error}>{errors.ConfirmPassword}</span>
+                      )}
+                    </div>
 
-                  <button
-                    type="submit"
-                    style={styles.button}
-                    disabled={isSubmitting}
-                  >
-                    Suivant
-                  </button>
-                </form>
+                    <button
+                      type="button"
+                      onClick={handleNext}
+                      style={styles.button}
+                    >
+                      Suivant
+                    </button>
+                  </div>
+                ) : (
+                  <form onSubmit={handleSubmit} style={styles.form}>
+                    <div style={styles.formGroup}>
+                      <input
+                        type="text"
+                        name="Numero_tel"
+                        value={formData.Numero_tel}
+                        onChange={handleChange}
+                        style={styles.input}
+                        placeholder="Numéro de téléphone"
+                      />
+                      {errors.Numero_tel && <span style={styles.error}>{errors.Numero_tel}</span>}
+                    </div>
+
+                    <div style={styles.formGroup}>
+                      <input
+                        type="text"
+                        name="Classement"
+                        value={formData.Classement}
+                        onChange={handleChange}
+                        style={styles.input}
+                        placeholder="Classement"
+                      />
+                      {errors.Classement && (
+                        <span style={styles.error}>{errors.Classement}</span>
+                      )}
+                    </div>
+
+                    <div style={styles.formGroup}>
+                      <textarea
+                        name="Description"
+                        value={formData.Description}
+                        onChange={handleChange}
+                        style={{...styles.input, minHeight: "100px"}}
+                        placeholder="Description"
+                      />
+                      {errors.Description && <span style={styles.error}>{errors.Description}</span>}
+                    </div>
+
+                    <div style={{ display: 'flex', gap: '10px' }}>
+                      <button
+                        type="button"
+                        onClick={handleBack}
+                        style={{ ...styles.button, backgroundColor: '#6c757d' }}
+                      >
+                        Retour
+                      </button>
+                      <button
+                        type="submit"
+                        style={styles.button}
+                        disabled={isSubmitting}
+                      >
+                        {isSubmitting ? 'Enregistrement...' : 'S\'inscrire'}
+                      </button>
+                    </div>
+                  </form>
+                )}
 
                 <p style={styles.loginLink}>
                   Déjà inscrit?{" "}

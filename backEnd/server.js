@@ -9,7 +9,12 @@ const app = express();
 const router = express.Router();
 
 // Middlewares
-app.use(cors());
+app.use(cors({
+  origin: 'http://localhost:3000',
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
+}));
 app.use(express.json());
 app.use(cookieParser());
 
@@ -141,8 +146,17 @@ app.post("/connexion", async (req, res) => {
 });
 
 app.post("/enseignants", async (req, res) => {
-  const { Cin, Nom_et_prénom, Email, Password, Confirmpassword } = req.body;
+  const { 
+    Cin, 
+    Nom_et_prénom, 
+    Email, 
+    Password, 
+    Numero_tel, 
+    Classement, 
+    Description 
+  } = req.body;
 
+  // Validation des données
   const errors = {};
   const passwordFeedback = {
     requirements: {
@@ -155,73 +169,118 @@ app.post("/enseignants", async (req, res) => {
     strength: 0
   };
 
-  // Validation des champs
+  // Validation du CIN
   if (!Cin) {
     errors.Cin = "Le CIN est requis.";
   } else if (!/^[01]\d{7}$/.test(Cin)) {
     errors.Cin = "Le CIN doit contenir exactement 8 chiffres commençant par 0 ou 1.";
   }
-  if (!Nom_et_prénom) errors.Nom_et_prénom = "Le nom est requis.";
-  
-  if (!Email) {
+
+  // Validation du nom
+  if (!Nom_et_prénom?.trim()) {
+    errors.Nom_et_prénom = "Le nom est requis.";
+  }
+
+  // Validation de l'email
+  if (!Email?.trim()) {
     errors.email = "L'email est requis.";
   } else if (!/\S+@\S+\.\S+/.test(Email)) {
     errors.email = "L'email est invalide.";
   }
 
+  // Validation du téléphone
+  if (!Numero_tel) {
+    errors.Numero_tel = "Le numéro de téléphone est requis.";
+  } else if (!/^\d{8}$/.test(Numero_tel)) {
+    errors.Numero_tel = "Le numéro doit contenir exactement 8 chiffres.";
+  }
+
+  // Validation du mot de passe
   if (!Password) {
     errors.password = "Le mot de passe est requis.";
   } else {
-    // Vérification des exigences
-    passwordFeedback.requirements.minLength = Password.length >= 10;
-    passwordFeedback.requirements.hasUpper = /[A-Z]/.test(Password);
-    passwordFeedback.requirements.hasLower = /[a-z]/.test(Password);
-    passwordFeedback.requirements.hasNumber = /[0-9]/.test(Password);
-    passwordFeedback.requirements.hasSpecial = /[!@#$%^&*(),.?":{}|<>]/.test(Password);
-
-    // Calcul du score de force (0-5)
+    passwordFeedback.requirements = {
+      minLength: Password.length >= 10,
+      hasUpper: /[A-Z]/.test(Password),
+      hasLower: /[a-z]/.test(Password),
+      hasNumber: /[0-9]/.test(Password),
+      hasSpecial: /[!@#$%^&*(),.?":{}|<>]/.test(Password)
+    };
     passwordFeedback.strength = Object.values(passwordFeedback.requirements).filter(Boolean).length;
 
-    if (!passwordFeedback.requirements.minLength) {
-      errors.password = "Le mot de passe doit contenir au moins 10 caractères.";
+    if (passwordFeedback.strength < 3) {
+      errors.password = "Le mot de passe est trop faible.";
     }
   }
 
-  if (Password !== Confirmpassword) {
-    errors.confirmPassword = "Les mots de passe ne correspondent pas.";
+  // Validation du classement
+  if (!Classement?.trim()) {
+    errors.Classement = "Le classement est requis.";
+  }
+
+  // Validation de la description
+  if (!Description?.trim()) {
+    errors.Description = "La description est requise.";
   }
 
   if (Object.keys(errors).length > 0) {
     return res.status(400).json({ 
+      success: false,
       errors,
       passwordFeedback
     });
   }
 
   try {
+    // Vérification des doublons
     const [existing] = await pool.query(
       "SELECT * FROM enseignants WHERE Cin = ? OR Email = ?",
       [Cin, Email]
     );
 
     if (existing.length > 0) {
-      return res.status(400).json({ message: "Un enseignant avec ce CIN ou cet email existe déjà." });
+      return res.status(400).json({ 
+        success: false,
+        message: "Un enseignant avec ce CIN ou cet email existe déjà." 
+      });
     }
 
+    // Hashage du mot de passe
     const saltRounds = 10;
     const hashedPassword = await bcrypt.hash(Password, saltRounds);
 
+    // Insertion dans la base de données
     await pool.query(
-      "INSERT INTO enseignants (Cin, Nom_et_prénom, Email, Password) VALUES (?, ?, ?, ?)",
-      [Cin, Nom_et_prénom, Email, hashedPassword]
+      `INSERT INTO enseignants 
+      (Cin, Nom_et_prénom, Email, Numero_tel, Password, Classement, Description) 
+      VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      [
+        Cin,
+        Nom_et_prénom.trim(),
+        Email.trim(),
+        Numero_tel,
+        hashedPassword,
+        Classement.trim(),
+        Description.trim()
+      ]
     );
 
-    res.status(201).json({ message: "Inscription réussie", data: { Cin, Nom_et_prénom, Email } });
+    res.status(201).json({ 
+      success: true,
+      message: "Inscription réussie",
+      data: { Cin, Nom_et_prénom, Email }
+    });
+
   } catch (error) {
-    console.error("Erreur lors de l'inscription :", error);
-    res.status(500).json({ message: "Erreur serveur", error: error.message });
+    console.error("Erreur serveur:", error);
+    res.status(500).json({ 
+      success: false,
+      message: "Erreur lors de l'inscription",
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
   }
 });
+
 app.post("/etudiant", async (req, res) => {
   const { Cin, Nom_et_prénom, Téléphone, email, password, confirmPassword, filière } = req.body;
 
@@ -419,16 +478,80 @@ router.post('/extend-session', (req, res) => {
 });
 
 
+
+// Route pour enregistrer un participant
+// Route pour enregistrer un participant
+app.post('/api/register', async (req, res) => {
+  console.log('Données reçues:', req.body);
+  
+  try {
+    const { nom, cin, email, tele, sexe, niveauEtude } = req.body;
+
+    // Validation améliorée
+    const errors = [];
+    if (!nom?.trim()) errors.push('Le nom est requis');
+    if (!cin) errors.push('Le CIN est requis');
+    if (!email?.trim()) errors.push('L\'email est requis');
+    if (!tele) errors.push('Le téléphone est requis');
+    if (!sexe) errors.push('Le sexe est requis');
+    if (!niveauEtude) errors.push('Le niveau d\'étude est requis');
+
+    if (errors.length > 0) {
+      return res.status(400).json({ 
+        success: false,
+        message: 'Validation échouée',
+        errors
+      });
+    }
+
+    // Conversion des types
+    const connection = await pool.getConnection();
+    
+    try {
+      const [result] = await connection.execute(
+        'INSERT INTO formulaire (Nom_complet, CIN, Email, Numéro_téléphone, Sexe, Niveau_étude) VALUES (?, ?, ?, ?, ?, ?)',
+        [
+          nom.trim(),
+          Number(cin),
+          email.trim(),
+          Number(tele),
+          sexe,
+          niveauEtude
+        ]
+      );
+      
+      res.status(201).json({ 
+        success: true, 
+        message: 'Inscription réussie',
+        id: result.insertId
+      });
+    } finally {
+      connection.release();
+    }
+  } catch (error) {
+    console.error('Erreur serveur:', error);
+    
+    let errorMessage = 'Erreur lors de l\'inscription';
+    if (error.code === 'ER_DUP_ENTRY') {
+      errorMessage = 'Ce CIN ou cet email est déjà enregistré';
+    } else if (error.code === 'ER_TRUNCATED_WRONG_VALUE_FOR_FIELD') {
+      errorMessage = 'Format de données incorrect pour un champ numérique';
+    }
+    
+    res.status(500).json({ 
+      success: false, 
+      message: errorMessage,
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+});
+
+
+
 // Démarrer le serveur
-app.use(cors({
-  origin: 'http://localhost:5000',
-  credentials: true
-}));
-
 const PORT = 5000;
-
 app.listen(PORT, () => {
   console.log(`🚀 Serveur en écoute sur http://localhost:${PORT}`);
 }).on('error', (err) => {
-  console.error('❌ Erreur du serveur :', err.message);
+  console.error('❌ Erreur du serveur:', err.message);
 });

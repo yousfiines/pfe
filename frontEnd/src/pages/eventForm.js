@@ -20,28 +20,54 @@ const EventRegistrationForm = () => {
     }));
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     
-    // Validation
+    // Validation frontend
     if (!formData.nom || !formData.cin || !formData.email || !formData.tele || !formData.sexe || !formData.niveauEtude) {
       setSubmitStatus('error');
       return;
     }
-
-    // Simulation d'envoi
-    console.log('Formulaire soumis:', formData);
-    setSubmitStatus('success');
-    setFormData({ 
-      nom: '', 
-      cin: '', 
-      email: '', 
-      tele: '', 
-      sexe: '', 
-      niveauEtude: '' 
-    });
+  
+    try {
+      const response = await fetch('http://localhost:5000/api/register', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          nom: formData.nom,
+          cin: formData.cin,
+          email: formData.email,
+          tele: formData.tele,
+          sexe: formData.sexe,
+          niveauEtude: formData.niveauEtude
+        }),
+      });
+  
+      const data = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(data.message || 'Erreur lors de l\'inscription');
+      }
+  
+      setSubmitStatus('success');
+      setFormData({ 
+        nom: '', 
+        cin: '', 
+        email: '', 
+        tele: '', 
+        sexe: '', 
+        niveauEtude: '' 
+      });
+  
+    } catch (error) {
+      console.error('Erreur:', error);
+      setSubmitStatus('error');
+      // Vous pouvez ajouter un state pour afficher le message d'erreur spécifique
+      // setErrorMessage(error.message);
+    }
   };
-
   return (
     <div style={{
       maxWidth: '500px',
@@ -60,7 +86,7 @@ const EventRegistrationForm = () => {
           color: '#155724',
           borderRadius: '4px'
         }}>
-          Inscription réussie! Un email de confirmation a été envoyé.
+          Inscription réussie! 
         </div>
       )}
 
@@ -72,7 +98,7 @@ const EventRegistrationForm = () => {
           color: '#721c24',
           borderRadius: '4px'
         }}>
-          Veuillez remplir tous les champs obligatoires.
+          erreur leur de l'inscription .
         </div>
       )}
 
