@@ -1,24 +1,29 @@
+
 import React, { useState, useEffect } from 'react';
 import { FaGraduationCap, FaFlask } from 'react-icons/fa';
 import IMG from "../../../assets/img/IMG.JPG";
 import logoFac from "./../../../assets/logoFac.png";
+import Fac from "../../../assets/img/fac.JPG";
 import faculte from "./../../../assets/img/faculte.JPG"; 
 import facultee from "./../../../assets/img/facultee.JPG"; 
 import faculté from "./../../../assets/img/faculté.JPG"
+
 const Header = () => {
   const [activeImage, setActiveImage] = useState(0);
-  const images = [faculte, facultee, faculté]; // J'ai ajouté faculté ici
+  const images = [faculte, facultee, faculté];
   const handleLoginClick = () => {
+    // Fonction pour gérer le clic sur le bouton de connexion
     console.log("Bouton de connexion cliqué");
+    // Redirection vers la page de connexion
+    // window.location.href = "/login";
   };
-
-  // Animation pour alterner entre les images avec effet de glissement
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setActiveImage(prev => (prev + 1) % images.length);
-    }, 5000); // Change d'image toutes les 5 secondes
-    return () => clearInterval(interval);
-  }, []);
+ // Animation pour alterner entre les images avec effet de glissement
+ useEffect(() => {
+  const interval = setInterval(() => {
+    setActiveImage(prev => (prev + 1) % images.length);
+  }, 5000); // Change d'image toutes les 5 secondes
+  return () => clearInterval(interval);
+}, []);
 
   return (
     <div style={{
@@ -107,16 +112,19 @@ const Header = () => {
 
       {/* Bande défilante sous la navbar */}
       <div style={{
-        backgroundColor: "#0056b3",
-        overflow: "hidden",
-        whiteSpace: "nowrap",
-        color: "#fff",
-        fontWeight: "bold",
-        fontSize: "1rem",
-        padding: "0.5rem 0",
-        borderBottom: "3px solid #003e80",
-        position: "relative"
-      }}>
+  backgroundColor: "#0056b3",
+  overflow: "hidden",
+  whiteSpace: "nowrap",
+  color: "#fff",
+  fontWeight: "bold",
+  fontSize: "1rem",
+  padding: "0.5rem 0",
+  borderBottom: "3px solid #003e80",
+  position: "sticky",  // Permet de rester fixe en scrollant
+  top: "80px",         // Ajustez selon la hauteur de votre navbar
+  zIndex: 1000,         // Pour qu'elle reste au-dessus du contenu
+  width: "100%"
+}}>
         <div style={{
           display: "inline-block",
           paddingLeft: "100%",
@@ -190,7 +198,7 @@ const Header = () => {
             <div style={{
               width: '80px',
               height: '4px',
-              backgroundColor: '#1e3c72',
+              backgroundColor: '#f1c40f',
               margin: '0 auto 15px'
             }}></div>
             <p style={{
@@ -224,7 +232,7 @@ const Header = () => {
               }}>
                 {images.map((img, index) => (
                   <div key={index} style={{
-                    width:` ${100 / images.length}%`,
+                    width: `${100 / images.length}%`,
                     height: '100%',
                     position: 'relative'
                   }}>
@@ -274,6 +282,167 @@ const Header = () => {
                     }}
                   />
                 ))}
+              </div>
+            </div>
+          
+            
+            <div style={{
+              padding: '20px'
+            }}>
+              <div style={{
+                position: 'relative',
+                paddingLeft: '30px',
+                marginBottom: '40px'
+              }}>
+                <div style={{
+                  position: 'relative',
+                  marginBottom: '30px'
+                }}>
+                  <div style={{
+                    position: 'absolute',
+                    left: '-30px',
+                    top: '5px',
+                    width: '20px',
+                    height: '20px',
+                    borderRadius: '50%',
+                    backgroundColor: '#1e3c72',
+                    border: '4px solid #f0f7ff'
+                  }}></div>
+                  <div style={{
+                    padding: '10px 20px',
+                    backgroundColor: '#f8f9fa',
+                    borderRadius: '6px'
+                  }}>
+                    <h3 style={{
+                      color: '#1e3c72',
+                      marginBottom: '5px',
+                      fontSize: '1.2rem'
+                    }}>Fondation</h3>
+                    <p style={{
+                      color: '#555',
+                      fontSize: '0.95rem'
+                    }}>Crée le 4 septembre 2012 par décret n°1645</p>
+                  </div>
+                </div>
+                <div style={{
+                  position: 'relative',
+                  marginBottom: '30px'
+                }}>
+                  <div style={{
+                    position: 'absolute',
+                    left: '-30px',
+                    top: '5px',
+                    width: '20px',
+                    height: '20px',
+                    borderRadius: '50%',
+                    backgroundColor: '#1e3c72',
+                    border: '4px solid #f0f7ff'
+                  }}></div>
+                  <div style={{
+                    padding: '10px 20px',
+                    backgroundColor: '#f8f9fa',
+                    borderRadius: '6px'
+                  }}>
+                    <h3 style={{
+                      color: '#1e3c72',
+                      marginBottom: '5px',
+                      fontSize: '1.2rem'
+                    }}>Affiliation</h3>
+                    <p style={{
+                      color: '#555',
+                      fontSize: '0.95rem'
+                    }}>Établissement rattaché à l'Université de Kairouan</p>
+                  </div>
+                </div>
+                <div style={{
+                  position: 'relative',
+                  marginBottom: '30px'
+                }}>
+                  <div style={{
+                    position: 'absolute',
+                    left: '-30px',
+                    top: '5px',
+                    width: '20px',
+                    height: '20px',
+                    borderRadius: '50%',
+                    backgroundColor: '#1e3c72',
+                    border: '4px solid #f0f7ff'
+                  }}></div>
+                  <div style={{
+                    padding: '10px 20px',
+                    backgroundColor: '#f8f9fa',
+                    borderRadius: '6px'
+                  }}>
+                    <h3 style={{
+                      color: '#1e3c72',
+                      marginBottom: '5px',
+                      fontSize: '1.2rem'
+                    }}>Mission</h3>
+                    <p style={{
+                      color: '#555',
+                      fontSize: '0.95rem'
+                    }}>Former les leaders scientifiques de demain</p>
+                  </div>
+                </div>
+              </div>
+              
+              <div style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+                gap: '20px'
+              }}>
+                <div style={{
+                  backgroundColor: '#f8f9fa',
+                  padding: '25px 20px',
+                  borderRadius: '8px',
+                  textAlign: 'center',
+                  transition: 'transform 0.3s ease',
+                  ':hover': {
+                    transform: 'translateY(-5px)',
+                    boxShadow: '0 5px 15px rgba(0,0,0,0.1)'
+                  }
+                }}>
+                  <FaGraduationCap style={{
+                    fontSize: '2rem',
+                    color: '#1e3c72',
+                    marginBottom: '15px'
+                  }} />
+                  <h4 style={{
+                    color: '#1e3c72',
+                    fontSize: '1.1rem',
+                    marginBottom: '10px'
+                  }}>Éducation</h4>
+                  <p style={{
+                    color: '#555',
+                    fontSize: '0.9rem'
+                  }}>Programmes académiques de qualité en sciences et technologies</p>
+                </div>
+                <div style={{
+                  backgroundColor: '#f8f9fa',
+                  padding: '25px 20px',
+                  borderRadius: '8px',
+                  textAlign: 'center',
+                  transition: 'transform 0.3s ease',
+                  ':hover': {
+                    transform: 'translateY(-5px)',
+                    boxShadow: '0 5px 15px rgba(0,0,0,0.1)'
+                  }
+                }}>
+                  <FaFlask style={{
+                    fontSize: '2rem',
+                    color: '#1e3c72',
+                    marginBottom: '15px'
+                  }} />
+                  <h4 style={{
+                    color: '#1e3c72',
+                    fontSize: '1.1rem',
+                    marginBottom: '10px'
+                  }}>Recherche</h4>
+                  <p style={{
+                    color: '#555',
+                    fontSize: '0.9rem'
+                  }}>Encouragement à l'innovation et recherche scientifique</p>
+                </div>
               </div>
             </div>
           </div>
@@ -332,6 +501,12 @@ const Header = () => {
           position: 'relative',
           paddingBottom: '15px'
         }}>Nos Valeurs Fondamentaux</h2>
+        <div style={{
+              width: '80px',
+              height: '4px',
+              backgroundColor: '#f1c40f',
+              margin: '0 auto 15px'
+            }}></div>
         <div style={{
           display: 'grid',
           gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))',

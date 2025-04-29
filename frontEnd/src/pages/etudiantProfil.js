@@ -333,7 +333,7 @@ const EtudiantProfil = () => {
 
   const handleLogout = () => {
     localStorage.removeItem('studentToken');
-    navigate('/login');
+    navigate('/connexion');
   };
 
   if (!studentData) {

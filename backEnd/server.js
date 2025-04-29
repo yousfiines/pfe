@@ -7,8 +7,30 @@ import jwt from 'jsonwebtoken';
 
 const app = express();
 const router = express.Router();
-//const multer = require('multer');
-//const path = require('path');
+import dotenv from 'dotenv';
+dotenv.config();
+
+// Configuration JWT améliorée
+const JWT_CONFIG = {
+  secret: process.env.JWT_SECRET,
+  expiresIn: '1h'
+};
+
+if (!JWT_CONFIG.secret) {
+  if (process.env.NODE_ENV === 'production') {
+    throw new Error('❌ Configuration critique: JWT_SECRET doit être défini en production');
+  }
+  JWT_CONFIG.secret = 'dev-secret-only';
+  console.warn('⚠️ Mode développement: Utilisation d\'une clé JWT temporaire');
+}
+// Vérification de la configuration JWT
+if (!process.env.JWT_SECRET) {
+  console.warn('⚠️ Avertissement: JWT_SECRET non défini dans .env - utilisation d\'une clé de développement');
+  if (process.env.NODE_ENV === 'production') {
+    throw new Error('Configuration critique: JWT_SECRET doit être défini en production');
+  }
+}
+const jwtSecret = process.env.JWT_SECRET || 'dev-secret-only';
 
 // Middlewares
 app.use(cors({
@@ -60,9 +82,9 @@ app.post("/admin/login", async (req, res) => {
     }
 
     const token = jwt.sign(
-      { email: admin[0].Email },
-      'votre_cle_secrete',
-      { expiresIn: '1h' }
+      { cin: enseignant.CIN, role: 'enseignant' },
+      JWT_CONFIG.secret,
+      { expiresIn: JWT_CONFIG.expiresIn }
     );
 
     res.json({ 
@@ -97,20 +119,21 @@ app.post("/connexion", async (req, res) => {
       const isMatch = await bcrypt.compare(password, enseignant.Password);
       
       if (isMatch) {
-        // Créez un token JWT si nécessaire
+        const jwtSecret = process.env.JWT_SECRET || 'fatroucha';
+        
         const token = jwt.sign(
           { cin: enseignant.CIN, role: 'enseignant' },
-          process.env.JWT_SECRET,
+          jwtSecret, // Utilisez la variable définie
           { expiresIn: '1h' }
         );
-
+      
         return res.json({
           success: true,
           message: "Connexion réussie",
           role: "enseignant",
           cin: enseignant.CIN,
           email: enseignant.Email,
-          token: token // Envoyez le token au frontend
+          token: token
         });
       }
     }
@@ -481,39 +504,6 @@ router.post('/extend-session', (req, res) => {
   }
 });
 
-// Route pour uploader l'image
-{/*router.post('/upload-profile-image', authenticateTeacher, async (req, res) => {
-  try {
-    if (!req.files || !req.files.profileImage) {
-      return res.status(400).json({ message: 'Aucune image fournie' });
-    }
-
-    const image = req.files.profileImage;
-    const teacherId = req.user.id; // ID de l'enseignant
-    
-    // Générer un nom de fichier unique
-    const imageName = `teacher_${teacherId}_${Date.now()}${path.extname(image.name)}`;
-    const imagePath = path.join(__dirname, '../uploads/profile_images', imageName);
-
-    // Sauvegarder l'image
-    await image.mv(imagePath);
-
-    // Mettre à jour l'enseignant dans la base de données
-    await Teacher.updateOne(
-      { _id: teacherId },
-      { $set: { profileImage: `/profile_images/${imageName}` } }
-    );
-
-    res.json({ 
-      success: true,
-      imageUrl: `/profile_images/${imageName}`
-    });
-  } catch (error) {
-    res.status(500).json({ message: error.message });
-  }
-});*/}
-// Servir les fichiers statiques
-//app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // Route pour enregistrer un participant
 // Route pour enregistrer un participant
@@ -639,37 +629,6 @@ app.use((err, req, res, next) => {
   });
 });
 
-// Route d'upload
-{/*router.post('/upload-profile-image', 
-  authenticateTeacher,
-  upload.single('profileImage'),
-  async (req, res, next) => {
-    try {
-      if (!req.file) {
-        return res.status(400).json({ 
-          success: false,
-          message: 'Aucun fichier fourni' 
-        });
-      }
-
-      const imageUrl = `/profile_images/${req.file.filename}`;
-      
-      await Teacher.updateOne(
-        { _id: req.user.id },
-        { profileImage: imageUrl }
-      );
-
-      res.json({
-        success: true,
-        imageUrl: imageUrl
-      });
-
-    } catch (error) {
-      next(error); // Passe à middleware d'erreur
-    }
-  }
-);
-*/}
 
 
 // Middleware pour vérifier l'authentification
@@ -681,7 +640,7 @@ const authenticateTeacher = async (req, res, next) => {
   }
 
   try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'dev-secret-only');
     const [user] = await pool.query(
       "SELECT Cin FROM enseignants WHERE Cin = ?", 
       [decoded.cin]
@@ -716,70 +675,9 @@ const authenticateTeacher = async (req, res, next) => {
 
 
 
-// Configuration Multer
-{/*const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, 'uploads/profile_images/');
-  },
-  filename: (req, file, cb) => {
-    const ext = path.extname(file.originalname);
-    const filename = `teacher_${req.user.id}_${Date.now()}${ext}`;
-    cb(null, filename);
-  }
-});
 
-const upload = multer({
-  storage: storage,
-  limits: {
-    fileSize: 5 * 1024 * 1024 // 5MB
-  },
-  fileFilter: (req, file, cb) => {
-    if (file.mimetype.startsWith('image/')) {
-      cb(null, true);
-    } else {
-      cb(new Error('Seules les images sont autorisées (JPEG, PNG)'), false);
-    }
-  }
-});
 
-router.post('/upload-profile-image', 
-  authenticateTeacher,
-  upload.single('profileImage'),
-  async (req, res) => {
-    try {
-      if (!req.file) {
-        return res.status(400).json({ 
-          success: false,
-          message: 'Aucune image valide fournie' 
-        });
-      }
 
-      const imagePath = `/profile_images/${req.file.filename}`;
-      
-      // Mise à jour dans la base de données
-      await Teacher.findByIdAndUpdate(
-        req.user.id,
-        { profileImage: imagePath },
-        { new: true }
-      );
-
-      res.json({ 
-        success: true,
-        imageUrl: imagePath,
-        message: 'Photo mise à jour avec succès'
-      });
-      
-    } catch (error) {
-      console.error('Erreur upload:', error);
-      res.status(500).json({ 
-        success: false,
-        message: error.message || 'Échec de l\'envoi de la photo'
-      });
-    }
-  }
-);
-
-*/}
 // Protégez vos routes
 app.get("/api/protected-route", authenticateTeacher, (req, res) => {
   res.json({ message: "Accès autorisé" });
