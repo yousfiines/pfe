@@ -13,8 +13,12 @@ import interactionPlugin from "@fullcalendar/interaction";
 const TeacherProfil = () => {
   const navigate = useNavigate();
   const newsSectionRef = useRef(null);
-  
+  const [isLoading, setIsLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [profileImage, setProfileImage] = useState(null);
+const [previewImage, setPreviewImage] = useState(null);
+const fileInputRef = useRef(null);
+
   const events = [
     {
       title: "Conférence sur l'IA",
@@ -26,25 +30,15 @@ const TeacherProfil = () => {
     },
   ];
 
-
-
   const handleEventClick = (eventName) => {
     navigate('/eventForm', { state: { selectedEvent: eventName } });
   };
 
-  // Données de l'enseignant (à remplacer par des données réelles)
-  const [teacherData, setTeacherData] = useState({
-    name: "Dr. Mohamed Ali",
-    title: "Professeur Associé",
-    department: "Informatique",
-    email: "mohamed.ali@univ-kb.tn",
-    phone: "+216 12 345 678",
-    office: "Bâtiment A, Bureau 203",
-    bio: "Spécialiste en Intelligence Artificielle avec plus de 15 ans d'expérience dans l'enseignement et la recherche."
-  });
+  // Données de l'enseignant
+  const [teacherData, setTeacherData] = useState(null);
 
-  // Emploi du temps
-  const [schedule, setSchedule] = useState([
+  // Emploi du temps et examens (peuvent être récupérés depuis l'API si nécessaire)
+  const [schedule] = useState([
     { day: "Lundi", time: "08:00 - 10:00", course: "Algorithmique", room: "A101", type: "Cours" },
     { day: "Lundi", time: "14:00 - 16:00", course: "Base de données", room: "B205", type: "TD" },
     { day: "Mardi", time: "10:00 - 12:00", course: "IA", room: "A301", type: "Cours" },
@@ -52,30 +46,185 @@ const TeacherProfil = () => {
     { day: "Jeudi", time: "08:00 - 10:00", course: "Sécurité", room: "B107", type: "Cours" },
   ]);
 
-  // Examens
-  const [exams, setExams] = useState([
+  const [exams] = useState([
     { title: "Examen Algorithmique", date: "2023-12-15", time: "08:00 - 11:00", room: "Amphi A" },
     { title: "Examen Base de données", date: "2023-12-18", time: "09:00 - 12:00", room: "Salle B205" },
     { title: "Examen IA", date: "2023-12-20", time: "10:00 - 13:00", room: "Amphi B" },
   ]);
 
-  const handleLoginClick = () => {
-    console.log("Bouton de connexion cliqué");
-  };
-
-  const checkAdminStatus = () => {
-    return localStorage.getItem('isAdmin') === 'true';
-  };
-
   useEffect(() => {
-    setIsAdmin(checkAdminStatus());
-  }, []);
+    const fetchTeacherData = async () => {
+      try {
+        const teacherCin = localStorage.getItem('teacherCin');
+        const teacherEmail = localStorage.getItem('teacherEmail');
+        
+        if (!teacherCin && !teacherEmail) {
+          navigate('/connexion');
+          return;
+        }
+  
+        const response = await fetch(
+          `http://localhost:5000/api/enseignants?cin=${teacherCin || ''}&email=${teacherEmail || ''}`
+        );
+        
+        const data = await response.json();
+  
+        if (!response.ok || !data.success) {
+          throw new Error(data.message || 'Erreur lors de la récupération des données');
+        }
+  
+        if (data.data.profileImage) {
+          setPreviewImage(`http://localhost:5000/uploads${data.data.profileImage}`);
+        }
+        setTeacherData(data.data); // Notez le changement ici pour accéder à data.data
+      } catch (error) {
+        console.error('Erreur:', error);
+        // Nettoyage du localStorage en cas d'erreur
+        localStorage.removeItem('teacherCin');
+        localStorage.removeItem('teacherEmail');
+        localStorage.removeItem('isAuthenticated');
+        navigate('/connexion');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+  
+    fetchTeacherData();
+  }, [navigate]);
 
   const handleAdminClick = () => {
     if (isAdmin) {
       navigate('/admin/dashboard');
     } else {
       navigate('/admin/login');
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <div style={{
+        display: 'flex',
+        justifyContent: 'center',
+        alignItems: 'center',
+        height: '100vh',
+        backgroundColor: '#f8f9fa'
+      }}>
+        <div>Chargement en cours...</div>
+      </div>
+    );
+  }
+
+  if (!teacherData) {
+    return (
+      <div style={{
+        display: 'flex',
+        justifyContent: 'center',
+        alignItems: 'center',
+        height: '100vh',
+        backgroundColor: '#f8f9fa'
+      }}>
+        <div>Erreur de chargement des données. Veuillez vous reconnecter.</div>
+      </div>
+    );
+  }
+
+  // Préparation des données pour l'affichage
+  const teacherProfile = {
+    name: teacherData.Nom_et_prénom || "Nom non spécifié",
+    title: teacherData.Classement || "Enseignant",
+    email: teacherData.Email || "Email non spécifié",
+    phone: teacherData.Numero_tel || "Non spécifié",
+    bio: teacherData.Description || "Aucune description fournie.",
+    
+  };
+
+  const handleImageChange = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+  
+    // Vérifications préalables
+    if (!file.type.match('image.*')) {
+      alert('Seules les images sont acceptées (JPEG, PNG)');
+      return;
+    }
+  
+    if (file.size > 5 * 1024 * 1024) {
+      alert('La taille maximale est de 5MB');
+      return;
+    }
+  
+    // Prévisualisation
+    const reader = new FileReader();
+    reader.onload = (e) => setPreviewImage(e.target.result);
+    reader.readAsDataURL(file);
+  
+    try {
+      const formData = new FormData();
+      formData.append('profileImage', file);
+  
+      const response = await fetch('http://localhost:5000/api/upload-profile-image', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        },
+        body: formData
+      });
+  
+      // Vérification du type de réponse
+      const contentType = response.headers.get('content-type');
+      if (!contentType || !contentType.includes('application/json')) {
+        const text = await response.text();
+        throw new Error(`Réponse inattendue du serveur: ${text.substring(0, 100)}...`);
+      }
+  
+      const result = await response.json();
+  
+      if (!response.ok) {
+        throw new Error(result.message || 'Échec du serveur');
+      }
+  
+      setPreviewImage(`http://localhost:5000/uploads${result.imageUrl}`);
+      alert('Photo mise à jour avec succès!');
+  
+    } catch (error) {
+      console.error('Erreur:', error);
+      alert(`Échec de l'envoi: ${error.message}`);
+      setPreviewImage(null);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
+
+  const uploadProfileImage = async (file) => {
+    const formData = new FormData();
+    formData.append('profileImage', file);
+    
+    try {
+      const response = await fetch('http://localhost:5000/api/upload-profile-image', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        },
+        body: formData
+      });
+      
+      const data = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(data.message || 'Erreur lors du téléchargement');
+      }
+      
+      console.log('Image téléchargée avec succès:', data);
+      // Mettre à jour les données de l'enseignant si nécessaire
+    } catch (error) {
+      console.error('Erreur:', error);
+      alert('Erreur lors du téléchargement de l\'image');
+    }
+  };
+  const styles = {
+    profileImage: {
+      width: '100%',
+      height: '100%',
+      objectFit: 'cover'
     }
   };
 
@@ -125,38 +274,44 @@ const TeacherProfil = () => {
               fontSize: "1.2rem",
               fontWeight: "bold",
               color: "#0056b3"
-            }}>Faculté des Sciences</span>
+            }}>Faculté des Sciences et Techniques FSTSBZ</span>
             <span style={{
               fontSize: "0.9rem",
               color: "#555"
             }}>Université de Kairouan</span>
           </div>
         </a>
-        <div style={{ flexGrow: 1 }}></div>
-        <a href="/teacherUploadDoc" style={{
-          display: "flex",
-          alignItems: "center",
-          textDecoration: "none"
-        }}>
-          
-          <div style={{
-            
-            paddingLeft: "1rem",
-            height: "50px",
-            display: "flex",
-            flexDirection: "column",
-            justifyContent: "center"
-          }}>
-            <span style={{
-              fontSize: "1.2rem",
-              fontWeight: "bold",
-              color: "#0056b3"
-            }}>Diffuser cours</span>
-           
-          </div>
-        </a>
 
+        <div style={{ flexGrow: 1 }}></div>
         
+        <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
+          <a href="/teacherUploadDoc" style={{
+            textDecoration: "none",
+            color: "#0056b3",
+            fontWeight: "bold"
+          }}>
+            Diffuser cours
+          </a>
+          {/*
+          <button 
+            onClick={() => {
+              localStorage.removeItem('teacherCin');
+              localStorage.removeItem('teacherEmail');
+              localStorage.removeItem('isTeacher');
+              navigate('/connexion');
+            }}
+            style={{
+              padding: '0.5rem 1rem',
+              backgroundColor: '#dc3545',
+              color: 'white',
+              border: 'none',
+              borderRadius: '4px',
+              cursor: 'pointer'
+            }}
+          >
+            Déconnexion
+          </button>*/}
+        </div>
       </header>
 
       {/* Section principale */}
@@ -166,37 +321,69 @@ const TeacherProfil = () => {
         gap: "2rem"
       }}>
         {/* Colonne de gauche - Profil */}
-        <div style={{
-          flex: "0 0 300px",
-          backgroundColor: "#fff",
-          borderRadius: "10px",
-          boxShadow: "0 4px 12px rgba(0, 0, 0, 0.1)",
-          padding: "2rem",
-          height: "fit-content"
-        }}>
-          <div style={{
-            display: "flex",
-            flexDirection: "column",
-            alignItems: "center",
-            marginBottom: "2rem"
-          }}>
-            <div style={{
-              width: "150px",
-              height: "150px",
-              borderRadius: "50%",
-              backgroundColor: "#e0e0e0",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              marginBottom: "1rem",
-              overflow: "hidden"
-            }}>
-              <FaChalkboardTeacher size={80} color="#555" />
-            </div>
-            <h2 style={{ margin: "0.5rem 0", color: "#0056b3" }}>{teacherData.name}</h2>
-            <p style={{ margin: "0", color: "#666", fontWeight: "500" }}>{teacherData.title}</p>
-            <p style={{ margin: "0.5rem 0", color: "#777" }}>{teacherData.department}</p>
-          </div>
+<div style={{
+  flex: "0 0 300px",
+  backgroundColor: "#fff",
+  borderRadius: "10px",
+  boxShadow: "0 4px 12px rgba(0, 0, 0, 0.1)",
+  padding: "2rem",
+  height: "fit-content"
+}}>
+  <div style={{
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "center",
+    marginBottom: "2rem"
+  }}>
+    {/* Section Photo UNIQUE (version améliorée) */}
+    <div style={{
+      position: 'relative',
+      width: "150px",
+      height: "150px",
+      borderRadius: "50%",
+      backgroundColor: "#e0e0e0",
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      marginBottom: "1rem",
+      overflow: "hidden",
+      cursor: 'pointer'
+    }} onClick={() => fileInputRef.current.click()}>
+      {previewImage ? (
+        <img 
+          src={previewImage} 
+          alt="Profile" 
+          style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+        />
+      ) : (
+        <FaChalkboardTeacher size={80} color="#555" />
+      )}
+      
+      <div style={{
+        position: 'absolute',
+        bottom: 0,
+        width: '100%',
+        padding: '0.5rem',
+        backgroundColor: 'rgba(0, 0, 0, 0.5)',
+        color: 'white',
+        textAlign: 'center',
+        fontSize: '0.8rem'
+      }}>
+        Changer photo
+      </div>
+    </div>
+
+    <input
+      type="file"
+      ref={fileInputRef}
+      style={{ display: 'none' }}
+      accept="image/*"
+      onChange={handleImageChange}
+    />
+
+    <h2 style={{ margin: "0.5rem 0", color: "#0056b3" }}>{teacherProfile.name}</h2>
+    <p style={{ margin: "0", color: "#666", fontWeight: "500" }}>{teacherProfile.title}</p>
+  </div>
 
           <div style={{ borderTop: "1px solid #eee", paddingTop: "1rem" }}>
             <h3 style={{ display: "flex", alignItems: "center", gap: "0.5rem", color: "#444" }}>
@@ -204,20 +391,18 @@ const TeacherProfil = () => {
             </h3>
             <div style={{ marginTop: "1rem" }}>
               <p style={{ display: "flex", alignItems: "center", gap: "0.5rem", margin: "0.5rem 0" }}>
-                <MdEmail color="#0056b3" /> {teacherData.email}
+                <MdEmail color="#0056b3" /> {teacherProfile.email}
               </p>
               <p style={{ display: "flex", alignItems: "center", gap: "0.5rem", margin: "0.5rem 0" }}>
-                <MdPhone color="#0056b3" /> {teacherData.phone}
+                <MdPhone color="#0056b3" /> {teacherProfile.phone}
               </p>
-              <p style={{ display: "flex", alignItems: "center", gap: "0.5rem", margin: "0.5rem 0" }}>
-                <MdLocationOn color="#0056b3" /> {teacherData.office}
-              </p>
+              
             </div>
           </div>
 
           <div style={{ borderTop: "1px solid #eee", paddingTop: "1rem", marginTop: "1rem" }}>
             <h3 style={{ color: "#444" }}>À propos</h3>
-            <p style={{ color: "#666", lineHeight: "1.6" }}>{teacherData.bio}</p>
+            <p style={{ color: "#666", lineHeight: "1.6" }}>{teacherProfile.bio}</p>
           </div>
         </div>
 
@@ -236,7 +421,7 @@ const TeacherProfil = () => {
           }}>
             <div style={{ flex: "1" }}>
               <h1 style={{ color: "#0056b3", marginBottom: "1rem" }}>
-                Bienvenue, {teacherData.name}
+                Bienvenue, {teacherProfile.name}
               </h1>
               <p style={{ color: "#666", lineHeight: "1.6" }}>
                 Enseigner, c'est semer des graines de savoir qui fleuriront toute une vie.
@@ -368,23 +553,30 @@ const TeacherProfil = () => {
                   </div>
                 </div>
               ))}
+              
               <section className="news-section" ref={newsSectionRef} id="evenements">
-                     <h2>Actualités et événements</h2>
-                     <div className="news-grid">
-                       {events.map((event, index) => (
-                         <div 
-                           key={index} 
-                           className="news-card"
-                           onClick={() => handleEventClick(event.title)}
-                           style={{ cursor: 'pointer' }}
-                         >
-                           <h3>{event.title}</h3>
-                           <p>{event.description}</p>
-                           
-                         </div>
-                       ))}
-                     </div>
-                   </section>
+                <h2>Actualités et événements</h2>
+                <div className="news-grid">
+                  {events.map((event, index) => (
+                    <div 
+                      key={index} 
+                      className="news-card"
+                      onClick={() => handleEventClick(event.title)}
+                      style={{ 
+                        cursor: 'pointer',
+                        padding: '1rem',
+                        marginBottom: '1rem',
+                        backgroundColor: '#fff',
+                        borderRadius: '8px',
+                        boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
+                      }}
+                    >
+                      <h3 style={{ color: '#0056b3', marginTop: 0 }}>{event.title}</h3>
+                      <p style={{ color: '#666' }}>{event.description}</p>
+                    </div>
+                  ))}
+                </div>
+              </section>
             </div>
           </div>
         </div>

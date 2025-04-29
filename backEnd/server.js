@@ -7,6 +7,8 @@ import jwt from 'jsonwebtoken';
 
 const app = express();
 const router = express.Router();
+//const multer = require('multer');
+//const path = require('path');
 
 // Middlewares
 app.use(cors({
@@ -92,26 +94,28 @@ app.post("/connexion", async (req, res) => {
     
     if (enseignants.length > 0) {
       const enseignant = enseignants[0];
-      // Debug: Afficher le hash stocké et le mot de passe tenté
-      console.log("Hash stocké (enseignant):", enseignant.Password);
-      console.log("Mot de passe tenté:", password);
+      const isMatch = await bcrypt.compare(password, enseignant.Password);
       
-      const isPasswordValid = await bcrypt.compare(password, enseignant.Password);
-      
-      if (isPasswordValid) {
-        return res.status(200).json({ 
-          message: "Connexion réussie", 
-          role: "enseignant", 
-          cin: enseignant.CIN, // Ajout du CIN
-          user: enseignant 
+      if (isMatch) {
+        // Créez un token JWT si nécessaire
+        const token = jwt.sign(
+          { cin: enseignant.CIN, role: 'enseignant' },
+          process.env.JWT_SECRET,
+          { expiresIn: '1h' }
+        );
+
+        return res.json({
+          success: true,
+          message: "Connexion réussie",
+          role: "enseignant",
+          cin: enseignant.CIN,
+          email: enseignant.Email,
+          token: token // Envoyez le token au frontend
         });
-      } else {
-        console.log("Comparaison bcrypt échouée pour enseignant");
-        return res.status(401).json({ message: "Mot de passe incorrect." });
       }
     }
 
-    // Vérification étudiant
+      // Vérification étudiant
     const [etudiants] = await pool.query("SELECT * FROM etudiant WHERE email = ?", [email]);
     
     if (etudiants.length > 0) {
@@ -477,7 +481,39 @@ router.post('/extend-session', (req, res) => {
   }
 });
 
+// Route pour uploader l'image
+{/*router.post('/upload-profile-image', authenticateTeacher, async (req, res) => {
+  try {
+    if (!req.files || !req.files.profileImage) {
+      return res.status(400).json({ message: 'Aucune image fournie' });
+    }
 
+    const image = req.files.profileImage;
+    const teacherId = req.user.id; // ID de l'enseignant
+    
+    // Générer un nom de fichier unique
+    const imageName = `teacher_${teacherId}_${Date.now()}${path.extname(image.name)}`;
+    const imagePath = path.join(__dirname, '../uploads/profile_images', imageName);
+
+    // Sauvegarder l'image
+    await image.mv(imagePath);
+
+    // Mettre à jour l'enseignant dans la base de données
+    await Teacher.updateOne(
+      { _id: teacherId },
+      { $set: { profileImage: `/profile_images/${imageName}` } }
+    );
+
+    res.json({ 
+      success: true,
+      imageUrl: `/profile_images/${imageName}`
+    });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});*/}
+// Servir les fichiers statiques
+//app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // Route pour enregistrer un participant
 // Route pour enregistrer un participant
@@ -546,6 +582,208 @@ app.post('/api/register', async (req, res) => {
   }
 });
 
+app.get("/api/enseignants", async (req, res) => {
+  const { cin, email } = req.query;
+
+  try {
+    if (!cin && !email) {
+      return res.status(400).json({ 
+        success: false,
+        message: "CIN ou email requis" 
+      });
+    }
+
+    const connection = await pool.getConnection();
+    try {
+      const [results] = await connection.query(
+        "SELECT Cin, Nom_et_prénom, Email, Numero_tel, Classement, Description FROM enseignants WHERE Cin = ? OR Email = ? LIMIT 1",
+        [cin || null, email || null]
+      );
+
+      if (results.length === 0) {
+        return res.status(404).json({ 
+          success: false,
+          message: "Enseignant non trouvé" 
+        });
+      }
+
+      res.json({
+        success: true,
+        data: results[0]
+      });
+    } finally {
+      connection.release();
+    }
+  } catch (error) {
+    console.error("Erreur:", error);
+    res.status(500).json({ 
+      success: false,
+      message: "Erreur serveur",
+      error: error.message
+    });
+  }
+});
+
+
+
+
+
+
+
+// Middleware pour les erreurs
+app.use((err, req, res, next) => {
+  console.error(err.stack);
+  res.status(500).json({ 
+    success: false,
+    message: err.message 
+  });
+});
+
+// Route d'upload
+{/*router.post('/upload-profile-image', 
+  authenticateTeacher,
+  upload.single('profileImage'),
+  async (req, res, next) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json({ 
+          success: false,
+          message: 'Aucun fichier fourni' 
+        });
+      }
+
+      const imageUrl = `/profile_images/${req.file.filename}`;
+      
+      await Teacher.updateOne(
+        { _id: req.user.id },
+        { profileImage: imageUrl }
+      );
+
+      res.json({
+        success: true,
+        imageUrl: imageUrl
+      });
+
+    } catch (error) {
+      next(error); // Passe à middleware d'erreur
+    }
+  }
+);
+*/}
+
+
+// Middleware pour vérifier l'authentification
+const authenticateTeacher = async (req, res, next) => {
+  const token = req.headers.authorization?.split(' ')[1];
+  
+  if (!token) {
+    return res.status(401).json({ message: "Authentification requise" });
+  }
+
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const [user] = await pool.query(
+      "SELECT Cin FROM enseignants WHERE Cin = ?", 
+      [decoded.cin]
+    );
+    
+    if (!user) {
+      return res.status(401).json({ message: "Utilisateur non trouvé" });
+    }
+    
+    req.user = user;
+    next();
+  } catch (error) {
+    return res.status(401).json({ message: "Token invalide" });
+  }
+};
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+// Configuration Multer
+{/*const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, 'uploads/profile_images/');
+  },
+  filename: (req, file, cb) => {
+    const ext = path.extname(file.originalname);
+    const filename = `teacher_${req.user.id}_${Date.now()}${ext}`;
+    cb(null, filename);
+  }
+});
+
+const upload = multer({
+  storage: storage,
+  limits: {
+    fileSize: 5 * 1024 * 1024 // 5MB
+  },
+  fileFilter: (req, file, cb) => {
+    if (file.mimetype.startsWith('image/')) {
+      cb(null, true);
+    } else {
+      cb(new Error('Seules les images sont autorisées (JPEG, PNG)'), false);
+    }
+  }
+});
+
+router.post('/upload-profile-image', 
+  authenticateTeacher,
+  upload.single('profileImage'),
+  async (req, res) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json({ 
+          success: false,
+          message: 'Aucune image valide fournie' 
+        });
+      }
+
+      const imagePath = `/profile_images/${req.file.filename}`;
+      
+      // Mise à jour dans la base de données
+      await Teacher.findByIdAndUpdate(
+        req.user.id,
+        { profileImage: imagePath },
+        { new: true }
+      );
+
+      res.json({ 
+        success: true,
+        imageUrl: imagePath,
+        message: 'Photo mise à jour avec succès'
+      });
+      
+    } catch (error) {
+      console.error('Erreur upload:', error);
+      res.status(500).json({ 
+        success: false,
+        message: error.message || 'Échec de l\'envoi de la photo'
+      });
+    }
+  }
+);
+
+*/}
+// Protégez vos routes
+app.get("/api/protected-route", authenticateTeacher, (req, res) => {
+  res.json({ message: "Accès autorisé" });
+});
 
 
 // Démarrer le serveur

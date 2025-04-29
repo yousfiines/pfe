@@ -54,25 +54,27 @@ const Connexion = () => {
         });
   
         const data = await response.json();
+        console.log("Réponse du serveur:", data); // Debug
   
-        if (response.ok) {
-          // Stockage des informations de session
-          localStorage.setItem('userRole', data.role);
-          localStorage.setItem('userCin', data.cin);
-          localStorage.setItem('userData', JSON.stringify(data.user));
+        if (!response.ok) {
+          throw new Error(data.message || "Email ou mot de passe incorrect");
+        }
   
-          // Redirection
-          if (data.role === "enseignant") {
-            navigate("/teacherProfil");
-          } else if (data.role === "etudiant") {
+        // Stockage robuste des informations
+        localStorage.setItem('isAuthenticated', 'true');
+        localStorage.setItem('userRole', data.role);
+        
+        if (data.role === "enseignant") {
+          localStorage.setItem('teacherCin', data.cin);
+          localStorage.setItem('teacherEmail', data.email);
+          console.log("Redirection vers /teacherProfil"); // Debug
+          navigate("/teacherProfil", { replace: true }); 
+        } else  {
             navigate("/etudiantProfil");
-          }
-        } else {
-          alert(data.message || "Erreur lors de la connexion");
         }
       } catch (error) {
-        console.error("Erreur réseau :", error);
-        alert("Erreur réseau. Veuillez réessayer.");
+        console.error("Erreur connexion:", error);
+        alert(error.message);
       } finally {
         setIsSubmitting(false);
       }
@@ -82,11 +84,6 @@ const Connexion = () => {
   };
 
   return (
-
-    
-
-
-    
     <div style={styles.container}>
       <div style={styles.contentWrapper}>
         <div style={styles.formContainer}>

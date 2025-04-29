@@ -1,16 +1,24 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { FaGraduationCap, FaFlask } from 'react-icons/fa';
 import IMG from "../../../assets/img/IMG.JPG";
 import logoFac from "./../../../assets/logoFac.png";
-import Fac from "../../../assets/img/fac.JPG";
-
+import faculte from "./../../../assets/img/faculte.JPG"; 
+import facultee from "./../../../assets/img/facultee.JPG"; 
+import faculté from "./../../../assets/img/faculté.JPG"
 const Header = () => {
+  const [activeImage, setActiveImage] = useState(0);
+  const images = [faculte, facultee, faculté]; // J'ai ajouté faculté ici
   const handleLoginClick = () => {
-    // Fonction pour gérer le clic sur le bouton de connexion
     console.log("Bouton de connexion cliqué");
-    // Redirection vers la page de connexion
-    // window.location.href = "/login";
   };
+
+  // Animation pour alterner entre les images avec effet de glissement
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setActiveImage(prev => (prev + 1) % images.length);
+    }, 5000); // Change d'image toutes les 5 secondes
+    return () => clearInterval(interval);
+  }, []);
 
   return (
     <div style={{
@@ -139,7 +147,7 @@ const Header = () => {
         textAlign: 'center',
         color: 'white',
         position: 'relative',
-        marginTop: '-3px' // Compensation pour la bande défilante
+        marginTop: '-3px'
       }}>
         <div style={{
           maxWidth: '800px',
@@ -160,7 +168,7 @@ const Header = () => {
         </div>
       </section>
 
-      {/* Section Notre Institution */}
+      {/* Section Notre Institution avec animation de défilement */}
       <section style={{
         padding: '80px 20px',
         backgroundColor: '#fff'
@@ -200,191 +208,72 @@ const Header = () => {
             alignItems: 'center'
           }}>
             <div style={{
-              position: 'relative'
+              position: 'relative',
+              height: '400px',
+              overflow: 'hidden',
+              borderRadius: '8px',
+              boxShadow: '0 10px 30px rgba(0,0,0,0.1)'
             }}>
+              {/* Conteneur des images avec animation */}
               <div style={{
-                borderRadius: '8px',
-                overflow: 'hidden',
-                boxShadow: '0 10px 30px rgba(0,0,0,0.1)',
-                position: 'relative'
+                display: 'flex',
+                width: `${images.length * 100}%`,
+                height: '100%',
+                transform: `translateX(-${activeImage * (100 / images.length)}%)`,
+                transition: 'transform 0.8s ease-in-out'
               }}>
-                <img 
-                  src={Fac}
-                  alt="Campus universitaire" 
-                  style={{
-                    width: '100%',
-                    height: 'auto',
-                    display: 'block'
-                  }}
-                />
-                <div style={{
-                  position: 'absolute',
-                  top: 0,
-                  left: 0,
-                  right: 0,
-                  bottom: 0,
-                  background: 'linear-gradient(to bottom, rgba(30,60,114,0.1), rgba(30,60,114,0.3))'
-                }}></div>
-              </div>
-            </div>
-            
-            <div style={{
-              padding: '20px'
-            }}>
-              <div style={{
-                position: 'relative',
-                paddingLeft: '30px',
-                marginBottom: '40px'
-              }}>
-                <div style={{
-                  position: 'relative',
-                  marginBottom: '30px'
-                }}>
-                  <div style={{
-                    position: 'absolute',
-                    left: '-30px',
-                    top: '5px',
-                    width: '20px',
-                    height: '20px',
-                    borderRadius: '50%',
-                    backgroundColor: '#1e3c72',
-                    border: '4px solid #f0f7ff'
-                  }}></div>
-                  <div style={{
-                    padding: '10px 20px',
-                    backgroundColor: '#f8f9fa',
-                    borderRadius: '6px'
+                {images.map((img, index) => (
+                  <div key={index} style={{
+                    width:` ${100 / images.length}%`,
+                    height: '100%',
+                    position: 'relative'
                   }}>
-                    <h3 style={{
-                      color: '#1e3c72',
-                      marginBottom: '5px',
-                      fontSize: '1.2rem'
-                    }}>Fondation</h3>
-                    <p style={{
-                      color: '#555',
-                      fontSize: '0.95rem'
-                    }}>Crée le 4 septembre 2012 par décret n°1645</p>
+                    <img 
+                      src={img}
+                      alt={`Campus universitaire ${index + 1}`}
+                      style={{
+                        width: '100%',
+                        height: '100%',
+                        objectFit: 'cover'
+                      }}
+                    />
+                    <div style={{
+                      position: 'absolute',
+                      top: 0,
+                      left: 0,
+                      right: 0,
+                      bottom: 0,
+                      background: 'linear-gradient(to bottom, rgba(30,60,114,0.1), rgba(30,60,114,0.3))'
+                    }}></div>
                   </div>
-                </div>
-                <div style={{
-                  position: 'relative',
-                  marginBottom: '30px'
-                }}>
-                  <div style={{
-                    position: 'absolute',
-                    left: '-30px',
-                    top: '5px',
-                    width: '20px',
-                    height: '20px',
-                    borderRadius: '50%',
-                    backgroundColor: '#1e3c72',
-                    border: '4px solid #f0f7ff'
-                  }}></div>
-                  <div style={{
-                    padding: '10px 20px',
-                    backgroundColor: '#f8f9fa',
-                    borderRadius: '6px'
-                  }}>
-                    <h3 style={{
-                      color: '#1e3c72',
-                      marginBottom: '5px',
-                      fontSize: '1.2rem'
-                    }}>Affiliation</h3>
-                    <p style={{
-                      color: '#555',
-                      fontSize: '0.95rem'
-                    }}>Établissement rattaché à l'Université de Kairouan</p>
-                  </div>
-                </div>
-                <div style={{
-                  position: 'relative',
-                  marginBottom: '30px'
-                }}>
-                  <div style={{
-                    position: 'absolute',
-                    left: '-30px',
-                    top: '5px',
-                    width: '20px',
-                    height: '20px',
-                    borderRadius: '50%',
-                    backgroundColor: '#1e3c72',
-                    border: '4px solid #f0f7ff'
-                  }}></div>
-                  <div style={{
-                    padding: '10px 20px',
-                    backgroundColor: '#f8f9fa',
-                    borderRadius: '6px'
-                  }}>
-                    <h3 style={{
-                      color: '#1e3c72',
-                      marginBottom: '5px',
-                      fontSize: '1.2rem'
-                    }}>Mission</h3>
-                    <p style={{
-                      color: '#555',
-                      fontSize: '0.95rem'
-                    }}>Former les leaders scientifiques de demain</p>
-                  </div>
-                </div>
+                ))}
               </div>
               
+              {/* Indicateurs de slide */}
               <div style={{
-                display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-                gap: '20px'
+                position: 'absolute',
+                bottom: '20px',
+                left: '50%',
+                transform: 'translateX(-50%)',
+                display: 'flex',
+                gap: '10px'
               }}>
-                <div style={{
-                  backgroundColor: '#f8f9fa',
-                  padding: '25px 20px',
-                  borderRadius: '8px',
-                  textAlign: 'center',
-                  transition: 'transform 0.3s ease',
-                  ':hover': {
-                    transform: 'translateY(-5px)',
-                    boxShadow: '0 5px 15px rgba(0,0,0,0.1)'
-                  }
-                }}>
-                  <FaGraduationCap style={{
-                    fontSize: '2rem',
-                    color: '#1e3c72',
-                    marginBottom: '15px'
-                  }} />
-                  <h4 style={{
-                    color: '#1e3c72',
-                    fontSize: '1.1rem',
-                    marginBottom: '10px'
-                  }}>Éducation</h4>
-                  <p style={{
-                    color: '#555',
-                    fontSize: '0.9rem'
-                  }}>Programmes académiques de qualité en sciences et technologies</p>
-                </div>
-                <div style={{
-                  backgroundColor: '#f8f9fa',
-                  padding: '25px 20px',
-                  borderRadius: '8px',
-                  textAlign: 'center',
-                  transition: 'transform 0.3s ease',
-                  ':hover': {
-                    transform: 'translateY(-5px)',
-                    boxShadow: '0 5px 15px rgba(0,0,0,0.1)'
-                  }
-                }}>
-                  <FaFlask style={{
-                    fontSize: '2rem',
-                    color: '#1e3c72',
-                    marginBottom: '15px'
-                  }} />
-                  <h4 style={{
-                    color: '#1e3c72',
-                    fontSize: '1.1rem',
-                    marginBottom: '10px'
-                  }}>Recherche</h4>
-                  <p style={{
-                    color: '#555',
-                    fontSize: '0.9rem'
-                  }}>Encouragement à l'innovation et recherche scientifique</p>
-                </div>
+                {images.map((_, index) => (
+                  <button
+                    key={index}
+                    onClick={() => setActiveImage(index)}
+                    style={{
+                      width: '12px',
+                      height: '12px',
+                      borderRadius: '50%',
+                      border: 'none',
+                      padding: 0,
+                      cursor: 'pointer',
+                      backgroundColor: index === activeImage ? '#1e3c72' : 'rgba(255,255,255,0.5)',
+                      transition: 'background-color 0.3s'
+                    }}
+                  />
+                ))}
               </div>
             </div>
           </div>
