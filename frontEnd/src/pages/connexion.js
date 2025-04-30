@@ -54,27 +54,31 @@ const Connexion = () => {
         });
   
         const data = await response.json();
-        console.log("Réponse du serveur:", data); // Debug
+        console.log("Réponse du serveur:", data);
   
         if (!response.ok) {
           throw new Error(data.message || "Email ou mot de passe incorrect");
         }
   
-        // Stockage robuste des informations
+        // Stockage des informations de session
         localStorage.setItem('isAuthenticated', 'true');
+        localStorage.setItem('token', data.token); // Stockage du token JWT
         localStorage.setItem('userRole', data.role);
         
         if (data.role === "enseignant") {
           localStorage.setItem('teacherCin', data.cin);
           localStorage.setItem('teacherEmail', data.email);
-          console.log("Redirection vers /teacherProfil"); // Debug
-          navigate("/teacherProfil", { replace: true }); 
-        } else  {
-            navigate("/etudiantProfil");
+          navigate("/teacherProfil");
+        } else if (data.role === "etudiant") {
+          localStorage.setItem('studentCin', data.cin);
+          navigate("/etudiantProfil");
+        } else if (data.role === "admin") {
+          navigate("/admin/dashboard");
         }
+        
       } catch (error) {
         console.error("Erreur connexion:", error);
-        alert(error.message);
+        alert(error.message || "Erreur lors de la connexion");
       } finally {
         setIsSubmitting(false);
       }

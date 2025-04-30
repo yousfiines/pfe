@@ -12,6 +12,7 @@ const Inscription = () => {
     password: "",
     confirmPassword: "",
     filière: "",
+    classe: "",
   });
 
   const [errors, setErrors] = useState({});
@@ -19,25 +20,54 @@ const Inscription = () => {
   const [passwordFeedback, setPasswordFeedback] = useState(null);
   const navigate = useNavigate();
 
-  const Filière = [
-    "",
-    "Licence en Sciences Biologiques et Environnementales",
-    "Licence en Sciences de l'informatique : Génie logiciel et systèmes d'information",
-    "Licence en Sciences : Physique-Chimie",
-    "Licence en Sciences de Mathématique",
-    "Licence en Technologie de l'information et de la communication",
-    "Licence en Industries Agroalimentaires et Impacts Environnementaux",
-    "Master Recherche en Ecophysiologie et Adaptation Végétal",
-    "Master de Recherche Informatique décisionnelle",
-    "Master recherche Physique et Chimie des Matériaux de Hautes Performances",
-  ];
+  // Liste des filières avec leurs classes correspondantes
+  const filieres = {
+    "": { classes: [""] },
+    "Licence en Sciences Biologiques et Environnementales": {
+      classes: ["", "LSBE1", "LSBE2", "LSBE3"]
+    },
+    "Licence en Sciences de l'informatique : Génie logiciel et systèmes d'information": {
+      classes: ["", "LSI1", "LSI2", "LSI3"]
+    },
+    "Licence en Sciences : Physique-Chimie": {
+      classes: ["", "LPC1", "LPC2", "LPC3"]
+    },
+    "Licence en Sciences de Mathématique": {
+      classes: ["", "LSM1", "LSM2", "LSM3"]
+    },
+    "Licence en Technologie de l'information et de la communication": {
+      classes: ["", "LTIC1", "LTIC2", "LTIC3"]
+    },
+    "Licence en Industries Agroalimentaires et Impacts Environnementaux": {
+      classes: ["", "LIAIE1", "LIAIE2", "LIAIE3"]
+    },
+    "Master Recherche en Ecophysiologie et Adaptation Végétal": {
+      classes: ["", "M1", "M2"]
+    },
+    "Master de Recherche Informatique décisionnelle": {
+      classes: ["", "M1", "M2"]
+    },
+    "Master recherche Physique et Chimie des Matériaux de Hautes Performances": {
+      classes: ["", "M1", "M2"]
+    },
+  };
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setFormData({
-      ...formData,
-      [name]: value,
-    });
+    
+    // Si la filière change, réinitialiser la classe
+    if (name === "filière") {
+      setFormData({
+        ...formData,
+        [name]: value,
+        classe: ""
+      });
+    } else {
+      setFormData({
+        ...formData,
+        [name]: value,
+      });
+    }
 
     // Validation en temps réel pour le mot de passe
     if (name === "password") {
@@ -103,6 +133,7 @@ const Inscription = () => {
       newErrors.confirmPassword = "Les mots de passe ne correspondent pas.";
     }
     if (!formData.filière) newErrors.filière = "La filière est requise.";
+    if (!formData.classe) newErrors.classe = "La classe est requise.";
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -123,17 +154,17 @@ const Inscription = () => {
             Cin: formData.Cin,
             Nom_et_prénom: formData.Nom_et_prénom,
             Téléphone: formData.Téléphone,
-            email: formData.email, // Changé de Email à email
-            password: formData.password, // Changé de Password à password
+            email: formData.email,
+            password: formData.password,
             confirmPassword: formData.confirmPassword,
-            filière: formData.filière
+            filière: formData.filière,
+            classe: formData.classe
           }),
         });
   
         const data = await response.json();
         
         if (!response.ok) {
-          // Gestion des erreurs venant du backend
           if (data.errors) {
             setErrors(data.errors);
           }
@@ -144,7 +175,6 @@ const Inscription = () => {
           return;
         }
   
-        // Si succès
         localStorage.setItem('selectedFiliere', formData.filière);
         alert("Inscription réussie !");
         navigate("/connexion");
@@ -228,7 +258,6 @@ const Inscription = () => {
                     />
                     {errors.password && <span style={styles.error}>{errors.password}</span>}
                     
-                    {/* Barre de force du mot de passe */}
                     {passwordFeedback && (
                       <div style={{ marginTop: "10px" }}>
                         <div style={{
@@ -238,7 +267,7 @@ const Inscription = () => {
                           marginBottom: "5px"
                         }}>
                           <div style={{
-                            width: `${passwordFeedback.percentage}%`,
+                            width:` ${passwordFeedback.percentage}%`,
                             height: "100%",
                             backgroundColor: getStrengthColor(passwordFeedback.percentage),
                             borderRadius: "5px",
@@ -247,7 +276,6 @@ const Inscription = () => {
                         </div>
                         <small>Force du mot de passe: {passwordFeedback.strength}/5</small>
                         
-                        {/* Liste des exigences */}
                         <ul style={{ margin: "10px 0 0 0", paddingLeft: "20px", fontSize: "12px" }}>
                           <li style={{ color: passwordFeedback.requirements.minLength ? "green" : "red" }}>
                             Au moins 10 caractères
@@ -288,13 +316,30 @@ const Inscription = () => {
                       onChange={handleChange}
                       style={styles.input}
                     >
-                      {Filière.map((filière, index) => (
-                        <option key={index} value={filière}>
-                          {filière || "Sélectionnez une filière"}
+                      {Object.keys(filieres).map((filiere, index) => (
+                        <option key={index} value={filiere}>
+                          {filiere || "Sélectionnez une filière"}
                         </option>
                       ))}
                     </select>
                     {errors.filière && <span style={styles.error}>{errors.filière}</span>}
+                  </div>
+
+                  <div style={styles.formGroup}>
+                    <select
+                      name="classe"
+                      value={formData.classe}
+                      onChange={handleChange}
+                      style={styles.input}
+                      disabled={!formData.filière}
+                    >
+                      {filieres[formData.filière]?.classes.map((classe, index) => (
+                        <option key={index} value={classe}>
+                          {classe || "Sélectionnez une classe"}
+                        </option>
+                      ))}
+                    </select>
+                    {errors.classe && <span style={styles.error}>{errors.classe}</span>}
                   </div>
 
                   <button type="submit" style={styles.button} disabled={isSubmitting}>
@@ -322,8 +367,6 @@ const Inscription = () => {
     </div>
   );
 };
-
-
 
 const styles = {
   container: {

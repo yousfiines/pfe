@@ -10,6 +10,14 @@ const router = express.Router();
 import dotenv from 'dotenv';
 dotenv.config();
 
+
+import multer from 'multer';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
 // Configuration JWT améliorée
 const JWT_CONFIG = {
   secret: process.env.JWT_SECRET,
@@ -37,9 +45,10 @@ app.use(cors({
   origin: 'http://localhost:3000',
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization']
+  allowedHeaders: ['Content-Type', 'Authorization' , 'X-Requested-With']
 }));
 app.use(express.json());
+app.options('*', cors());
 app.use(cookieParser());
 
 // Configuration de la base de données
@@ -82,11 +91,10 @@ app.post("/admin/login", async (req, res) => {
     }
 
     const token = jwt.sign(
-      { cin: enseignant.CIN, role: 'enseignant' },
+      { cin: admin[0].Cin, role: 'admin' }, // Utilisez admin[0].Cin
       JWT_CONFIG.secret,
       { expiresIn: JWT_CONFIG.expiresIn }
     );
-
     res.json({ 
       success: true, 
       token,
@@ -106,10 +114,6 @@ app.post("/admin/login", async (req, res) => {
 app.post("/connexion", async (req, res) => {
   const { email, password } = req.body;
 
-  if (!email || !password) {
-    return res.status(400).json({ message: "L'email et le mot de passe sont requis." });
-  }
-
   try {
     // Vérification enseignant
     const [enseignants] = await pool.query("SELECT * FROM enseignants WHERE Email = ?", [email]);
@@ -119,55 +123,58 @@ app.post("/connexion", async (req, res) => {
       const isMatch = await bcrypt.compare(password, enseignant.Password);
       
       if (isMatch) {
-        const jwtSecret = process.env.JWT_SECRET || 'fatroucha';
-        
         const token = jwt.sign(
           { cin: enseignant.CIN, role: 'enseignant' },
-          jwtSecret, // Utilisez la variable définie
+          process.env.JWT_SECRET || 'dev-secret-only',
           { expiresIn: '1h' }
         );
       
         return res.json({
           success: true,
           message: "Connexion réussie",
+          token: token, // Important
           role: "enseignant",
           cin: enseignant.CIN,
-          email: enseignant.Email,
-          token: token
+          email: enseignant.Email
         });
       }
     }
 
-      // Vérification étudiant
+    // Vérification étudiant
     const [etudiants] = await pool.query("SELECT * FROM etudiant WHERE email = ?", [email]);
     
     if (etudiants.length > 0) {
       const etudiant = etudiants[0];
-      // Debug: Afficher le hash stocké et le mot de passe tenté
-      console.log("Hash stocké (étudiant):", etudiant.Password);
-      console.log("Mot de passe tenté:", password);
-      
       const isPasswordValid = await bcrypt.compare(password, etudiant.Password);
       
       if (isPasswordValid) {
-        return res.status(200).json({ 
-          message: "Connexion réussie", 
-          role: "etudiant", 
-          cin: etudiant.CIN, // Ajout du CIN
-          user: etudiant 
+        const token = jwt.sign(
+          { cin: etudiant.CIN, role: 'etudiant' },
+          process.env.JWT_SECRET || 'dev-secret-only',
+          { expiresIn: '1h' }
+        );
+        
+        return res.json({
+          success: true,
+          message: "Connexion réussie",
+          token: token,
+          role: "etudiant",
+          cin: etudiant.CIN,
+          email: etudiant.email
         });
-      } else {
-        console.log("Comparaison bcrypt échouée pour étudiant");
-        return res.status(401).json({ message: "Mot de passe incorrect." });
       }
     }
 
-    return res.status(404).json({ message: "Aucun utilisateur trouvé avec cet email." });
+    return res.status(401).json({ 
+      success: false,
+      message: "Identifiants incorrects" 
+    });
+
   } catch (error) {
     console.error("Erreur lors de la connexion :", error);
     return res.status(500).json({ 
-      message: "Erreur interne du serveur", 
-      error: error.message 
+      success: false,
+      message: "Erreur interne du serveur"
     });
   }
 });
@@ -309,7 +316,7 @@ app.post("/enseignants", async (req, res) => {
 });
 
 app.post("/etudiant", async (req, res) => {
-  const { Cin, Nom_et_prénom, Téléphone, email, password, confirmPassword, filière } = req.body;
+  const { Cin, Nom_et_prénom, Téléphone, email, password, confirmPassword, filière , classe} = req.body;
 
   // Validation des champs
   const errors = {};
@@ -370,6 +377,9 @@ app.post("/etudiant", async (req, res) => {
   if (!filière || !Filière.includes(filière)) {
     errors.filière = "Veuillez sélectionner une filière valide.";
   }
+  if (!classe || !classe.includes(classe)) {
+    errors.classe = "Veuillez sélectionner une classe valide.";
+  }
 
   if (Object.keys(errors).length > 0) {
     return res.status(400).json({ 
@@ -400,8 +410,8 @@ app.post("/etudiant", async (req, res) => {
 
     // Insertion dans la base de données
     await pool.query(
-      "INSERT INTO etudiant (Cin, Nom_et_prénom, Téléphone, email, password, Confirmpassword, Filière) VALUES (?, ?, ?, ?, ?, ?, ?)",
-      [Cin, Nom_et_prénom.trim(), Téléphone, email.toLowerCase(), hashedPassword, hashedConfirmPassword, filière]
+      "INSERT INTO etudiant (Cin, Nom_et_prénom, Téléphone, email, password, Confirmpassword, Filière, Classe) VALUES (?, ?,? , ?, ?, ?, ?, ?)",
+      [Cin, Nom_et_prénom.trim(), Téléphone, email.toLowerCase(), hashedPassword, hashedConfirmPassword, filière, classe]
     );
 
     return res.status(201).json({ 
@@ -572,48 +582,177 @@ app.post('/api/register', async (req, res) => {
   }
 });
 
-app.get("/api/enseignants", async (req, res) => {
-  const { cin, email } = req.query;
-
+// Middleware d'authentification amélioré
+const authenticateTeacher = async (req, res, next) => {
   try {
+    // 1. Vérifier la présence du token
+    const authHeader = req.headers.authorization;
+    if (!authHeader?.startsWith('Bearer ')) {
+      return res.status(401).json({ 
+        success: false,
+        message: "Authorization header manquant ou invalide" 
+      });
+    }
+
+    const token = authHeader.split(' ')[1];
+    
+    // 2. Vérifier et décoder le token
+    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'dev-secret-only');
+    
+    // 3. Vérification minimale dans la base de données
+    const [user] = await pool.query(
+      "SELECT Cin FROM enseignants WHERE Cin = ? LIMIT 1", 
+      [decoded.cin]
+    );
+    
+    if (!user.length) {
+      return res.status(401).json({ 
+        success: false,
+        message: "Utilisateur non autorisé" 
+      });
+    }
+    
+    // 4. Ajouter les infos utilisateur à la requête
+    req.user = { cin: decoded.cin };
+    next();
+
+  } catch (error) {
+    console.error('Erreur authentification:', error);
+    
+    let message = "Erreur d'authentification";
+    if (error.name === 'TokenExpiredError') {
+      message = "Session expirée - Veuillez vous reconnecter";
+    } else if (error.name === 'JsonWebTokenError') {
+      message = "Token invalide";
+    }
+    
+    return res.status(401).json({ 
+      success: false,
+      message 
+    });
+  }
+};
+
+app.get("/api/enseignants", authenticateTeacher, async (req, res) => {
+  try {
+    const { cin, email } = req.query;
+    
     if (!cin && !email) {
       return res.status(400).json({ 
         success: false,
-        message: "CIN ou email requis" 
+        message: "Paramètres manquants: cin ou email requis" 
       });
     }
 
-    const connection = await pool.getConnection();
-    try {
-      const [results] = await connection.query(
-        "SELECT Cin, Nom_et_prénom, Email, Numero_tel, Classement, Description FROM enseignants WHERE Cin = ? OR Email = ? LIMIT 1",
-        [cin || null, email || null]
-      );
+    const [results] = await pool.query(
+      `SELECT 
+        Cin, Nom_et_prénom, Email, 
+        Numero_tel, Classement, Description,
+        ProfileImage
+       FROM enseignants 
+       WHERE Cin = ? OR Email = ? 
+       LIMIT 1`,
+      [cin || null, email || null]
+    );
 
-      if (results.length === 0) {
-        return res.status(404).json({ 
-          success: false,
-          message: "Enseignant non trouvé" 
-        });
+    if (results.length === 0) {
+      return res.status(404).json({ 
+        success: false,
+        message: "Enseignant non trouvé" 
+      });
+    }
+
+    const teacherData = results[0];
+    res.json({ 
+      success: true,
+      data: {
+        ...results[0],
+        // Assurez-vous que le chemin est complet
+        ProfileImage: results[0].ProfileImage 
+          ? `http://localhost:5000${results[0].ProfileImage}`
+          : null
       }
+    });
 
-      res.json({
-        success: true,
-        data: results[0]
-      });
-    } finally {
-      connection.release();
-    }
   } catch (error) {
     console.error("Erreur:", error);
     res.status(500).json({ 
       success: false,
       message: "Erreur serveur",
-      error: error.message
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
   }
 });
 
+
+
+
+
+// Configuration du stockage
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, 'uploads/profiles/');
+  },
+  filename: (req, file, cb) => {
+    const token = req.headers.authorization?.split(' ')[1];
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const ext = path.extname(file.originalname);
+    cb(null, `teacher_${decoded.cin}${ext}`);
+  }
+});
+
+const upload = multer({ 
+  storage: storage,
+  limits: { fileSize: 5 * 1024 * 1024 } // 5MB
+});
+
+app.get('/api/teachers/profile', authenticateTeacher, async (req, res) => {
+  try {
+    const [results] = await pool.query(
+      'SELECT CIN, Nom_et_prénom, Email, Numero_tel, Classement, Description, profile_image FROM enseignants WHERE CIN = ?',
+      [req.user.cin]
+    );
+    
+    if (results.length === 0) {
+      return res.status(404).json({ message: 'Enseignant non trouvé' });
+    }
+
+    res.json(results[0]);
+  } catch (error) {
+    console.error('Error:', error);
+    res.status(500).json({ message: 'Erreur serveur' });
+  }
+});
+
+
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+// Route pour l'upload
+app.post('/api/teachers/upload-profile', upload.single('profile'), async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ success: false, message: 'Aucun fichier téléchargé' });
+    }
+
+    const token = req.headers.authorization?.split(' ')[1];
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    
+    const imagePath = `/uploads/profiles/${req.file.filename}`;
+    
+    await pool.query(
+      'UPDATE enseignants SET profile_image = ? WHERE CIN = ?',
+      [imagePath, decoded.cin]
+    );
+
+    res.json({ 
+      success: true,
+      imageUrl: imagePath
+    });
+
+  } catch (error) {
+    console.error('Upload error:', error);
+    res.status(500).json({ success: false, message: 'Erreur serveur' });
+  }
+});
 
 
 
@@ -631,48 +770,35 @@ app.use((err, req, res, next) => {
 
 
 
-// Middleware pour vérifier l'authentification
-const authenticateTeacher = async (req, res, next) => {
-  const token = req.headers.authorization?.split(' ')[1];
-  
-  if (!token) {
-    return res.status(401).json({ message: "Authentification requise" });
-  }
 
+app.post('/api/upload-profile-image', upload.single('profileImage'), async (req, res) => {
   try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'dev-secret-only');
-    const [user] = await pool.query(
-      "SELECT Cin FROM enseignants WHERE Cin = ?", 
-      [decoded.cin]
-    );
-    
-    if (!user) {
-      return res.status(401).json({ message: "Utilisateur non trouvé" });
+    if (!req.file) {
+      return res.status(400).json({ success: false, message: 'Aucun fichier reçu' });
     }
+
+    const token = req.headers.authorization?.split(' ')[1];
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
     
-    req.user = user;
-    next();
+    const imagePath = `/uploads/${req.file.filename}`;
+    const fullUrl = `http://localhost:5000${imagePath}`;
+    
+    // Utilisez le même nom de champ partout (ProfileImage)
+    await pool.query(
+      'UPDATE enseignants SET ProfileImage = ? WHERE CIN = ?',
+      [fullUrl, decoded.cin]
+    );
+
+    res.json({ 
+      success: true,
+      imageUrl: fullUrl,
+      message: 'Image enregistrée avec succès'
+    });
   } catch (error) {
-    return res.status(401).json({ message: "Token invalide" });
+    console.error('Erreur upload:', error);
+    res.status(500).json({ success: false, message: 'Erreur serveur' });
   }
-};
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+});
 
 
 

@@ -232,7 +232,7 @@ const StudentDoc = () => {
     }}>
       {/* Fil d'Ariane */}
       <Breadcrumbs aria-label="breadcrumb" sx={{ mb: 2 }}>
-        <Link underline="hover" color="inherit" href="/">
+        <Link underline="hover" color="inherit" href="/etudiantProfil">
           <HomeIcon sx={{ mr: 0.5, fontSize: 20 }} />
           Accueil
         </Link>

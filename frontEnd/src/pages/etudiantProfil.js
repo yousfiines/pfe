@@ -1,24 +1,20 @@
-import React, { useRef, useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import logoFac from "./../assets/logoFac.png";
-import Lottie from "lottie-react";
-import home from "./../assets/lotties/home.json";
-import { FaChalkboardTeacher, FaCalendarAlt, FaClock, FaBook, FaGraduationCap, FaUniversity } from "react-icons/fa";
-import { MdEmail, MdPhone, MdLocationOn } from "react-icons/md";
-import FullCalendar from "@fullcalendar/react";
-import dayGridPlugin from "@fullcalendar/daygrid";
-import timeGridPlugin from "@fullcalendar/timegrid";
-import interactionPlugin from "@fullcalendar/interaction";
+
+import { FaCalendarAlt, FaClock } from "react-icons/fa";
+
 import styled, { keyframes } from 'styled-components';
 import { 
   FaUser, 
   FaClipboardList, 
   FaSignOutAlt, 
   FaMapMarkerAlt, 
-  FaWeight 
+  FaWeight,
+ 
+  FaBookOpen
 } from 'react-icons/fa';
 
-    const fadeIn = keyframes`
+const fadeIn = keyframes`
   from { opacity: 0; transform: translateY(20px); }
   to { opacity: 1; transform: translateY(0); }
 `;
@@ -336,6 +332,10 @@ const EtudiantProfil = () => {
     navigate('/connexion');
   };
 
+  const navigateToDocuments = () => {
+    navigate('/studentDoc');
+  };
+
   if (!studentData) {
     return (
       <LoadingContainer>
@@ -366,6 +366,15 @@ const EtudiantProfil = () => {
         >
           <FaClipboardList /> Examens
         </NavItem>
+        <NavItem 
+          onClick={navigateToDocuments}
+          style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}
+        >
+
+          <FaBookOpen />
+         Consulter cours 
+      
+       </NavItem>
       </Sidebar>
 
       <MainContent>
@@ -482,6 +491,5 @@ const EtudiantProfil = () => {
     </Container>
   );
 };
-
 
 export default EtudiantProfil;
