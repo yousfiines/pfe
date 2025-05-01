@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-
+import axios from 'axios';
 import { FaCalendarAlt, FaClock } from "react-icons/fa";
 
 import styled, { keyframes } from 'styled-components';
@@ -289,30 +289,43 @@ const EtudiantProfil = () => {
   const navigate = useNavigate();
   const [activeSection, setActiveSection] = useState('profile');
   const [studentData, setStudentData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
-    // Simulation de chargement des données
-    const fetchData = async () => {
-      setTimeout(() => {
-        setStudentData({
-          profile: {
-            nom: 'Dupont',
-            prenom: 'Jean',
-            matricule: 'ET2023001',
-            email: 'jean.dupont@universite.com',
-            telephone: '+33 6 12 34 56 78',
-            filiere: 'Licence Informatique',
-            niveau: 'L3',
-            dateNaissance: '15/03/2000',
-            adresse: '12 Rue des Écoles, Paris',
-            photo: 'https://randomuser.me/api/portraits/men/32.jpg'
-          },
-          schedule: [
-            { id: 1, jour: 'Lundi', matiere: 'Algorithmique avancée', heure: '08:00-10:00', salle: 'B201', professeur: 'Prof. Martin' },
-            { id: 2, jour: 'Mardi', matiere: 'Base de données NoSQL', heure: '10:00-12:00', salle: 'A102', professeur: 'Prof. Dubois' },
-            { id: 3, jour: 'Mercredi', matiere: 'Réseaux et sécurité', heure: '14:00-16:00', salle: 'C305', professeur: 'Prof. Leroy' },
-            { id: 4, jour: 'Jeudi', matiere: 'Développement Web React', heure: '09:00-11:00', salle: 'D404', professeur: 'Prof. Moreau' },
-            { id: 5, jour: 'Vendredi', matiere: 'Systèmes distribués', heure: '13:00-15:00', salle: 'B201', professeur: 'Prof. Simon' }
+    const fetchStudentData = async () => {
+      try {
+        const token = localStorage.getItem('token');
+        const cin = localStorage.getItem('studentCin');
+        
+        if (!token || !cin) {
+          navigate('/connexion');
+          return;
+        }
+
+        const response = await axios.get(`http://localhost:5000/api/etudiant/${cin}`, {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+
+        if (response.data.success) {
+          setStudentData({
+            profile: {
+              nom: response.data.data.Nom_et_prénom,
+              cin: response.data.data.CIN,
+              email: response.data.data.Email,
+              telephone: response.data.data.Téléphone,
+              filiere: response.data.data.Filière,
+              classe: response.data.data.Classe,
+              photo: 'https://randomuser.me/api/portraits/men/32.jpg' // Photo par défaut
+            },
+              schedule: [
+            { id: 1, jour: 'Lundi', matiere: 'Algorithmique avancée', heure: '08:30-10:00', salle: 'B201', professeur: 'Prof. Martin' },
+            { id: 2, jour: 'Lundi', matiere: 'Programmation C++', heure: '10:10-11:40', salle: 'B202', professeur: 'Prof. Dupont' },
+            { id: 3, jour: 'Mardi', matiere: 'Base de données', heure: '08:30-10:00', salle: 'A101', professeur: 'Prof. Leroy' },
+            { id: 4, jour: 'Mardi', matiere: 'Mathématiques discrètes', heure: '10:10-11:40', salle: 'C301', professeur: 'Prof. Bernard' },
+            { id: 5, jour: 'Mercredi', matiere: 'Systèmes d\'exploitation', heure: '13:30-15:00', salle: 'B205', professeur: 'Prof. Moreau' }
           ],
           exams: [
             { id: 1, matiere: 'Algorithmique avancée', date: '2023-06-15', heure: '08:30-10:30', salle: 'Amphi A', coefficient: 2 },
@@ -320,15 +333,30 @@ const EtudiantProfil = () => {
             { id: 3, matiere: 'Réseaux et sécurité', date: '2023-06-20', heure: '14:00-16:00', salle: 'Salle C12', coefficient: 1.5 },
             { id: 4, matiere: 'Développement Web React', date: '2023-06-22', heure: '09:00-11:00', salle: 'Salle D08', coefficient: 2 }
           ]
-        });
-      }, 1000);
+    
+          });
+        } else {
+          setError(response.data.message || "Erreur lors du chargement des données");
+        }
+      } catch (err) {
+        console.error("Erreur:", err);
+        setError(err.response?.data?.message || "Erreur serveur");
+        if (err.response?.status === 401) {
+          localStorage.removeItem('token');
+          localStorage.removeItem('studentCin');
+          navigate('/connexion');
+        }
+      } finally {
+        setLoading(false);
+      }
     };
 
-    fetchData();
-  }, []);
+    fetchStudentData();
+  }, [navigate]);
 
   const handleLogout = () => {
-    localStorage.removeItem('studentToken');
+    localStorage.removeItem('token');
+    localStorage.removeItem('studentCin');
     navigate('/connexion');
   };
 
@@ -336,7 +364,7 @@ const EtudiantProfil = () => {
     navigate('/studentDoc');
   };
 
-  if (!studentData) {
+  if (loading) {
     return (
       <LoadingContainer>
         <Spinner />
@@ -344,6 +372,16 @@ const EtudiantProfil = () => {
       </LoadingContainer>
     );
   }
+
+  if (error) {
+    return (
+      <LoadingContainer>
+        <p style={{ color: 'red' }}>{error}</p>
+        <button onClick={() => window.location.reload()}>Réessayer</button>
+      </LoadingContainer>
+    );
+  }
+
 
   return (
     <Container>
@@ -385,50 +423,43 @@ const EtudiantProfil = () => {
           </LogoutButton>
         </Header>
 
-        {activeSection === 'profile' && (
-          <Section>
-            <SectionTitle>Informations personnelles</SectionTitle>
-            <ProfileContainer>
-              <ProfilePhoto>
-                <img src={studentData.profile.photo} alt="Profil étudiant" />
-              </ProfilePhoto>
-              <ProfileDetails>
-                <DetailItem>
-                  <DetailLabel>Nom complet</DetailLabel>
-                  <DetailValue>{studentData.profile.prenom} {studentData.profile.nom}</DetailValue>
-                </DetailItem>
-                <DetailItem>
-                  <DetailLabel>Matricule</DetailLabel>
-                  <DetailValue>{studentData.profile.matricule}</DetailValue>
-                </DetailItem>
-                <DetailItem>
-                  <DetailLabel>Email</DetailLabel>
-                  <DetailValue>{studentData.profile.email}</DetailValue>
-                </DetailItem>
-                <DetailItem>
-                  <DetailLabel>Téléphone</DetailLabel>
-                  <DetailValue>{studentData.profile.telephone}</DetailValue>
-                </DetailItem>
-                <DetailItem>
-                  <DetailLabel>Filière</DetailLabel>
-                  <DetailValue>{studentData.profile.filiere}</DetailValue>
-                </DetailItem>
-                <DetailItem>
-                  <DetailLabel>Niveau</DetailLabel>
-                  <DetailValue>{studentData.profile.niveau}</DetailValue>
-                </DetailItem>
-                <DetailItem>
-                  <DetailLabel>Date de naissance</DetailLabel>
-                  <DetailValue>{studentData.profile.dateNaissance}</DetailValue>
-                </DetailItem>
-                <DetailItem>
-                  <DetailLabel>Adresse</DetailLabel>
-                  <DetailValue>{studentData.profile.adresse}</DetailValue>
-                </DetailItem>
-              </ProfileDetails>
-            </ProfileContainer>
-          </Section>
-        )}
+        
+{activeSection === 'profile' && (
+  <Section>
+    <SectionTitle>Informations personnelles</SectionTitle>
+    <ProfileContainer>
+      <ProfilePhoto>
+        <img src={studentData.profile.photo} alt="Profil étudiant" />
+      </ProfilePhoto>
+      <ProfileDetails>
+        <DetailItem>
+          <DetailLabel>Nom complet</DetailLabel>
+          <DetailValue>{studentData.profile.nom}</DetailValue>
+        </DetailItem>
+        <DetailItem>
+          <DetailLabel>CIN</DetailLabel>
+          <DetailValue>{studentData.profile.cin}</DetailValue>
+        </DetailItem>
+        <DetailItem>
+          <DetailLabel>Email</DetailLabel>
+          <DetailValue>{studentData.profile.email}</DetailValue>
+        </DetailItem>
+        <DetailItem>
+          <DetailLabel>Téléphone</DetailLabel>
+          <DetailValue>{studentData.profile.telephone}</DetailValue>
+        </DetailItem>
+        <DetailItem>
+          <DetailLabel>Filière</DetailLabel>
+          <DetailValue>{studentData.profile.filiere}</DetailValue>
+        </DetailItem>
+        <DetailItem>
+          <DetailLabel>Classe</DetailLabel>
+          <DetailValue>{studentData.profile.classe}</DetailValue>
+        </DetailItem>
+      </ProfileDetails>
+    </ProfileContainer>
+  </Section>
+)}
 
         {activeSection === 'schedule' && (
           <Section>
@@ -437,20 +468,37 @@ const EtudiantProfil = () => {
               <thead>
                 <tr>
                   <th>Jour</th>
-                  <th>Matière</th>
-                  <th>Heure</th>
-                  <th>Salle</th>
-                  <th>Professeur</th>
+                  <th>08:30-10:00</th>
+                  <th>10:10-11:40</th>
+                  <th>13:30-15:00</th>
+                  <th>15:10-16:40</th>
+                  <th>16:50-18:20</th>
                 </tr>
               </thead>
               <tbody>
-                {studentData.schedule.map((course) => (
-                  <tr key={course.id}>
-                    <td>{course.jour}</td>
-                    <td>{course.matiere}</td>
-                    <td>{course.heure}</td>
-                    <td>{course.salle}</td>
-                    <td>{course.professeur}</td>
+                {['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi'].map((jour) => (
+                  <tr key={jour}>
+                    <td>{jour}</td>
+                    {['08:30-10:00', '10:10-11:40', '13:30-15:00', '15:10-16:40', '16:50-18:20'].map((horaire) => {
+                      const cours = studentData.schedule.find(
+                        (c) => c.jour === jour && c.heure === horaire
+                      );
+                      return (
+                        <td key={`${jour}-${horaire}`}>
+                          {cours ? (
+                            <div style={{ display: 'flex', flexDirection: 'column' }}>
+                              <span style={{ fontWeight: 'bold', marginBottom: '4px' }}>{cours.matiere}</span>
+                              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                <span style={{ fontSize: '0.8rem', color: '#555' }}>{cours.professeur}</span>
+                                <span style={{ fontSize: '0.7rem', color: '#777', fontStyle: 'italic' }}>{cours.salle}</span>
+                              </div>
+                            </div>
+                          ) : (
+                            '-'
+                          )}
+                        </td>
+                      );
+                    })}
                   </tr>
                 ))}
               </tbody>
@@ -461,30 +509,45 @@ const EtudiantProfil = () => {
         {activeSection === 'exams' && (
           <Section>
             <SectionTitle>Vos prochains examens</SectionTitle>
-            <ExamsGrid>
-              {studentData.exams.map((exam) => (
-                <ExamCard key={exam.id}>
-                  <ExamDate>
-                    <ExamDay>{new Date(exam.date).getDate()}</ExamDay>
-                    <ExamMonth>
-                      {new Date(exam.date).toLocaleDateString('fr-FR', { month: 'short' })}
-                    </ExamMonth>
-                  </ExamDate>
-                  <ExamInfo>
-                    <ExamTitle>{exam.matiere}</ExamTitle>
-                    <ExamDetail>
-                      <FaClock /> {exam.heure}
-                    </ExamDetail>
-                    <ExamDetail>
-                      <FaMapMarkerAlt /> {exam.salle}
-                    </ExamDetail>
-                    <ExamDetail>
-                      <FaWeight /> Coefficient: {exam.coefficient}
-                    </ExamDetail>
-                  </ExamInfo>
-                </ExamCard>
-              ))}
-            </ExamsGrid>
+            <ScheduleTable>
+              <thead>
+                <tr>
+                  <th>Date</th>
+                  <th>Matière</th>
+                  <th>Heure</th>
+                  <th>Salle</th>
+                  <th>Coefficient</th>
+                </tr>
+              </thead>
+              <tbody>
+                {studentData.exams.map((exam) => (
+                  <tr key={exam.id}>
+                    <td>
+                      <div style={{ fontWeight: 'bold' }}>
+                        {new Date(exam.date).toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short' })}
+                      </div>
+                      <div style={{ fontSize: '0.8rem', color: '#555' }}>
+                        {new Date(exam.date).toLocaleDateString('fr-FR', { year: 'numeric' })}
+                      </div>
+                    </td>
+                    <td style={{ fontWeight: '500' }}>{exam.matiere}</td>
+                    <td>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                        <FaClock style={{ color: '#555' }} />
+                        {exam.heure}
+                      </div>
+                    </td>
+                    <td>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                        <FaMapMarkerAlt style={{ color: '#555' }} />
+                        {exam.salle}
+                      </div>
+                    </td>
+                    <td>{exam.coefficient}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </ScheduleTable>
           </Section>
         )}
       </MainContent>

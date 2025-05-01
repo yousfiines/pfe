@@ -41,24 +41,23 @@ const Connexion = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setIsSubmitting(true);
-  
-    if (validateForm()) {
-      try {
-        const response = await fetch("http://localhost:5000/connexion", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify(formData),
-        });
-  
-        const data = await response.json();
-        console.log("Réponse du serveur:", data);
-  
-        if (!response.ok) {
-          throw new Error(data.message || "Email ou mot de passe incorrect");
-        }
+  setIsSubmitting(true);
+
+  if (validateForm()) {
+    try {
+      const response = await fetch("http://localhost:5000/connexion", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(formData),
+      });
+
+      const data = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(data.message || "Erreur serveur");
+      }
   
         // Stockage des informations de session
         localStorage.setItem('isAuthenticated', 'true');
@@ -77,11 +76,12 @@ const Connexion = () => {
         }
         
       } catch (error) {
-        console.error("Erreur connexion:", error);
-        alert(error.message || "Erreur lors de la connexion");
+        console.error("Erreur détaillée:", error);
+        alert(`Erreur: ${error.message}\n\nVeuillez réessayer plus tard.`);
       } finally {
         setIsSubmitting(false);
       }
+  
     } else {
       setIsSubmitting(false);
     }

@@ -706,6 +706,27 @@ const upload = multer({
   limits: { fileSize: 5 * 1024 * 1024 } // 5MB
 });
 
+// Route pour l'emploi du temps de l'étudiant
+app.get("/api/etudiant/:cin/emploi-du-temps", async (req, res) => {
+  // Implémentation similaire à la route précédente
+});
+
+// Route pour les examens de l'étudiant
+app.get("/api/etudiant/:cin/examens", async (req, res) => {
+  // Implémentation similaire à la route précédente
+});
+
+
+// Juste avant app.listen()
+app.use((err, req, res, next) => {
+  console.error('Erreur non gérée:', err.stack);
+  res.status(500).json({ 
+    success: false,
+    message: 'Erreur serveur interne',
+    error: process.env.NODE_ENV === 'development' ? err.message : undefined
+  });
+});
+
 app.get('/api/teachers/profile', authenticateTeacher, async (req, res) => {
   try {
     const [results] = await pool.query(
@@ -756,7 +777,51 @@ app.post('/api/teachers/upload-profile', upload.single('profile'), async (req, r
 
 
 
+// Route pour récupérer les données d'un étudiant
+app.get("/api/etudiant/:cin", async (req, res) => {
+  const { cin } = req.params;
+  const token = req.headers.authorization?.split(' ')[1];
 
+  try {
+    if (!token) {
+      return res.status(401).json({ success: false, message: "Token manquant" });
+    }
+
+    // Vérification du token
+    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'dev-secret-only');
+    
+    // Vérification que le CIN demandé correspond à celui du token
+    if (decoded.cin !== parseInt(cin)) {
+      return res.status(403).json({ success: false, message: "Accès non autorisé" });
+    }
+
+    // Récupération des données de l'étudiant
+    const [etudiant] = await pool.query(
+      "SELECT CIN, Nom_et_prénom, Téléphone, Email, Filière, Classe FROM etudiant WHERE CIN = ?",
+      [cin]
+    );
+
+    if (etudiant.length === 0) {
+      return res.status(404).json({ success: false, message: "Étudiant non trouvé" });
+    }
+
+    res.json({
+      success: true,
+      data: etudiant[0]
+    });
+
+  } catch (error) {
+    console.error("Erreur:", error);
+    if (error.name === 'JsonWebTokenError') {
+      return res.status(401).json({ success: false, message: "Token invalide" });
+    }
+    res.status(500).json({ 
+      success: false,
+      message: "Erreur serveur",
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+});
 
 
 // Middleware pour les erreurs
