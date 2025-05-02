@@ -775,7 +775,12 @@ app.post('/api/teachers/upload-profile', upload.single('profile'), async (req, r
   }
 });
 
-
+// Route pour l'inscription des étudiants
+app.post('/api/etudiant', (req, res) => {
+  // Traitement de l'inscription
+  console.log(req.body);
+  res.status(201).json({ message: "Inscription réussie" });
+});
 
 // Route pour récupérer les données d'un étudiant
 app.get("/api/etudiant/:cin", async (req, res) => {

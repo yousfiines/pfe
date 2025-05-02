@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import axios from 'axios';
+import filieresConfig from './../pages/config/filieres';
 import {
   Card, List, ListItem, ListItemText, Typography,
   Button, Chip, Snackbar, Alert, Box, Paper, IconButton, InputBase, Avatar, styled,
@@ -19,7 +20,8 @@ import {
   NotificationsOff as NotificationsOffIcon
 } from '@mui/icons-material';
 
-// Styles personnalisés
+const API_URL = 'http://localhost:5000/api';
+
 const SearchField = styled(Paper)(({ theme }) => ({
   padding: '2px 12px',
   display: 'flex',
@@ -45,151 +47,157 @@ const DocumentCard = styled(Card)(({ theme }) => ({
 }));
 
 const StudentDoc = () => {
+  const [studentData, setStudentData] = useState({
+    filiere: '',
+    classe: '',
+    niveau: '',
+    semestre: 'S1'
+  });
   const [documents, setDocuments] = useState([]);
   const [filteredDocs, setFilteredDocs] = useState([]);
-  const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'info' });
-  const [selectedSemester, setSelectedSemester] = useState('S1');
+  const [matieres, setMatieres] = useState([]);
   const [selectedSubject, setSelectedSubject] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [emailSubscribed, setEmailSubscribed] = useState(false);
   const [semesterExpanded, setSemesterExpanded] = useState(true);
+  const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'info' });
 
-  // Matières des semestres
-  const semesterSubjects = {
-    S1: [
-      { name: 'Algorithmique', icon: '🧮', color: '#4CAF50' },
-      { name: 'Base de données', icon: '🗃', color: '#2196F3' },
-      { name: 'Mathématiques', icon: '∫', color: '#9C27B0' },
-      { name: 'Programmation', icon: '💻', color: '#FF9800' }
-    ],
-    S2: [
-      { name: 'Réseaux', icon: '🌐', color: '#3F51B5' },
-      { name: 'Systèmes', icon: '💾', color: '#607D8B' },
-      { name: 'Web', icon: '🕸', color: '#E91E63' },
-      { name: 'IA', icon: '🧠', color: '#795548' }
-    ]
-  };
+  const filieres = useMemo(() => filieresConfig, []);
 
-  const studentData = {
-    filiere: 'Informatique',
-    classe: 'L2'
-  };
+  // Chargement des données étudiant
+  useEffect(() => {
+    const fetchStudentData = async () => {
+      try {
+        const token = localStorage.getItem('studentToken');
+        const response = await axios.get(`${API_URL}/etudiant/profile`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
 
-  // Charger les documents depuis l'API
+        const { filiere, classe } = response.data;
+        const niveau = classe.substring(0, 3);
+
+        setStudentData({
+          filiere,
+          classe,
+          niveau,
+          semestre: 'S1'
+        });
+
+        localStorage.setItem('studentProfile', JSON.stringify({ filiere, classe }));
+
+      } catch (error) {
+        console.error("Erreur de chargement du profil:", error);
+        const savedData = localStorage.getItem('studentProfile');
+        if (savedData) {
+          const { filiere, classe } = JSON.parse(savedData);
+          const niveau = classe.substring(0, 3);
+          setStudentData({
+            filiere,
+            classe,
+            niveau,
+            semestre: 'S1'
+          });
+        }
+      }
+    };
+
+    fetchStudentData();
+  }, []);
+
+  // Chargement des matières - CORRIGÉ
+  useEffect(() => {
+    const loadMatieres = () => {
+      const { filiere, classe, semestre } = studentData;
+console.log(studentData.filiere)
+      if (filiere && classe && semestre) {
+        try {
+          const filiereData = filieres[filiere];
+          console.log('-----------', filiereData)
+          if (filiereData?.classes?.[classe]?.semestres?.[semestre]) {
+            const matieresForSemester = filiereData.classes[classe].semestres[semestre];
+            setMatieres(matieresForSemester);
+          } else {
+            setMatieres([]);
+          }
+        } catch (error) {
+          console.error('Erreur chargement matières:', error);
+          setMatieres([]);
+        }
+      }
+    };
+
+    loadMatieres();
+  }, [studentData, filieres]); // Correction: ajout de studentData comme dépendance
+
+  // Chargement des documents
   useEffect(() => {
     const fetchDocuments = async () => {
       setIsLoading(true);
       try {
-        const response = await axios.get('http://localhost:5000/api/documents');
-        
-        const formattedDocs = response.data.map(doc => ({
-          ...doc,
-          file: {
-            name: doc.fileName,
-            type: doc.fileType,
-            size: doc.fileSize,
-            content: ''
-          },
-          createdAt: doc.createdAt || new Date().toISOString(),
-          isNew: !localStorage.getItem('lastDocumentView') || 
-                 new Date(doc.createdAt) > new Date(localStorage.getItem('lastDocumentView'))
-        }));
-
-        setDocuments(formattedDocs);
-        setFilteredDocs(formattedDocs);
-
+        const { filiere, classe } = studentData;
+        const response = await axios.get(`${API_URL}/documents/${filiere}/${classe}`);
+        setDocuments(response.data);
       } catch (error) {
-        showNotification('Erreur de chargement des documents', 'error');
-        console.error("Erreur API:", error);
-        
-        const mockDocuments = getMockDocuments();
-        setDocuments(mockDocuments);
-        setFilteredDocs(mockDocuments);
+        console.error("Erreur de chargement des documents:", error);
+        showNotification("Erreur lors du chargement des documents", 'error');
       } finally {
         setIsLoading(false);
       }
     };
 
-    fetchDocuments();
-  }, []);
+    if (studentData.filiere && studentData.classe) {
+      fetchDocuments();
+    }
+  }, [studentData]);
 
-  // Données mockées pour le fallback
-  const getMockDocuments = () => {
-    return [
-      {
-        id: 1,
-        title: 'Cours Algorithmique S1',
-        description: 'Introduction aux algorithmes et structures de données',
-        subject: 'Algorithmique',
-        semester: 'S1',
-        file: {
-          name: 'cours_algorithmique.pdf',
-          type: 'application/pdf',
-          size: 2456,
-          content: ''
-        },
-        createdAt: '2023-10-15T09:30:00Z',
-        isNew: true
-      },
-      {
-        id: 2,
-        title: 'TP Base de Données',
-        description: 'Travaux pratiques sur les requêtes SQL',
-        subject: 'Base de données',
-        semester: 'S1',
-        file: {
-          name: 'tp_bdd.docx',
-          type: 'application/docx',
-          size: 1852,
-          content: ''
-        },
-        createdAt: '2023-10-18T14:15:00Z',
-        isNew: false
-      },
-      {
-        id: 3,
-        title: 'Cours Réseaux S2',
-        description: 'Introduction aux protocoles réseau',
-        subject: 'Réseaux',
-        semester: 'S2',
-        file: {
-          name: 'cours_reseaux.pdf',
-          type: 'application/pdf',
-          size: 3200,
-          content: ''
-        },
-        createdAt: '2023-11-05T10:20:00Z',
-        isNew: true
-      }
-    ];
-  };
-
-  // Filtrer les documents
+  // Filtrage des documents
   useEffect(() => {
-    let results = documents.filter(doc => doc.semester === selectedSemester);
+    let results = documents;
 
     if (selectedSubject) {
-      results = results.filter(doc => doc.subject === selectedSubject);
+      results = results.filter(doc => doc.matiere === selectedSubject);
     }
 
     if (searchTerm) {
+      const term = searchTerm.toLowerCase();
       results = results.filter(doc =>
-        doc.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        doc.description.toLowerCase().includes(searchTerm.toLowerCase())
+        doc.title.toLowerCase().includes(term) ||
+        doc.description.toLowerCase().includes(term) ||
+        doc.matiere.toLowerCase().includes(term)
       );
     }
 
     setFilteredDocs(results);
-  }, [documents, selectedSemester, selectedSubject, searchTerm]);
+  }, [documents, selectedSubject, searchTerm]);
 
   const showNotification = (message, severity) => {
     setSnackbar({ open: true, message, severity });
   };
 
-  const downloadFile = (file, title) => {
-    showNotification(`Téléchargement de "${title}" commencé`, 'success');
-    // Ici vous pourriez ajouter un appel API pour le téléchargement réel
+  const downloadFile = async (id, fileName) => {
+    try {
+      const token = localStorage.getItem('studentToken');
+      const response = await axios.get(`${API_URL}/documents/${id}/download`, {
+        responseType: 'blob',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', fileName);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+
+      showNotification(`Téléchargement de "${fileName}" réussi`, 'success');
+    } catch (error) {
+      showNotification("Erreur lors du téléchargement", 'error');
+      console.error("Erreur API:", error);
+    }
   };
 
   const formatDate = (dateString) => {
@@ -218,10 +226,9 @@ const StudentDoc = () => {
   };
 
   const handleSemesterChange = (semester) => {
-    setSelectedSemester(semester);
-    setSelectedSubject(''); // Réinitialiser la matière sélectionnée
+    setStudentData(prev => ({ ...prev, semestre: semester }));
+    setSelectedSubject('');
   };
-
   return (
     <Box sx={{ 
       p: { xs: 2, md: 4 },
@@ -230,7 +237,6 @@ const StudentDoc = () => {
       backgroundColor: 'background.default',
       minHeight: '100vh'
     }}>
-      {/* Fil d'Ariane */}
       <Breadcrumbs aria-label="breadcrumb" sx={{ mb: 2 }}>
         <Link underline="hover" color="inherit" href="/etudiantProfil">
           <HomeIcon sx={{ mr: 0.5, fontSize: 20 }} />
@@ -241,7 +247,6 @@ const StudentDoc = () => {
         </Typography>
       </Breadcrumbs>
 
-      {/* En-tête */}
       <Box sx={{ 
         display: 'flex',
         justifyContent: 'space-between',
@@ -283,7 +288,7 @@ const StudentDoc = () => {
                 sx={{ fontWeight: 500 }} 
               />
               <Chip 
-                label={`Semestre ${selectedSemester}`} 
+                label={`Semestre ${studentData.semestre}`} 
                 color="secondary" 
                 size="small" 
                 sx={{ fontWeight: 500 }} 
@@ -321,14 +326,12 @@ const StudentDoc = () => {
         </Box>
       </Box>
 
-      {/* Contenu principal */}
       <Box sx={{ 
         display: 'flex',
         flexDirection: { xs: 'column', lg: 'row' },
         gap: 3,
         mt: 2
       }}>
-        {/* Panneau latéral - Filtres */}
         <Box sx={{ 
           width: { xs: '100%', lg: '300px' },
           flexShrink: 0
@@ -367,85 +370,45 @@ const StudentDoc = () => {
                   <Chip 
                     label="Semestre 1" 
                     onClick={() => handleSemesterChange('S1')}
-                    color={selectedSemester === 'S1' ? 'primary' : 'default'}
-                    variant={selectedSemester === 'S1' ? 'filled' : 'outlined'}
+                    color={studentData.semestre === 'S1' ? 'primary' : 'default'}
+                    variant={studentData.semestre === 'S1' ? 'filled' : 'outlined'}
                   />
                   <Chip 
                     label="Semestre 2" 
                     onClick={() => handleSemesterChange('S2')}
-                    color={selectedSemester === 'S2' ? 'primary' : 'default'}
-                    variant={selectedSemester === 'S2' ? 'filled' : 'outlined'}
+                    color={studentData.semestre === 'S2' ? 'primary' : 'default'}
+                    variant={studentData.semestre === 'S2' ? 'filled' : 'outlined'}
                   />
                 </Box>
               </Box>
 
-              <FormControl fullWidth>
-                <InputLabel>Matières {selectedSemester}</InputLabel>
-                <Select
-                  value={selectedSubject}
-                  onChange={(e) => setSelectedSubject(e.target.value)}
-                  label={`Matières - ${selectedSemester}`}
-                  sx={{ borderRadius: '12px' }}
-                  MenuProps={{
-                    PaperProps: {
-                      sx: {
-                        borderRadius: '12px',
-                        marginTop: '8px',
-                        boxShadow: '0 4px 20px rgba(0,0,0,0.12)'
-                      }
-                    }
-                  }}
-                  renderValue={(selected) => {
-                    if (!selected) {
-                      return <Typography color="textSecondary">Toutes les matières</Typography>;
-                    }
-                    const subject = semesterSubjects[selectedSemester].find(sub => sub.name === selected);
-                    return (
-                      <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                        <span style={{ 
-                          marginRight: '8px', 
-                          fontSize: '1.2rem',
-                          color: subject?.color
-                        }}>
-                          {subject?.icon}
-                        </span>
-                        {selected}
-                      </Box>
-                    );
-                  }}
-                >
-                  <MenuItem value="">
-                    <em>Toutes les matières</em>
-                  </MenuItem>
-                  {semesterSubjects[selectedSemester].map((subject) => (
-                    <MenuItem 
-                      key={subject.name} 
-                      value={subject.name}
-                      sx={{
-                        '&:hover': {
-                          backgroundColor: 'action.hover'
-                        }
-                      }}
-                    >
-                      <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                        <span style={{ 
-                          marginRight: '12px', 
-                          fontSize: '1.2rem',
-                          color: subject.color
-                        }}>
-                          {subject.icon}
-                        </span>
-                        {subject.name}
-                      </Box>
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
+              <FormControl fullWidth sx={{ mt: 2 }}>
+  <InputLabel>Matières {studentData.semestre}</InputLabel>
+  <Select
+    value={selectedSubject}
+    onChange={(e) => setSelectedSubject(e.target.value)}
+    label={`Matières - ${studentData.semestre}`}
+    sx={{ borderRadius: '12px' }}
+  >
+    <MenuItem value="">
+      <em>Toutes les matières</em>
+    </MenuItem>
+    {matieres.map((matiere) => (
+      <MenuItem key={matiere} value={matiere}>
+        {matiere}
+      </MenuItem>
+    ))}
+  </Select>
+  {matieres.length === 0 && (
+    <Typography variant="caption" color="textSecondary" sx={{ mt: 1, display: 'block' }}>
+      Aucune matière disponible pour {studentData.filiere} - {studentData.classe} - {studentData.semestre}
+    </Typography>
+  )}
+</FormControl>
             </Collapse>
           </Paper>
         </Box>
 
-        {/* Liste des documents */}
         <Box sx={{ 
           flex: 1,
           backgroundColor: 'background.paper',
@@ -468,7 +431,7 @@ const StudentDoc = () => {
               <DescriptionIcon sx={{ mr: 1, color: 'primary.main' }} />
               {selectedSubject 
                 ? `Documents - ${selectedSubject}` 
-                : `Tous les documents - Semestre ${selectedSemester}`}
+                : `Tous les documents - Semestre ${studentData.semestre}`}
             </Typography>
             
             <Typography variant="body2" color="text.secondary">
@@ -525,9 +488,9 @@ const StudentDoc = () => {
                       fontSize: '2rem', 
                       mr: 2,
                       mt: 1,
-                      color: semesterSubjects[doc.semester]?.find(s => s.name === doc.subject)?.color
+                      color: '#2196F3'
                     }}>
-                      {getFileIcon(doc.file.type)}
+                      {getFileIcon(doc.file?.type)}
                     </Box>
 
                     <ListItemText
@@ -572,17 +535,17 @@ const StudentDoc = () => {
                             gap: 1
                           }}>
                             <Chip 
-                              label={doc.subject} 
+                              label={doc.matiere} 
                               size="small" 
                               variant="outlined" 
                               sx={{ 
                                 fontWeight: 500,
-                                backgroundColor: semesterSubjects[doc.semester]?.find(s => s.name === doc.subject)?.color + '20',
-                                borderColor: semesterSubjects[doc.semester]?.find(s => s.name === doc.subject)?.color + '50'
+                                backgroundColor: '#2196F320',
+                                borderColor: '#2196F350'
                               }} 
                             />
                             <Chip 
-                              label={doc.semester} 
+                              label={studentData.semestre} 
                               size="small" 
                               sx={{ 
                                 fontWeight: 500,
@@ -593,7 +556,7 @@ const StudentDoc = () => {
                               color: 'text.disabled',
                               ml: 'auto'
                             }}>
-                              {formatDate(doc.createdAt)} • {(doc.file.size / 1024).toFixed(1)} KB
+                              {formatDate(doc.createdAt)} • {(doc.file?.size / 1024).toFixed(1)} KB
                             </Typography>
                           </Box>
                         </>
@@ -604,7 +567,7 @@ const StudentDoc = () => {
                     <Button
                       variant="contained"
                       color="primary"
-                      onClick={() => downloadFile(doc.file, doc.title)}
+                      onClick={() => downloadFile(doc._id, doc.title)}
                       startIcon={<DownloadIcon />}
                       sx={{
                         minWidth: '160px',
@@ -629,7 +592,6 @@ const StudentDoc = () => {
         </Box>
       </Box>
 
-      {/* Notification */}
       <Snackbar
         open={snackbar.open}
         autoHideDuration={4000}
@@ -651,7 +613,7 @@ const StudentDoc = () => {
         </Alert>
       </Snackbar>
     </Box>
+    
   );
-};
-
+    }
 export default StudentDoc;

@@ -4,6 +4,7 @@ import Header from "./components/layout/Header/header.js";
 import Footer from "./components/layout/Footer/footer.js";
 import "./styles.css";
 import ProtectedRoute from './pages/ProtectedRoute.js';
+import Filieres from "./pages/config/filieres.js"
 // Routes Admin
 import AdminLayout from './admin/layouts/AdminLayout.jsx';
 import AdminDashboard from './admin/pages/Dashboard';
@@ -17,7 +18,7 @@ import GestionEvenements from './admin/pages/GestionEvenements';
 import Parametres from './admin/pages/Parametres';
 import StudentDoc from "./components/studentDoc.js";
 import TeacherUploadDocument from "./components/teacherUploadDoc.js";
-
+import "./components/studentDoc.css";
 // Routes publiques
 import Connexion from "./pages/connexion.js";
 import Inscription from "./pages/inscription.js";
@@ -57,6 +58,7 @@ function AppContent() {
 
       <Routes>
         {/* Routes publiques */}
+        <Route path="/filieres" element={<Filieres />} />
         <Route path="/" element={<Home />} />
         <Route path="/connexion" element={<Connexion />} />
         <Route path="/inscription" element={<Inscription />} />
@@ -66,7 +68,7 @@ function AppContent() {
         <Route path="/licence" element={<Licence />} />
         <Route path="/teacher" element={<Teacher />} />
         <Route path="/suivant" element={<Suivant />} />
-        <Route path="/etudiant" element={<Etudiant />} />
+        <Route path="/etudiant" element={<Etudiant/>} />
         <Route path="/studentdoc" element={<StudentDoc />} />
         <Route path="/teacherProfil" element={<TeacherProfil />} />
         <Route path="/etudiantProfil" element={<EtudiantProfil />} />

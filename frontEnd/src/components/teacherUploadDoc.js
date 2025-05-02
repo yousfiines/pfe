@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import axios from 'axios';
 import {
   Button, Card, List, ListItem, ListItemText, TextField, Typography,
   Select, MenuItem, FormControl, InputLabel, IconButton, Dialog,
@@ -10,7 +11,6 @@ import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 
 const TeacherDocuments = () => {
-  // États pour les documents et le formulaire
   const [documents, setDocuments] = useState([]);
   const [newDoc, setNewDoc] = useState({
     title: '',
@@ -43,9 +43,25 @@ const TeacherDocuments = () => {
     'Mathématiques': {
       'Math Pure': ['Algèbre', 'Analyse'],
       'Math Appliquée': ['Probabilités', 'Statistiques']
-    },
-    // Ajoutez les autres matières selon vos besoins
+    }
   };
+
+  useEffect(() => {
+    const fetchDocuments = async () => {
+      try {
+        const response = await axios.get('http://localhost:5000/api/documents', {
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('teacherToken')}`
+          }
+        });
+        setDocuments(response.data);
+      } catch (error) {
+        console.error("Erreur de chargement des documents:", error);
+        showSnackbar('Erreur de chargement des documents', 'error');
+      }
+    };
+    fetchDocuments();
+  }, []);
 
   const handleFiliereChange = (e) => {
     const filiere = e.target.value;
@@ -66,81 +82,85 @@ const TeacherDocuments = () => {
     });
   };
 
-  // Charger les documents depuis le localStorage
-  useEffect(() => {
-    const savedDocs = localStorage.getItem('teacherDocuments');
-    if (savedDocs) {
-      setDocuments(JSON.parse(savedDocs));
-    }
-  }, []);
-
   const handleFileChange = (e) => {
     const file = e.target.files[0];
     if (file) {
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        const updatedDoc = editingDoc ? { ...editingDoc } : { ...newDoc };
-        updatedDoc.file = {
-          name: file.name,
-          type: file.type,
-          size: file.size,
-          content: e.target.result.split(',')[1]
-        };
-        editingDoc ? setEditingDoc(updatedDoc) : setNewDoc(updatedDoc);
-      };
-      reader.readAsDataURL(file);
+      const updatedDoc = editingDoc ? { ...editingDoc } : { ...newDoc };
+      updatedDoc.file = file;
+      editingDoc ? setEditingDoc(updatedDoc) : setNewDoc(updatedDoc);
     }
   };
 
-  const handleSubmit = () => {
-    if (!newDoc.title || !newDoc.file || !newDoc.filiere || !newDoc.classe || !newDoc.parcours || !newDoc.matiere) {
-      showSnackbar('Veuillez remplir tous les champs obligatoires', 'error');
-      return;
+  const handleSubmit = async () => {
+    try {
+      const formData = new FormData();
+      formData.append('title', newDoc.title);
+      formData.append('file', newDoc.file);
+      formData.append('filiere', newDoc.filiere);
+      formData.append('classe', newDoc.classe);
+      formData.append('parcours', newDoc.parcours);
+      formData.append('matiere', newDoc.matiere);
+      formData.append('diffusionDate', newDoc.diffusionDate.toISOString());
+
+      const response = await axios.post('http://localhost:5000/api/documents', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+          'Authorization': `Bearer ${localStorage.getItem('teacherToken')}`
+        }
+      });
+
+      setDocuments([response.data, ...documents]);
+      showSnackbar('Document publié avec succès', 'success');
+      resetForm();
+    } catch (error) {
+      console.error("Erreur lors de la publication:", error);
+      showSnackbar("Erreur lors de la publication", 'error');
     }
-
-    const updatedDocs = [
-      {
-        id: Date.now(),
-        ...newDoc,
-        diffusionDate: newDoc.diffusionDate.toISOString(),
-        createdAt: new Date().toISOString()
-      },
-      ...documents
-    ];
-
-    saveDocuments(updatedDocs);
-    resetForm();
-    showSnackbar('Document publié avec succès', 'success');
   };
 
-  const handleUpdate = () => {
-    if (!editingDoc.title || !editingDoc.file || !editingDoc.filiere || !editingDoc.classe || !editingDoc.parcours || !editingDoc.matiere) {
-      showSnackbar('Veuillez remplir tous les champs obligatoires', 'error');
-      return;
+  const handleUpdate = async () => {
+    try {
+      const formData = new FormData();
+      formData.append('id', editingDoc.id);
+      formData.append('title', editingDoc.title);
+      if (editingDoc.file instanceof File) {
+        formData.append('file', editingDoc.file);
+      }
+      formData.append('filiere', editingDoc.filiere);
+      formData.append('classe', editingDoc.classe);
+      formData.append('parcours', editingDoc.parcours);
+      formData.append('matiere', editingDoc.matiere);
+      formData.append('diffusionDate', editingDoc.diffusionDate.toISOString());
+
+      const response = await axios.put('http://localhost:5000/api/documents', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+          'Authorization': `Bearer ${localStorage.getItem('teacherToken')}`
+        }
+      });
+
+      setDocuments(documents.map(doc => doc.id === editingDoc.id ? response.data : doc));
+      setOpenDialog(false);
+      showSnackbar('Document modifié avec succès', 'success');
+    } catch (error) {
+      console.error("Erreur lors de la modification:", error);
+      showSnackbar("Erreur lors de la modification", 'error');
     }
-
-    const updatedDocs = documents.map(doc => 
-      doc.id === editingDoc.id ? {
-        ...editingDoc,
-        diffusionDate: editingDoc.diffusionDate instanceof Date ? editingDoc.diffusionDate.toISOString() : editingDoc.diffusionDate
-      } : doc
-    );
-
-    saveDocuments(updatedDocs);
-    setEditingDoc(null);
-    setOpenDialog(false);
-    showSnackbar('Document modifié avec succès', 'success');
   };
 
-  const handleDelete = (id) => {
-    const updatedDocs = documents.filter(doc => doc.id !== id);
-    saveDocuments(updatedDocs);
-    showSnackbar('Document supprimé avec succès', 'success');
-  };
-
-  const saveDocuments = (docs) => {
-    setDocuments(docs);
-    localStorage.setItem('teacherDocuments', JSON.stringify(docs));
+  const handleDelete = async (id) => {
+    try {
+      await axios.delete(`http://localhost:5000/api/documents/${id}`, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('teacherToken')}`
+        }
+      });
+      setDocuments(documents.filter(doc => doc.id !== id));
+      showSnackbar('Document supprimé avec succès', 'success');
+    } catch (error) {
+      console.error("Erreur lors de la suppression:", error);
+      showSnackbar("Erreur lors de la suppression", 'error');
+    }
   };
 
   const resetForm = () => {
@@ -159,17 +179,33 @@ const TeacherDocuments = () => {
     setSnackbar({ open: true, message, severity });
   };
 
-  const downloadFile = (file) => {
-    const link = document.createElement('a');
-    link.href = `data:${file.type};base64,${file.content}`;
-    link.download = file.name;
-    link.click();
+  const downloadFile = async (id, fileName) => {
+    try {
+      const response = await axios.get(`http://localhost:5000/api/documents/${id}/download`, {
+        responseType: 'blob',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('teacherToken')}`
+        }
+      });
+      
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', fileName);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+    } catch (error) {
+      console.error("Erreur lors du téléchargement:", error);
+      showSnackbar("Erreur lors du téléchargement", 'error');
+    }
   };
 
   const openEditDialog = (doc) => {
     setEditingDoc({ 
       ...doc,
-      diffusionDate: new Date(doc.diffusionDate)
+      diffusionDate: new Date(doc.diffusionDate),
+      file: null // Reset file to allow new upload
     });
     setOpenDialog(true);
   };
@@ -330,8 +366,8 @@ const TeacherDocuments = () => {
                         </Typography>
                         <Typography component="div" variant="caption" color="textSecondary">
                           Publié le: {new Date(doc.createdAt).toLocaleDateString()} | 
-                          Taille: {(doc.file.size / 1024).toFixed(2)} KB | 
-                          Type: {doc.file.type.split('/')[1].toUpperCase()}
+                          Taille: {(doc.fileSize / 1024).toFixed(2)} KB | 
+                          Type: {doc.fileType.split('/')[1].toUpperCase()}
                         </Typography>
                       </>
                     }
@@ -345,7 +381,7 @@ const TeacherDocuments = () => {
                     </IconButton>
                     <Button
                       variant="outlined"
-                      onClick={() => downloadFile(doc.file)}
+                      onClick={() => downloadFile(doc.id, doc.fileName)}
                       style={{ marginLeft: '10px' }}
                     >
                       Télécharger
@@ -462,9 +498,14 @@ const TeacherDocuments = () => {
               </Button>
             </label>
             
+            {editingDoc?.fileName && !editingDoc?.file && (
+              <Typography variant="body2" component="span">
+                Fichier actuel: {editingDoc.fileName}
+              </Typography>
+            )}
             {editingDoc?.file && (
               <Typography variant="body2" component="span">
-                Fichier actuel: {editingDoc.file.name}
+                Nouveau fichier sélectionné: {editingDoc.file.name}
               </Typography>
             )}
           </DialogContent>
@@ -472,8 +513,8 @@ const TeacherDocuments = () => {
             <Button onClick={() => setOpenDialog(false)}>Annuler</Button>
             <Button 
               onClick={handleUpdate}
-              disabled={!editingDoc?.title || !editingDoc?.file || !editingDoc?.filiere || 
-                       !editingDoc?.classe || !editingDoc?.parcours || !editingDoc?.matiere}
+              disabled={!editingDoc?.title || (!editingDoc?.file && !editingDoc?.fileName) || 
+                       !editingDoc?.filiere || !editingDoc?.classe || !editingDoc?.parcours || !editingDoc?.matiere}
               color="primary"
             >
               Enregistrer les modifications

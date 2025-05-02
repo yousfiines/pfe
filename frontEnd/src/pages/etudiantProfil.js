@@ -9,7 +9,6 @@ import {
   FaClipboardList, 
   FaSignOutAlt, 
   FaMapMarkerAlt, 
-  FaWeight,
  
   FaBookOpen
 } from 'react-icons/fa';

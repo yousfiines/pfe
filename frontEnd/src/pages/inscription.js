@@ -3,6 +3,9 @@ import { useNavigate } from "react-router-dom";
 import inscriptionAnim from "../assets/lotties/inscription.json";
 import Lottie from "lottie-react";
 
+//const API_URL = 'http://localhost:5000/api';
+const API_URL = process.env.REACT_APP_API_URL || "http://localhost:5000";
+
 const Inscription = () => {
   const [formData, setFormData] = useState({
     Cin: "",
@@ -142,40 +145,30 @@ const Inscription = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setIsSubmitting(true);
-  
+
     if (validateForm()) {
       try {
-        const response = await fetch("http://localhost:5000/etudiant", {
+        const response = await fetch(`${API_URL}/etudiant`, {
           method: "POST",
-          headers: { 
-            "Content-Type": "application/json" 
-          },
-          body: JSON.stringify({
-            Cin: formData.Cin,
-            Nom_et_prénom: formData.Nom_et_prénom,
-            Téléphone: formData.Téléphone,
-            email: formData.email,
-            password: formData.password,
-            confirmPassword: formData.confirmPassword,
-            filière: formData.filière,
-            classe: formData.classe
-          }),
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(formData)
         });
-  
+
         const data = await response.json();
         
         if (!response.ok) {
-          if (data.errors) {
-            setErrors(data.errors);
-          }
-          if (data.passwordFeedback) {
-            setPasswordFeedback(data.passwordFeedback);
-          }
+          if (data.errors) setErrors(data.errors);
+          if (data.passwordFeedback) setPasswordFeedback(data.passwordFeedback);
           alert(data.message || "Erreur lors de l'inscription");
           return;
         }
-  
-        localStorage.setItem('selectedFiliere', formData.filière);
+
+        // Sauvegarder les données du profil
+        localStorage.setItem('studentProfile', JSON.stringify({
+          filiere: formData.filière,
+          classe: formData.classe
+        }));
+
         alert("Inscription réussie !");
         navigate("/connexion");
         
