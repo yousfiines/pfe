@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import inscriptionAnim from "../assets/lotties/inscription.json";
+import inscriptionAnim from "../../assets/lotties/inscription.json";
 import Lottie from "lottie-react";
 
 //const API_URL = 'http://localhost:5000/api';

@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import login from "../assets/lotties/login.json";
+import login from "../../assets/lotties/login.json";
 import Lottie from "lottie-react";
 
 const Connexion = () => {

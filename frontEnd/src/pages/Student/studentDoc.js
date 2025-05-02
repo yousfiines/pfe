@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import axios from 'axios';
-import filieresConfig from './../pages/config/filieres';
+import filieresConfig from '../config/filieres';
 import {
   Card, List, ListItem, ListItemText, Typography,
   Button, Chip, Snackbar, Alert, Box, Paper, IconButton, InputBase, Avatar, styled,

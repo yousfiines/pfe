@@ -1,9 +1,9 @@
 import React, { useRef, useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import logoFac from "./../assets/logoFac.png";
+import logoFac from "./../../assets/logoFac.png";
 
 
-import downloadImage from "./../assets/img/téléchargement.jpeg";
+import downloadImage from "./../../assets/img/téléchargement.jpeg";
 
 const Etudiant = () => {
   const newsSectionRef = useRef(null);
@@ -11,10 +11,8 @@ const Etudiant = () => {
   const navigate = useNavigate();
   const [isAdmin, setIsAdmin] = useState(false);
   const handleLoginClick = () => {
-    // Fonction pour gérer le clic sur le bouton de connexion
+    
     console.log("Bouton de connexion cliqué");
-    // Redirection vers la page de connexion
-    // window.location.href = "/login";
   };
 
   const events = [

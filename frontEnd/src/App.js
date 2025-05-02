@@ -3,35 +3,33 @@ import { BrowserRouter as Router, Routes, Route, useLocation, Navigate } from "r
 import Header from "./components/layout/Header/header.js";
 import Footer from "./components/layout/Footer/footer.js";
 import "./styles.css";
-import ProtectedRoute from './pages/ProtectedRoute.js';
+import ProtectedRoute from './pages/Auth/ProtectedRoute.js';
 import Filieres from "./pages/config/filieres.js"
 // Routes Admin
-import AdminLayout from './admin/layouts/AdminLayout.jsx';
-import AdminDashboard from './admin/pages/Dashboard';
-import AdminLogin from './admin/pages/Login';
-import GestionUtilisateurs from './admin/pages/GestionUtilisateurs';
-import GestionDocuments from './admin/pages/GestionDocuments';
-import GestionFormations from './admin/pages/GestionFormations';
-import Statistiques from './admin/pages/Statistiques';
-import GestionCours from './admin/pages/GestionCours';
-import GestionEvenements from './admin/pages/GestionEvenements';
-import Parametres from './admin/pages/Parametres';
-import StudentDoc from "./components/studentDoc.js";
-import TeacherUploadDocument from "./components/teacherUploadDoc.js";
-import "./components/studentDoc.css";
+import AdminLayout from './pages/Admin/AdminLayout.js';
+import AdminDashboard from './pages/Admin/Dashboard.jsx';
+import AdminLogin from './pages/Auth/Login.jsx';
+import GestionUtilisateurs from './pages/Admin/GestionUtilisateurs.jsx';
+import GestionDocuments from './pages/Admin/GestionDocuments.jsx';
+import GestionFormations from './pages/Admin/GestionFormations.jsx';
+import Statistiques from './pages/Admin/Statistiques.jsx';
+import GestionCours from './pages/Admin/GestionCours.jsx';
+import GestionEvenements from './pages/Admin/GestionEvenements.jsx';
+import Parametres from './pages/Admin/Parametres.jsx';
+import StudentDoc from "./pages/Student/studentDoc.js";
+import TeacherUploadDocument from "./pages/Enseignant/teacherUploadDoc.js";
+import "./pages/Student/studentDoc.css";
 // Routes publiques
-import Connexion from "./pages/connexion.js";
-import Inscription from "./pages/inscription.js";
-import InscriptionEN from "./pages/inscriptionEN.js";
-import Enseignant from "./pages/enseignant.js";
-import EventForm from "./pages/eventForm.js";
-import Licence from "./pages/licence.js";
-import Home from "./pages/Home";
-import Teacher from "./pages/teacher.js";
-import Etudiant from "./pages/etudiant.js";
-import Suivant from "./pages/suivant.js";
-import TeacherProfil from "./components/layout/teacherProfil.js";
-import EtudiantProfil from "./pages/etudiantProfil.js";
+import Connexion from "./pages/Auth/inscription.js";
+import Inscription from "./pages/Auth/inscription.js";
+import InscriptionEN from "./pages/Auth/inscriptionEN.js";
+import Enseignant from "./pages/Enseignant/enseignant.js";
+import EventForm from "./components/commun/eventForm.js";
+import Home from "./components/commun/Home.js";
+import Teacher from "./pages/Enseignant/teacher.js";
+import Etudiant from "./pages/Student/etudiant.js";
+import TeacherProfil from "./pages/Enseignant/teacherProfil.js";
+import EtudiantProfil from "./pages/Student/etudiantProfil.js";
 function App() {
   return (
     <Router>
@@ -65,9 +63,7 @@ function AppContent() {
         <Route path="/inscriptionEN" element={<InscriptionEN />} />
         <Route path="/enseignant" element={<Enseignant />} />
         <Route path="/eventForm" element={<EventForm />} />
-        <Route path="/licence" element={<Licence />} />
         <Route path="/teacher" element={<Teacher />} />
-        <Route path="/suivant" element={<Suivant />} />
         <Route path="/etudiant" element={<Etudiant/>} />
         <Route path="/studentdoc" element={<StudentDoc />} />
         <Route path="/teacherProfil" element={<TeacherProfil />} />

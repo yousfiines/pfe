@@ -1,11 +1,11 @@
 import React, { useRef , useState, useEffect  } from "react";
-import logoFac from "./../assets/logoFac.png"
+import logoFac from "./../../assets/logoFac.png"
 import Lottie from "lottie-react";
-import home from "./../assets/lotties/home.json";
-import "./../../src/styles.css";
-import licencee from "./../assets/img/licencee.png";
-import master from "./../assets/img/master.png";
-import doctorat from "./../assets/img/doctorat.png";
+import home from "../../assets/lotties/home.json";
+import "./../../styles.css";
+import licencee from './../../assets/img/licencee.png';
+import master from "./../../assets/img/master.png";
+import doctorat from "./../../assets/img/doctorat.png";
 import Card from '@mui/material/Card';
 import CardActions from '@mui/material/CardActions';
 import CardContent from '@mui/material/CardContent';

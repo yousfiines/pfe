@@ -1,9 +1,9 @@
 import React, { useRef, useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import logoFac from "./../assets/logoFac.png";
+import logoFac from "./../../assets/logoFac.png";
 
 
-import downloadImage from "./../assets/img/téléchargement.jpeg";
+import downloadImage from "./../../assets/img/téléchargement.jpeg";
 
 const Teacher = () => {
   const newsSectionRef = useRef(null);

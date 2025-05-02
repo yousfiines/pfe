@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import './styles.css'; // Fichier CSS pour les styles
+import './../../styles.css'; // Fichier CSS pour les styles
 
 function Navbar() {
   const [isOpen, setIsOpen] = useState(false); // État pour gérer le menu déroulant

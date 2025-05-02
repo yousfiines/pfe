@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import inscriptionEnAnim from "../assets/lotties/inscription.json";
+import inscriptionEnAnim from "../../assets/lotties/inscription.json";
 import Lottie from "lottie-react";
 
 const InscriptionEn = () => {
