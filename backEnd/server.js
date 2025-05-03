@@ -4,6 +4,7 @@ import mysql from "mysql2";
 import bcrypt from "bcryptjs";
 import cookieParser from "cookie-parser";
 import jwt from 'jsonwebtoken';
+import bodyParser from 'body-parser';
 
 const app = express();
 const router = express.Router();
@@ -871,6 +872,348 @@ app.post('/api/upload-profile-image', upload.single('profileImage'), async (req,
 });
 
 
+
+
+// Middleware essentiels
+app.use(bodyParser.json()); // Pour parser le JSON
+app.use(bodyParser.urlencoded({ extended: true })); // Pour parser les formulaires
+
+
+////////filière 
+
+app.post('/api/filieres', async (req, res) => {
+  try {
+    const { nom } = req.body;
+    
+    if (!nom) {
+      return res.status(400).json({ error: 'Le nom de la filière est requis' });
+    }
+
+    const [result] = await pool.execute(
+      'INSERT INTO filieres (nom) VALUES (?)',
+      [nom]
+    );
+
+    res.status(201).json({
+      id: result.insertId,
+      nom,
+      message: 'Filière créée avec succès'
+    });
+  } catch (error) {
+    console.error('Erreur lors de la création de la filière:', error);
+    res.status(500).json({ error: 'Erreur serveur' });
+  }
+});
+
+app.get('/api/filieres', async (req, res) => {
+  try {
+    const [filieres] = await pool.query('SELECT * FROM filieres');
+    res.json(filieres);
+  } catch (error) {
+    console.error('Erreur lors de la récupération des filières:', error);
+    res.status(500).json({ error: 'Erreur serveur' });
+  }
+});
+
+
+app.get('/api/filieres/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const [filiere] = await pool.execute(
+      'SELECT * FROM filieres WHERE id = ?',
+      [id]
+    );
+
+    if (filiere.length === 0) {
+      return res.status(404).json({ error: 'Filière non trouvée' });
+    }
+
+    res.json(filiere[0]);
+  } catch (error) {
+    console.error('Erreur lors de la récupération de la filière:', error);
+    res.status(500).json({ error: 'Erreur serveur' });
+  }
+});
+
+
+app.put('/api/filieres/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { nom } = req.body;
+
+    if (!nom) {
+      return res.status(400).json({ error: 'Le nom de la filière est requis' });
+    }
+
+    const [result] = await pool.execute(
+      'UPDATE filieres SET nom = ? WHERE id = ?',
+      [nom, id]
+    );
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ error: 'Filière non trouvée' });
+    }
+
+    res.json({ id, nom, message: 'Filière mise à jour avec succès' });
+  } catch (error) {
+    console.error('Erreur lors de la mise à jour de la filière:', error);
+    res.status(500).json({ error: 'Erreur serveur' });
+  }
+});
+
+
+app.delete('/api/filieres/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const [result] = await pool.execute(
+      'DELETE FROM filieres WHERE id = ?',
+      [id]
+    );
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ error: 'Filière non trouvée' });
+    }
+
+    res.json({ message: 'Filière supprimée avec succès' });
+  } catch (error) {
+    console.error('Erreur lors de la suppression de la filière:', error);
+    
+    // Gestion spécifique des contraintes de clé étrangère
+    if (error.code === 'ER_ROW_IS_REFERENCED_2') {
+      return res.status(400).json({ 
+        error: 'Impossible de supprimer : des classes sont associées à cette filière' 
+      });
+    }
+    
+    res.status(500).json({ error: 'Erreur serveur' });
+  }
+});
+
+/////classes
+// Routes pour les classes
+// Route POST pour ajouter une classe
+app.post('/api/classes', async (req, res) => {
+  try {
+    const { nom, filiere_id } = req.body;
+
+    // Validation
+    if (!nom || !filiere_id) {
+      return res.status(400).json({ 
+        success: false,
+        error: 'Le nom et l\'ID de la filière sont requis' 
+      });
+    }
+
+    // Insertion dans la base de données
+    const [result] = await pool.query(
+      'INSERT INTO classes (nom, filiere_id) VALUES (?, ?)',
+      [nom, filiere_id]
+    );
+
+    res.status(201).json({
+      success: true,
+      message: 'Classe créée avec succès',
+      data: {
+        id: result.insertId,
+        nom,
+        filiere_id
+      }
+    });
+
+  } catch (error) {
+    console.error('Erreur:', error);
+    res.status(500).json({ 
+      success: false,
+      error: 'Erreur serveur' 
+    });
+  }
+});
+
+// Récupérer toutes les classes
+app.get('/api/classes', async (req, res) => {
+  try {
+    const [classes] = await pool.query(`
+      SELECT c.id, c.nom, f.nom AS filiere 
+      FROM classes c
+      LEFT JOIN filieres f ON c.filiere_id = f.id
+    `);
+    
+    res.json({ 
+      success: true,
+      data: classes 
+    });
+
+  } catch (error) {
+    console.error('Erreur:', error);
+    res.status(500).json({ 
+      success: false,
+      error: 'Erreur serveur' 
+    });
+  }
+});
+
+
+
+
+
+
+///semestres
+// Route POST pour créer un semestre
+app.post('/api/semestres', async (req, res) => {
+  try {
+    const { numero, classe_id } = req.body;
+
+    // Validation
+    if (!numero || !classe_id) {
+      return res.status(400).json({
+        success: false,
+        error: 'Le numéro du semestre et l\'ID de la classe sont requis'
+      });
+    }
+
+    // Vérifier si la classe existe
+    const [classe] = await pool.query(
+      'SELECT id FROM classes WHERE id = ?',
+      [classe_id]
+    );
+
+    if (classe.length === 0) {
+      return res.status(404).json({
+        success: false,
+        error: 'Classe non trouvée'
+      });
+    }
+
+    // Insertion du semestre
+    const [result] = await pool.query(
+      'INSERT INTO semestres (numero, classe_id) VALUES (?, ?)',
+      [numero, classe_id]
+    );
+
+    res.status(201).json({
+      success: true,
+      message: 'Semestre créé avec succès',
+      data: {
+        id: result.insertId,
+        numero,
+        classe_id
+      }
+    });
+
+  } catch (error) {
+    console.error('Erreur:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Erreur serveur'
+    });
+  }
+});
+
+// Route GET pour récupérer tous les semestres
+app.get('/api/semestres', async (req, res) => {
+  try {
+    const [semestres] = await pool.query(`
+      SELECT s.id, s.numero, c.nom AS classe 
+      FROM semestres s
+      LEFT JOIN classes c ON s.classe_id = c.id
+    `);
+    
+    res.json({
+      success: true,
+      data: semestres
+    });
+
+  } catch (error) {
+    console.error('Erreur:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Erreur serveur'
+    });
+  }
+});
+
+
+//////matieres 
+// Route POST pour créer une matière
+app.post('/api/matieres', async (req, res) => {
+  try {
+    const { nom, credits, enseignant_id, semestre_id } = req.body;
+
+    // Validation
+    if (!nom || !semestre_id) {
+      return res.status(400).json({
+        success: false,
+        error: 'Le nom de la matière et l\'ID du semestre sont obligatoires'
+      });
+    }
+
+    // Vérification de l'existence du semestre
+    const [semestre] = await pool.query(
+      'SELECT id FROM semestres WHERE id = ?',
+      [semestre_id]
+    );
+
+    if (semestre.length === 0) {
+      return res.status(404).json({
+        success: false,
+        error: 'Semestre non trouvé'
+      });
+    }
+
+    // Insertion de la matière
+    const [result] = await pool.query(
+      'INSERT INTO matieres (nom, credits, enseignant_id, semestre_id) VALUES (?, ?, ?, ?)',
+      [nom, credits || null, enseignant_id || null, semestre_id]
+    );
+
+    res.status(201).json({
+      success: true,
+      message: 'Matière créée avec succès',
+      data: {
+        id: result.insertId,
+        nom,
+        credits,
+        enseignant_id,
+        semestre_id
+      }
+    });
+
+  } catch (error) {
+    console.error('Erreur:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Erreur serveur'
+    });
+  }
+});
+
+// Route GET pour récupérer toutes les matières
+app.get('/api/matieres', async (req, res) => {
+  try {
+    const [matieres] = await pool.query(`
+      SELECT m.id, m.nom, m.credits, 
+             e.Nom_et_prénom AS enseignant,
+             s.numero AS semestre,
+             c.nom AS classe
+      FROM matieres m
+      LEFT JOIN enseignants e ON m.enseignant_id = e.Cin
+      LEFT JOIN semestres s ON m.semestre_id = s.id
+      LEFT JOIN classes c ON s.classe_id = c.id
+    `);
+    
+    res.json({
+      success: true,
+      data: matieres
+    });
+
+  } catch (error) {
+    console.error('Erreur:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Erreur serveur'
+    });
+  }
+});
 
 
 

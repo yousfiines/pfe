@@ -20,7 +20,11 @@ import {
   Description as DescriptionIcon,
   Event as EventIcon,
   Settings as SettingsIcon,
-  ExitToApp as ExitToAppIcon
+  ExitToApp as ExitToAppIcon,
+  AccountTree,
+  Class as ClassIcon,          // Icône pour Classe
+  DateRange as SemesterIcon,   // Icône pour Semestre
+  MenuBook as SubjectIcon
 } from '@mui/icons-material';
 
 const drawerWidth = 240;
@@ -35,6 +39,11 @@ const AdminLayout = ({ children }) => {
     { text: 'Documents', icon: <DescriptionIcon />, path: '/admin/documents' },
     { text: 'Événements', icon: <EventIcon />, path: '/admin/events' },
     { text: 'Paramètres', icon: <SettingsIcon />, path: '/admin/settings' },
+    { text: 'Filière', icon: <AccountTree />, path: '/admin/filière' },
+    { text: 'Classe', icon: <ClassIcon />, path: '/admin/classe' },
+    { text: 'Semestre', icon: <SemesterIcon />, path: '/admin/semestre' },
+    { text: 'Matière', icon: <SubjectIcon />, path: '/admin/matière' },
+
   ];
   
   const handleLogout = () => {

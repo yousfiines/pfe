@@ -7,7 +7,11 @@ import {
   Description as DescriptionIcon,
   BarChart as BarChartIcon,
   Settings as SettingsIcon,
-  Event as EventIcon
+  Event as EventIcon,
+  AccountTree as FiliereIcon,
+  Class as ClassIcon,
+  DateRange as SemesterIcon,
+  MenuBook as SubjectIcon 
 } from '@mui/icons-material';
 
 const AdminDashboard = () => {
@@ -55,6 +59,34 @@ const AdminDashboard = () => {
       icon: <SettingsIcon fontSize="large" />,
       path: "/admin/parametres",
       color: "#607d8b"
+    },
+    {
+      title: "Filière",
+      description: "Ajouter et modifier les filières",
+      icon: <FiliereIcon fontSize="large" />,
+      path: "/admin/filière",
+      color: "#4caf50"
+    },
+    {
+      title: "Classe",
+      description: "Gérer les classes et groupes d'étudiants",
+      icon: <ClassIcon fontSize="large" />,
+      path: "/admin/classe",
+      color: "#673ab7" 
+    },
+    {
+      title: "Semestre",
+      description: "Organiser les semestres académiques",
+      icon: <SemesterIcon fontSize="large" />,
+      path: "/admin/semestre",
+      color: "#2196f3"  // Bleu
+    },
+    {
+      title: "Matière",
+      description: "Gérer le catalogue des matières",
+      icon: <SubjectIcon fontSize="large" />,
+      path: "/admin/matière",
+      color: "#ff5722"  // Orange
     }
   ];
 
