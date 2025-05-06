@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState ,useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import inscriptionAnim from "../../assets/lotties/inscription.json";
 import Lottie from "lottie-react";
@@ -24,36 +24,107 @@ const Inscription = () => {
   const navigate = useNavigate();
 
   // Liste des filières avec leurs classes correspondantes
-  const filieres = {
-    "": { classes: [""] },
-    "Licence en Sciences Biologiques et Environnementales": {
-      classes: ["", "LSBE1", "LSBE2", "LSBE3"]
-    },
-    "Licence en Sciences de l'informatique : Génie logiciel et systèmes d'information": {
-      classes: ["", "LSI1", "LSI2", "LSI3"]
-    },
-    "Licence en Sciences : Physique-Chimie": {
-      classes: ["", "LPC1", "LPC2", "LPC3"]
-    },
-    "Licence en Sciences de Mathématique": {
-      classes: ["", "LSM1", "LSM2", "LSM3"]
-    },
-    "Licence en Technologie de l'information et de la communication": {
-      classes: ["", "LTIC1", "LTIC2", "LTIC3"]
-    },
-    "Licence en Industries Agroalimentaires et Impacts Environnementaux": {
-      classes: ["", "LIAIE1", "LIAIE2", "LIAIE3"]
-    },
-    "Master Recherche en Ecophysiologie et Adaptation Végétal": {
-      classes: ["", "M1", "M2"]
-    },
-    "Master de Recherche Informatique décisionnelle": {
-      classes: ["", "M1", "M2"]
-    },
-    "Master recherche Physique et Chimie des Matériaux de Hautes Performances": {
-      classes: ["", "M1", "M2"]
-    },
+  const [filieres, setFilieres] = useState([]);
+const [classes, setClasses] = useState([]);
+const [selectedFiliere, setSelectedFiliere] = useState('');
+const [loadingClasses, setLoadingClasses] = useState(false);
+const [classesError, setClassesError] = useState(null);
+const [availableClasses, setAvailableClasses] = useState([]);
+
+// Charger les filières depuis l'API
+useEffect(() => {
+  const fetchFilieres = async () => {
+    try {
+      const response = await fetch(`${API_URL}/api/filieres`);
+      if (response.ok) {
+        const data = await response.json();
+        setFilieres(Array.isArray(data) ? data : []); // S'assurer que c'est un tableau
+      }
+    } catch (error) {
+      console.error("Erreur lors du chargement des filières:", error);
+      setFilieres([]); // Définir un tableau vide en cas d'erreur
+    }
   };
+
+  fetchFilieres();
+}, []);
+
+
+// Charger les classes quand une filière est sélectionnée
+useEffect(() => {
+  const fetchClasses = async () => {
+    if (!selectedFiliere) {
+      setAvailableClasses([]);
+      return;
+    }
+
+    setLoadingClasses(true);
+    setClassesError(null);
+    
+    try {
+      const response = await fetch(`${API_URL}/api/classes?filiere=${selectedFiliere}`);
+      
+      // Debug: Affiche la réponse brute
+      console.log("Réponse API:", response);
+      
+      const result = await response.json();
+      
+      // Debug: Affiche les données reçues
+      console.log("Données reçues:", result);
+      
+      if (!response.ok || !result.success) {
+        throw new Error(result.message || "Erreur de chargement des classes");
+      }
+      
+      setAvailableClasses(result.data || []);
+      
+    } catch (error) {
+      console.error("Erreur chargement classes:", error);
+      setClassesError(error.message);
+      setAvailableClasses([]);
+    } finally {
+      setLoadingClasses(false);
+    }
+  };
+
+  fetchClasses();
+}, [selectedFiliere]);
+
+
+
+const handleFiliereChange = async (e) => {
+  const filiereId = e.target.value;
+  setSelectedFiliere(filiereId);
+  setFormData(prev => ({
+    ...prev,
+    filière: filiereId,
+    classe: '' // Réinitialise la sélection de classe
+  }));
+
+  // Chargement des classes seulement si une filière est sélectionnée
+  if (filiereId) {
+    setLoadingClasses(true);
+    try {
+      const response = await fetch(`${API_URL}/api/classes?filiere=${filiereId}`);
+      const result = await response.json();
+      
+      if (result.success) {
+        setClasses(result.data);
+      } else {
+        setClasses([]);
+        console.error('Erreur:', result.message);
+      }
+    } catch (error) {
+      console.error('Erreur de chargement:', error);
+      setClasses([]);
+    } finally {
+      setLoadingClasses(false);
+    }
+  } else {
+    setClasses([]);
+  }
+};
+
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -145,30 +216,46 @@ const Inscription = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setIsSubmitting(true);
-
+  
     if (validateForm()) {
       try {
+        // Préparez les données dans le format attendu par l'API
+        const payload = {
+          Cin: formData.Cin,
+          Nom_et_prénom: formData.Nom_et_prénom,
+          Téléphone: formData.Téléphone,
+          email: formData.email,
+          password: formData.password,
+          confirmPassword: formData.confirmPassword,
+          filiere: formData.filière, // Notez la conversion ici
+          classe: formData.classe
+        };
+  
+        console.log("Données envoyées:", payload); // Debug
+  
         const response = await fetch(`${API_URL}/etudiant`, {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(formData)
+          headers: { 
+            "Content-Type": "application/json" 
+          },
+          body: JSON.stringify(payload)
         });
-
+  
         const data = await response.json();
         
         if (!response.ok) {
+          console.error("Erreur serveur:", data); // Debug
           if (data.errors) setErrors(data.errors);
-          if (data.passwordFeedback) setPasswordFeedback(data.passwordFeedback);
           alert(data.message || "Erreur lors de l'inscription");
           return;
         }
-
-        // Sauvegarder les données du profil
+  
+        // Sauvegarde des données
         localStorage.setItem('studentProfile', JSON.stringify({
           filiere: formData.filière,
           classe: formData.classe
         }));
-
+  
         alert("Inscription réussie !");
         navigate("/connexion");
         
@@ -302,38 +389,46 @@ const Inscription = () => {
                     {errors.confirmPassword && <span style={styles.error}>{errors.confirmPassword}</span>}
                   </div>
 
+                  {/* Champ Filière */}
                   <div style={styles.formGroup}>
-                    <select
-                      name="filière"
-                      value={formData.filière}
-                      onChange={handleChange}
-                      style={styles.input}
-                    >
-                      {Object.keys(filieres).map((filiere, index) => (
-                        <option key={index} value={filiere}>
-                          {filiere || "Sélectionnez une filière"}
-                        </option>
-                      ))}
-                    </select>
-                    {errors.filière && <span style={styles.error}>{errors.filière}</span>}
-                  </div>
+  <label>Filière:</label>
+  <select
+    value={selectedFiliere}
+    onChange={handleFiliereChange}
+    style={styles.input}
+    required
+  >
+    <option value="">Sélectionnez une filière</option>
+    {filieres.map(filiere => (
+      <option key={filiere.id} value={filiere.id}>
+        {filiere.nom}
+      </option>
+    ))}
+  </select>
+</div>
 
-                  <div style={styles.formGroup}>
-                    <select
-                      name="classe"
-                      value={formData.classe}
-                      onChange={handleChange}
-                      style={styles.input}
-                      disabled={!formData.filière}
-                    >
-                      {filieres[formData.filière]?.classes.map((classe, index) => (
-                        <option key={index} value={classe}>
-                          {classe || "Sélectionnez une classe"}
-                        </option>
-                      ))}
-                    </select>
-                    {errors.classe && <span style={styles.error}>{errors.classe}</span>}
-                  </div>
+<div style={styles.formGroup}>
+  <label>Classe:</label>
+  <select
+    name="classe"
+    value={formData.classe}
+    onChange={handleChange}
+    style={styles.input}
+    disabled={!selectedFiliere || loadingClasses}
+    required
+  >
+    <option value="">
+      {loadingClasses ? 'Chargement...' : 
+       classes.length === 0 ? 'Aucune classe disponible' : 
+       'Sélectionnez une classe'}
+    </option>
+    {classes.map(classe => (
+      <option key={classe.id} value={classe.id}>
+        {classe.nom}
+      </option>
+    ))}
+  </select>
+</div>
 
                   <button type="submit" style={styles.button} disabled={isSubmitting}>
                     {isSubmitting ? "En cours..." : "S'inscrire"}

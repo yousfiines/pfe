@@ -1,15 +1,14 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import axios from 'axios';
-import { FaCalendarAlt, FaClock } from "react-icons/fa";
-
+import { FaCalendarAlt, FaClock, FaTicketAlt, FaMapMarkerAlt } from "react-icons/fa";
+import { MdLocationOn } from "react-icons/md";
+import { motion } from 'framer-motion';
 import styled, { keyframes } from 'styled-components';
 import { 
   FaUser, 
   FaClipboardList, 
   FaSignOutAlt, 
-  FaMapMarkerAlt, 
- 
   FaBookOpen
 } from 'react-icons/fa';
 
@@ -284,12 +283,163 @@ const Spinner = styled.div`
   margin-bottom: 1rem;
 `;
 
+const EventsSection = styled.section`
+  padding: 2rem;
+  background: #fafafa;
+  border-radius: 12px;
+  margin-bottom: 2rem;
+`;
+
+const EventsTitle = styled.h2`
+  font-size: 2rem;
+  font-weight: 300;
+  color: #1e293b;
+  margin-bottom: 1.5rem;
+  text-align: center;
+  
+  span {
+    font-weight: 500;
+    background: linear-gradient(90deg, #7e22ce 0%, #a855f7 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+`;
+
+const EventsSubtitle = styled.p`
+  color: #64748b;
+  font-size: 1.2rem;
+  max-width: 700px;
+  margin: 0 auto 3rem;
+  text-align: center;
+  line-height: 1.8;
+`;
+
+const EventsGrid = styled.div`
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+  gap: 2rem;
+`;
+
+const EventCard = styled(motion.div)`
+  background: white;
+  border-radius: 20px;
+  overflow: hidden;
+  box-shadow: 0 25px 50px -12px rgba(0,0,0,0.03);
+  border: 1px solid rgba(226, 232, 240, 0.7);
+  transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+`;
+
+const EventImage = styled.div`
+  height: 200px;
+  background: ${props => `linear-gradient(45deg, ${props.gradient})`};
+  position: relative;
+`;
+
+const EventType = styled.div`
+  position: absolute;
+  bottom: '2rem';
+  left: '2rem';
+  color: 'white';
+  zIndex: 2;
+  font-size: 0.9rem;
+  font-weight: 500;
+  margin-bottom: 0.5rem;
+  text-shadow: 0 2px 4px rgba(0,0,0,0.2);
+`;
+
+const EventName = styled.h3`
+  font-size: 1.5rem;
+  font-weight: 600;
+  margin: 0;
+  line-height: 1.2;
+  text-shadow: 0 2px 4px rgba(0,0,0,0.2);
+`;
+
+const EventContent = styled.div`
+  padding: 1.5rem;
+`;
+
+const EventDateContainer = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 1rem;
+`;
+
+const EventDateBox = styled.div`
+  width: 60px;
+  height: 60px;
+  border-radius: 12px;
+  background-color: #f5f3ff;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+`;
+
+const EventDay = styled.div`
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #7e22ce;
+`;
+
+const EventMonth = styled.div`
+  font-size: 0.7rem;
+  color: #7e22ce;
+  text-transform: uppercase;
+`;
+
+const EventTime = styled.div`
+  font-size: 1rem;
+  font-weight: 500;
+  color: #1e293b;
+`;
+
+const EventLocation = styled.div`
+  background-color: #f5f3ff;
+  color: #7e22ce;
+  padding: 0.5rem 1rem;
+  border-radius: 50px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+`;
+
+const EventDescription = styled.p`
+  color: #64748b;
+  line-height: 1.7;
+  margin-bottom: 1.5rem;
+`;
+
+const EventButton = styled.button`
+  padding: 0.75rem 1.5rem;
+  background: #7e22ce;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 0.95rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  
+  &:hover {
+    background: #6b21a8;
+  }
+`;
+
 const EtudiantProfil = () => {
   const navigate = useNavigate();
   const [activeSection, setActiveSection] = useState('profile');
   const [studentData, setStudentData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [events, setEvents] = useState([]);
 
   useEffect(() => {
     const fetchStudentData = async () => {
@@ -319,20 +469,19 @@ const EtudiantProfil = () => {
               classe: response.data.data.Classe,
               photo: 'https://randomuser.me/api/portraits/men/32.jpg' // Photo par défaut
             },
-              schedule: [
-            { id: 1, jour: 'Lundi', matiere: 'Algorithmique avancée', heure: '08:30-10:00', salle: 'B201', professeur: 'Prof. Martin' },
-            { id: 2, jour: 'Lundi', matiere: 'Programmation C++', heure: '10:10-11:40', salle: 'B202', professeur: 'Prof. Dupont' },
-            { id: 3, jour: 'Mardi', matiere: 'Base de données', heure: '08:30-10:00', salle: 'A101', professeur: 'Prof. Leroy' },
-            { id: 4, jour: 'Mardi', matiere: 'Mathématiques discrètes', heure: '10:10-11:40', salle: 'C301', professeur: 'Prof. Bernard' },
-            { id: 5, jour: 'Mercredi', matiere: 'Systèmes d\'exploitation', heure: '13:30-15:00', salle: 'B205', professeur: 'Prof. Moreau' }
-          ],
-          exams: [
-            { id: 1, matiere: 'Algorithmique avancée', date: '2023-06-15', heure: '08:30-10:30', salle: 'Amphi A', coefficient: 2 },
-            { id: 2, matiere: 'Base de données NoSQL', date: '2023-06-18', heure: '10:00-12:00', salle: 'Amphi B', coefficient: 1.5 },
-            { id: 3, matiere: 'Réseaux et sécurité', date: '2023-06-20', heure: '14:00-16:00', salle: 'Salle C12', coefficient: 1.5 },
-            { id: 4, matiere: 'Développement Web React', date: '2023-06-22', heure: '09:00-11:00', salle: 'Salle D08', coefficient: 2 }
-          ]
-    
+            schedule: [
+              { id: 1, jour: 'Lundi', matiere: 'Algorithmique avancée', heure: '08:30-10:00', salle: 'B201', professeur: 'Prof. Martin' },
+              { id: 2, jour: 'Lundi', matiere: 'Programmation C++', heure: '10:10-11:40', salle: 'B202', professeur: 'Prof. Dupont' },
+              { id: 3, jour: 'Mardi', matiere: 'Base de données', heure: '08:30-10:00', salle: 'A101', professeur: 'Prof. Leroy' },
+              { id: 4, jour: 'Mardi', matiere: 'Mathématiques discrètes', heure: '10:10-11:40', salle: 'C301', professeur: 'Prof. Bernard' },
+              { id: 5, jour: 'Mercredi', matiere: 'Systèmes d\'exploitation', heure: '13:30-15:00', salle: 'B205', professeur: 'Prof. Moreau' }
+            ],
+            exams: [
+              { id: 1, matiere: 'Algorithmique avancée', date: '2023-06-15', heure: '08:30-10:30', salle: 'Amphi A', coefficient: 2 },
+              { id: 2, matiere: 'Base de données NoSQL', date: '2023-06-18', heure: '10:00-12:00', salle: 'Amphi B', coefficient: 1.5 },
+              { id: 3, matiere: 'Réseaux et sécurité', date: '2023-06-20', heure: '14:00-16:00', salle: 'Salle C12', coefficient: 1.5 },
+              { id: 4, matiere: 'Développement Web React', date: '2023-06-22', heure: '09:00-11:00', salle: 'Salle D08', coefficient: 2 }
+            ]
           });
         } else {
           setError(response.data.message || "Erreur lors du chargement des données");
@@ -350,7 +499,17 @@ const EtudiantProfil = () => {
       }
     };
 
+    const fetchEvents = async () => {
+      try {
+        const response = await axios.get("http://localhost:5000/api/evenements");
+        setEvents(response.data.data);
+      } catch (error) {
+        console.error("Erreur chargement événements:", error);
+      }
+    };
+
     fetchStudentData();
+    fetchEvents();
   }, [navigate]);
 
   const handleLogout = () => {
@@ -362,6 +521,20 @@ const EtudiantProfil = () => {
   const navigateToDocuments = () => {
     navigate('/studentDoc');
   };
+
+  const handleEventClick = (eventName) => {
+    navigate('/eventForm', { state: { selectedEvent: eventName } });
+  };
+
+  function getArtGradient(type) {
+    const gradients = {
+      'Conférence': '#8b5cf6, #7c3aed',
+      'Atelier': '#ec4899, #db2777',
+      'Exposition': '#f59e0b, #d97706',
+      'Performance': '#10b981, #059669'
+    };
+    return gradients[type] || '#6d28d9, #4c1d95';
+  }
 
   if (loading) {
     return (
@@ -380,7 +553,6 @@ const EtudiantProfil = () => {
       </LoadingContainer>
     );
   }
-
 
   return (
     <Container>
@@ -404,61 +576,64 @@ const EtudiantProfil = () => {
           <FaClipboardList /> Examens
         </NavItem>
         <NavItem 
+          active={activeSection === 'events'} 
+          onClick={() => setActiveSection('events')}
+        >
+          <FaCalendarAlt /> Événements
+        </NavItem>
+        <NavItem 
           onClick={navigateToDocuments}
           style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}
         >
-
           <FaBookOpen />
-         Consulter cours 
-      
-       </NavItem>
+          Consulter cours 
+        </NavItem>
       </Sidebar>
 
       <MainContent>
         <Header>
-          <Title>Bienvenue, {studentData.profile.prenom}</Title>
+          <Title>Bienvenue, {studentData?.profile?.nom}</Title>
           <LogoutButton onClick={handleLogout}>
             <FaSignOutAlt /> Déconnexion
           </LogoutButton>
         </Header>
 
-        
-{activeSection === 'profile' && (
-  <Section>
-    <SectionTitle>Informations personnelles</SectionTitle>
-    <ProfileContainer>
-      <ProfilePhoto>
-        <img src={studentData.profile.photo} alt="Profil étudiant" />
-      </ProfilePhoto>
-      <ProfileDetails>
-        <DetailItem>
-          <DetailLabel>Nom complet</DetailLabel>
-          <DetailValue>{studentData.profile.nom}</DetailValue>
-        </DetailItem>
-        <DetailItem>
-          <DetailLabel>CIN</DetailLabel>
-          <DetailValue>{studentData.profile.cin}</DetailValue>
-        </DetailItem>
-        <DetailItem>
-          <DetailLabel>Email</DetailLabel>
-          <DetailValue>{studentData.profile.email}</DetailValue>
-        </DetailItem>
-        <DetailItem>
-          <DetailLabel>Téléphone</DetailLabel>
-          <DetailValue>{studentData.profile.telephone}</DetailValue>
-        </DetailItem>
-        <DetailItem>
-          <DetailLabel>Filière</DetailLabel>
-          <DetailValue>{studentData.profile.filiere}</DetailValue>
-        </DetailItem>
-        <DetailItem>
-          <DetailLabel>Classe</DetailLabel>
-          <DetailValue>{studentData.profile.classe}</DetailValue>
-        </DetailItem>
-      </ProfileDetails>
-    </ProfileContainer>
-  </Section>
-)}
+        {activeSection === 'profile' && (
+          <Section>
+            <SectionTitle>Informations personnelles</SectionTitle>
+            <ProfileContainer>
+              <ProfilePhoto>
+                <img src={studentData.profile.photo} alt="Profil étudiant" />
+              </ProfilePhoto>
+              <ProfileDetails>
+                <DetailItem>
+                  <DetailLabel>Nom complet</DetailLabel>
+                  <DetailValue>{studentData.profile.nom}</DetailValue>
+                </DetailItem>
+                <DetailItem>
+                  <DetailLabel>CIN</DetailLabel>
+                  <DetailValue>{studentData.profile.cin}</DetailValue>
+                </DetailItem>
+                <DetailItem>
+                  <DetailLabel>Email</DetailLabel>
+                  <DetailValue>{studentData.profile.email}</DetailValue>
+                </DetailItem>
+                <DetailItem>
+                  <DetailLabel>Téléphone</DetailLabel>
+                  <DetailValue>{studentData.profile.telephone}</DetailValue>
+                </DetailItem>
+                <DetailItem>
+                  <DetailLabel>Filière</DetailLabel>
+                  <DetailValue>{studentData.profile.filiere}</DetailValue>
+                </DetailItem>
+                <DetailItem>
+                  <DetailLabel>Classe</DetailLabel>
+                  <DetailValue>{studentData.profile.classe}</DetailValue>
+                </DetailItem>
+              </ProfileDetails>
+            </ProfileContainer>
+          </Section>
+        )}
 
         {activeSection === 'schedule' && (
           <Section>
@@ -548,6 +723,95 @@ const EtudiantProfil = () => {
               </tbody>
             </ScheduleTable>
           </Section>
+        )}
+
+        {activeSection === 'events' && (
+          <EventsSection>
+            <EventsTitle>
+              <span>Notre Programme</span> Culturel
+            </EventsTitle>
+            <EventsSubtitle>
+              Des expériences immersives où l'art rencontre l'innovation
+            </EventsSubtitle>
+            
+            <EventsGrid>
+              {events.map((event) => (
+                <EventCard 
+                  key={event.id}
+                  whileHover={{ y: -10 }}
+                >
+                  <EventImage gradient={getArtGradient(event.type)}>
+                    <div style={{
+                      position: 'absolute',
+                      bottom: '2rem',
+                      left: '2rem',
+                      color: 'white',
+                      zIndex: 2
+                    }}>
+                      <EventType>{event.type.toUpperCase()}</EventType>
+                      <EventName>{event.titre}</EventName>
+                    </div>
+                    <div style={{
+                      position: 'absolute',
+                      inset: 0,
+                      background: 'linear-gradient(to top, rgba(0,0,0,0.3) 0%, rgba(0,0,0,0) 50%)'
+                    }}></div>
+                  </EventImage>
+
+                  <EventContent>
+                    <div style={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      marginBottom: '1.5rem'
+                    }}>
+                      <EventDateContainer>
+                        <EventDateBox>
+                          <EventDay>{new Date(event.date).getDate()}</EventDay>
+                          <EventMonth>
+                            {new Date(event.date).toLocaleString('fr-FR', { month: 'short' })}
+                          </EventMonth>
+                        </EventDateBox>
+                        <div>
+                          <div style={{
+                            fontSize: '0.9rem',
+                            color: '#64748b',
+                            marginBottom: '0.25rem'
+                          }}>
+                            {new Date(event.date).toLocaleString('fr-FR', { weekday: 'long' })}
+                          </div>
+                          <EventTime>
+                            {new Date(event.date).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
+                          </EventTime>
+                        </div>
+                      </EventDateContainer>
+                      <div style={{
+                        alignSelf: 'flex-end'
+                      }}>
+                        <EventLocation>
+                          <MdLocationOn size={16} />
+                          {event.lieu}
+                        </EventLocation>
+                      </div>
+                    </div>
+
+                    <EventDescription>
+                      {event.description.substring(0, 120)}...
+                    </EventDescription>
+
+                    <div style={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center'
+                    }}>
+                      <EventButton onClick={() => handleEventClick(event.titre)}>
+                        <FaTicketAlt /> Réserver
+                      </EventButton>
+                    </div>
+                  </EventContent>
+                </EventCard>
+              ))}
+            </EventsGrid>
+          </EventsSection>
         )}
       </MainContent>
     </Container>

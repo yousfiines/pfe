@@ -317,123 +317,71 @@ app.post("/enseignants", async (req, res) => {
 });
 
 app.post("/etudiant", async (req, res) => {
-  const { Cin, Nom_et_prénom, Téléphone, email, password, confirmPassword, filière , classe} = req.body;
+  const { 
+    Cin, 
+    Nom_et_prénom, 
+    Téléphone, 
+    email, 
+    password, 
+    confirmPassword,
+    filiere,  // Notez le nom sans accent
+    classe
+  } = req.body;
 
-  // Validation des champs
+  // Validation de base
   const errors = {};
-  const passwordFeedback = {
-    requirements: {
-      minLength: false,
-      hasUpper: false,
-      hasLower: false,
-      hasNumber: false,
-      hasSpecial: false
-    },
-    strength: 0
-  };
-
-  if (!Cin) {
-    errors.Cin = "Le CIN est requis.";
-  } else if (!/^[01]\d{7}$/.test(Cin)) {
-    errors.Cin = "Le CIN doit contenir exactement 8 chiffres commençant par 0 ou 1.";
-  }
-
-  if (!Nom_et_prénom || Nom_et_prénom.trim().length === 0) {
-    errors.Nom_et_prénom = "Le nom complet est requis.";
-  }
-
-  if (!Téléphone || !/^\d{8}$/.test(Téléphone)) {
-    errors.Téléphone = "Un numéro de téléphone valide (8 chiffres) est requis.";
-  }
-
-  if (!email) {
-    errors.email = "L'email est requis.";
-  } else if (!/\S+@\S+\.\S+/.test(email)) {
-    errors.email = "L'email est invalide.";
-  }
-
-  if (!password) {
-    errors.password = "Le mot de passe est requis.";
-  } else {
-    // Vérification des exigences du mot de passe
-    passwordFeedback.requirements = {
-      minLength: password.length >= 10,
-      hasUpper: /[A-Z]/.test(password),
-      hasLower: /[a-z]/.test(password),
-      hasNumber: /[0-9]/.test(password),
-      hasSpecial: /[!@#$%^&*(),.?":{}|<>]/.test(password)
-    };
-
-    passwordFeedback.strength = Object.values(passwordFeedback.requirements).filter(Boolean).length;
-
-    if (passwordFeedback.strength < 3) { // Au moins 3 critères sur 5
-      errors.password = "Le mot de passe est trop faible. Il doit contenir au moins : 10 caractères, une majuscule, une minuscule, un chiffre et un caractère spécial.";
-    }
-  }
-
-  if (password !== confirmPassword) {
-    errors.confirmPassword = "Les mots de passe ne correspondent pas.";
-  }
-
-  if (!filière || !Filière.includes(filière)) {
-    errors.filière = "Veuillez sélectionner une filière valide.";
-  }
-  if (!classe || !classe.includes(classe)) {
-    errors.classe = "Veuillez sélectionner une classe valide.";
-  }
+  if (!Cin) errors.Cin = "Le CIN est requis";
+  if (!Nom_et_prénom) errors.Nom_et_prénom = "Le nom est requis";
+  // Ajoutez les autres validations...
 
   if (Object.keys(errors).length > 0) {
-    return res.status(400).json({ 
+    return res.status(400).json({
       success: false,
-      errors,
-      passwordFeedback
+      errors
     });
   }
 
   try {
-    // Vérification de l'unicité du CIN et de l'email
+    // Vérifiez si l'étudiant existe déjà
     const [existing] = await pool.query(
       "SELECT * FROM etudiant WHERE Cin = ? OR email = ?",
       [Cin, email]
     );
 
     if (existing.length > 0) {
-      return res.status(400).json({ 
+      return res.status(400).json({
         success: false,
-        message: "Un étudiant avec ce CIN ou cet email existe déjà." 
+        message: "Un étudiant avec ce CIN ou cet email existe déjà"
       });
     }
 
-    // Hachage du mot de passe
-    const saltRounds = 10;
-    const hashedPassword = await bcrypt.hash(password, saltRounds);
-    const hashedConfirmPassword = await bcrypt.hash(confirmPassword, saltRounds);
+    // Hashage du mot de passe
+    const hashedPassword = await bcrypt.hash(password, 10);
+    const hashedConfirmPassword = await bcrypt.hash(confirmPassword, 10);
 
-    // Insertion dans la base de données
+    // Insertion dans la base
     await pool.query(
-      "INSERT INTO etudiant (Cin, Nom_et_prénom, Téléphone, email, password, Confirmpassword, Filière, Classe) VALUES (?, ?,? , ?, ?, ?, ?, ?)",
-      [Cin, Nom_et_prénom.trim(), Téléphone, email.toLowerCase(), hashedPassword, hashedConfirmPassword, filière, classe]
+      `INSERT INTO etudiant 
+      (Cin, Nom_et_prénom, Téléphone, email, password, Confirmpassword, Filière, Classe) 
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      [Cin, Nom_et_prénom, Téléphone, email, hashedPassword, hashedConfirmPassword, filiere, classe]
     );
 
-    return res.status(201).json({ 
+    res.status(201).json({
       success: true,
-      message: "Inscription réussie",
-      data: {
-        Cin,
-        Nom_et_prénom,
-        email
-      }
+      message: "Inscription réussie"
     });
 
   } catch (error) {
-    console.error("Erreur serveur :", error);
-    return res.status(500).json({ 
+    console.error("Erreur serveur:", error);
+    res.status(500).json({
       success: false,
-      message: "Erreur lors de l'inscription",
-      error: error.message 
+      message: "Erreur serveur"
     });
   }
 });
+
+
 // Route pour afficher tous les utilisateurs
 app.get("/api/utilisateurs", async (req, res) => {
   try {
@@ -778,6 +726,7 @@ app.post('/api/teachers/upload-profile', upload.single('profile'), async (req, r
 
 // Route pour l'inscription des étudiants
 app.post('/api/etudiant', (req, res) => {
+  
   // Traitement de l'inscription
   console.log(req.body);
   res.status(201).json({ message: "Inscription réussie" });
@@ -1576,6 +1525,56 @@ app.put('/api/evenements/:id', async (req, res) => {
     });
   }
 });
+
+
+
+// Route pour obtenir toutes les filières
+app.get('/api/filieres', async (req, res) => {
+  try {
+    const [filieres] = await pool.query('SELECT * FROM filieres');
+    res.json(filieres || []); // Retourne un tableau vide si undefined
+  } catch (error) {
+    console.error('Erreur:', error);
+    res.status(500).json([]); // Retourne un tableau vide en cas d'erreur
+  }
+});
+
+// Dans votre fichier server.js
+app.get('/api/classes', async (req, res) => {
+  try {
+    const { filiere } = req.query;
+
+    // Validation du paramètre
+    if (!filiere || isNaN(filiere)) {
+      return res.status(400).json({
+        success: false,
+        message: "ID de filière invalide"
+      });
+    }
+
+    // Requête SQL avec jointure pour vérifier l'existence de la filière
+    const [classes] = await pool.query(`
+      SELECT c.id, c.nom 
+      FROM classes c
+      JOIN filieres f ON c.filiere_id = f.id
+      WHERE f.id = ?
+      ORDER BY c.nom
+    `, [filiere]);
+
+    res.json({
+      success: true,
+      data: classes
+    });
+
+  } catch (error) {
+    console.error('Erreur API classes:', error);
+    res.status(500).json({
+      success: false,
+      message: "Erreur serveur"
+    });
+  }
+});
+
 
 
 
