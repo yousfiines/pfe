@@ -51,7 +51,7 @@ const TeacherDocuments = () => {
       try {
         const response = await axios.get('http://localhost:5000/api/documents', {
           headers: {
-            'Authorization': `Bearer ${localStorage.getItem('teacherToken')}`
+            'Authorization':` Bearer ${localStorage.getItem('teacherToken')}`
           }
         });
         setDocuments(response.data);
@@ -152,7 +152,7 @@ const TeacherDocuments = () => {
     try {
       await axios.delete(`http://localhost:5000/api/documents/${id}`, {
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('teacherToken')}`
+          'Authorization':` Bearer ${localStorage.getItem('teacherToken')}`
         }
       });
       setDocuments(documents.filter(doc => doc.id !== id));
@@ -184,7 +184,7 @@ const TeacherDocuments = () => {
       const response = await axios.get(`http://localhost:5000/api/documents/${id}/download`, {
         responseType: 'blob',
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('teacherToken')}`
+          'Authorization':` Bearer ${localStorage.getItem('teacherToken')}`
         }
       });
       

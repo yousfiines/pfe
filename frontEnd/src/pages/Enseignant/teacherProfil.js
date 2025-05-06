@@ -3,12 +3,15 @@ import { useNavigate } from "react-router-dom";
 import logoFac from "./../../assets/logoFac.png";
 import Lottie from "lottie-react";
 import home from "../../assets/lotties/home.json";
-import { FaChalkboardTeacher, FaCalendarAlt, FaClock, FaBook, FaGraduationCap, FaUniversity } from "react-icons/fa";
+import { FaChalkboardTeacher, FaCalendarAlt, FaClock, FaBook, FaGraduationCap, FaTicketAlt, FaStar , FaArrowRight , FaUniversity } from "react-icons/fa";
 import { MdEmail, MdPhone, MdLocationOn } from "react-icons/md";
 import FullCalendar from "@fullcalendar/react";
 import dayGridPlugin from "@fullcalendar/daygrid";
 import timeGridPlugin from "@fullcalendar/timegrid";
 import interactionPlugin from "@fullcalendar/interaction";
+import axios from 'axios';
+import { Chip } from '@mui/material';
+import { motion } from 'framer-motion';
 
 const TeacherProfil = () => {
   const navigate = useNavigate();
@@ -23,16 +26,19 @@ const TeacherProfil = () => {
 
 const fileInputRef = useRef(null);
 
-  const events = [
-    {
-      title: "Conférence sur l'IA",
-      description: "Rejoignez notre conférence sur l'intelligence artificielle.",
-    },
-    {
-      title: "Atelier de programmation",
-      description: "Participez à notre atelier de programmation avancée.",
-    },
-  ];
+const [events, setEvents] = useState([]);
+useEffect(() => {
+  const fetchEvents = async () => {
+    try {
+      const response = await axios.get("http://localhost:5000/api/evenements");
+      setEvents(response.data.data);
+    } catch (error) {
+      console.error("Erreur chargement événements:", error);
+    }
+  };
+  fetchEvents();
+}, []);
+
 
   const handleEventClick = (eventName) => {
     navigate('/eventForm', { state: { selectedEvent: eventName } });
@@ -225,7 +231,15 @@ const handleImageChange = async (e) => {
       objectFit: 'cover'
     }
   };
-
+  function getArtGradient(type) {
+    const gradients = {
+      'Conférence': '#8b5cf6, #7c3aed',
+      'Atelier': '#ec4899, #db2777',
+      'Exposition': '#f59e0b, #d97706',
+      'Performance': '#10b981, #059669'
+    };
+    return gradients[type] || '#6d28d9, #4c1d95';
+  }
   return (
     <div style={{
       fontFamily: "'Georgia', 'Times New Roman', serif",
@@ -290,25 +304,7 @@ const handleImageChange = async (e) => {
           }}>
             Diffuser cours
           </a>
-          {/*
-          <button 
-            onClick={() => {
-              localStorage.removeItem('teacherCin');
-              localStorage.removeItem('teacherEmail');
-              localStorage.removeItem('isTeacher');
-              navigate('/connexion');
-            }}
-            style={{
-              padding: '0.5rem 1rem',
-              backgroundColor: '#dc3545',
-              color: 'white',
-              border: 'none',
-              borderRadius: '4px',
-              cursor: 'pointer'
-            }}
-          >
-            Déconnexion
-          </button>*/}
+         
         </div>
       </header>
 
@@ -546,33 +542,236 @@ const handleImageChange = async (e) => {
                   </div>
                 </div>
               ))}
-              
-              <section className="news-section" ref={newsSectionRef} id="evenements">
-                <h2>Actualités et événements</h2>
-                <div className="news-grid">
-                  {events.map((event, index) => (
-                    <div 
-                      key={index} 
-                      className="news-card"
-                      onClick={() => handleEventClick(event.title)}
-                      style={{ 
-                        cursor: 'pointer',
-                        padding: '1rem',
-                        marginBottom: '1rem',
-                        backgroundColor: '#fff',
-                        borderRadius: '8px',
-                        boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
-                      }}
-                    >
-                      <h3 style={{ color: '#0056b3', marginTop: 0 }}>{event.title}</h3>
-                      <p style={{ color: '#666' }}>{event.description}</p>
-                    </div>
-                  ))}
+      
+            </div>
+           
+          </div>
+          <section style={{
+  padding: '8rem 2rem',
+  background: '#fafafa',
+  position: 'relative'
+}}>
+  {/* Élément décoratif abstrait */}
+  <div style={{
+    position: 'absolute',
+    top: '10%',
+    right: '5%',
+    width: '400px',
+    height: '400px',
+    background: 'radial-gradient(circle, rgba(168,85,247,0.05) 0%, rgba(255,255,255,0) 70%)',
+    zIndex: 0
+  }}></div>
+
+  <div style={{
+    maxWidth: '1400px',
+    margin: '0 auto',
+    position: 'relative',
+    zIndex: 1
+  }}>
+    <div style={{
+      textAlign: 'center',
+      marginBottom: '6rem'
+    }}>
+      <h2 style={{
+        fontSize: '3.5rem',
+        fontWeight: '300',
+        color: '#1e293b',
+        marginBottom: '1.5rem',
+        letterSpacing: '1px'
+      }}>
+        <span style={{
+          fontWeight: '500',
+          background: 'linear-gradient(90deg, #7e22ce 0%, #a855f7 100%)',
+          WebkitBackgroundClip: 'text',
+          WebkitTextFillColor: 'transparent'
+        }}>Notre Programme</span> Culturel
+      </h2>
+      <p style={{
+        color: '#64748b',
+        fontSize: '1.2rem',
+        maxWidth: '700px',
+        margin: '0 auto',
+        lineHeight: '1.8'
+      }}>
+        Des expériences immersives où l'art rencontre l'innovation
+      </p>
+    </div>
+
+    {/* Conteneur avec deux événements par ligne */}
+    <div style={{
+      display: 'grid',
+      gridTemplateColumns: 'repeat(2, 1fr)',
+      gap: '3rem',
+      marginBottom: '4rem'
+    }}>
+      {events.map((event, index) => (
+        <motion.div 
+          key={event.id}
+          whileHover={{ y: -10 }}
+          style={{
+            backgroundColor: 'white',
+            borderRadius: '20px',
+            overflow: 'hidden',
+            boxShadow: '0 25px 50px -12px rgba(0,0,0,0.03)',
+            border: '1px solid rgba(226, 232, 240, 0.7)',
+            transition: 'all 0.4s cubic-bezier(0.16, 1, 0.3, 1)'
+          }}
+        >
+          <div style={{
+            height: '280px',
+            background: `linear-gradient(45deg, ${getArtGradient(event.type)})`,
+            position: 'relative'
+          }}>
+            <div style={{
+              position: 'absolute',
+              bottom: '2rem',
+              left: '2rem',
+              color: 'white',
+              zIndex: 2
+            }}>
+              <div style={{
+                fontSize: '0.9rem',
+                fontWeight: '500',
+                marginBottom: '0.5rem',
+                textShadow: '0 2px 4px rgba(0,0,0,0.2)'
+              }}>
+                {event.type.toUpperCase()}
+              </div>
+              <h3 style={{
+                fontSize: '2rem',
+                fontWeight: '600',
+                margin: 0,
+                lineHeight: '1.2',
+                textShadow: '0 2px 4px rgba(0,0,0,0.2)'
+              }}>
+                {event.titre}
+              </h3>
+            </div>
+            <div style={{
+              position: 'absolute',
+              inset: 0,
+              background: 'linear-gradient(to top, rgba(0,0,0,0.3) 0%, rgba(0,0,0,0) 50%)'
+            }}></div>
+          </div>
+
+          <div style={{ padding: '2.5rem' }}>
+            <div style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              marginBottom: '2rem'
+            }}>
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '1rem'
+              }}>
+                <div style={{
+                  width: '60px',
+                  height: '60px',
+                  borderRadius: '12px',
+                  backgroundColor: '#f5f3ff',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  justifyContent: 'center'
+                }}>
+                  <div style={{
+                    fontSize: '1.5rem',
+                    fontWeight: '700',
+                    color: '#7e22ce'
+                  }}>
+                    {new Date(event.date).getDate()}
+                  </div>
+                  <div style={{
+                    fontSize: '0.7rem',
+                    color: '#7e22ce',
+                    textTransform: 'uppercase'
+                  }}>
+                    {new Date(event.date).toLocaleString('fr-FR', { month: 'short' })}
+                  </div>
                 </div>
-              </section>
+                <div>
+                  <div style={{
+                    fontSize: '0.9rem',
+                    color: '#64748b',
+                    marginBottom: '0.25rem'
+                  }}>
+                    {new Date(event.date).toLocaleString('fr-FR', { weekday: 'long' })}
+                  </div>
+                  <div style={{
+                    fontSize: '1rem',
+                    fontWeight: '500',
+                    color: '#1e293b'
+                  }}>
+                    {new Date(event.date).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
+                  </div>
+                </div>
+              </div>
+              <div style={{
+                alignSelf: 'flex-end'
+              }}>
+                <div style={{
+                  backgroundColor: '#f5f3ff',
+                  color: '#7e22ce',
+                  padding: '0.5rem 1rem',
+                  borderRadius: '50px',
+                  fontSize: '0.8rem',
+                  fontWeight: '600',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.5rem'
+                }}>
+                  <MdLocationOn size={16} />
+                  {event.lieu}
+                </div>
+              </div>
+            </div>
+
+            <p style={{
+              color: '#64748b',
+              lineHeight: '1.7',
+              marginBottom: '2.5rem'
+            }}>
+              {event.description.substring(0, 120)}...
+            </p>
+
+            <div style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center'
+            }}>
+              
+              <button style={{
+                padding: '0.75rem 1.5rem',
+                backgroundColor: '#7e22ce',
+                color: 'white',
+                border: 'none',
+                borderRadius: '8px',
+                fontSize: '0.95rem',
+                fontWeight: '500',
+                cursor: 'pointer',
+                transition: 'all 0.3s ease',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.5rem',
+                ':hover': {
+                  backgroundColor: '#6b21a8'
+                }
+              }}>
+                <FaTicketAlt /> Réserver
+              </button>
             </div>
           </div>
+        </motion.div>
+      ))}
+    </div>
+
+    
+    
+  </div>
+</section>
         </div>
+        
       </div>
     </div>
   );

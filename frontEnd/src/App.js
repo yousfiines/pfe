@@ -15,12 +15,16 @@ import GestionFormations from './pages/Admin/GestionFormations.jsx';
 import Statistiques from './pages/Admin/Statistiques.jsx';
 import GestionCours from './pages/Admin/GestionCours.jsx';
 import GestionEvenements from './pages/Admin/GestionEvenements.jsx';
+import GestionFilieres from './pages/Admin/Filière.js';
+import GestionClasses from './pages/Admin/Classe.js';
+import GestionMatieres from './pages/Admin/Matière.js';
+import GestionSemestres from './pages/Admin/Semestre.js';
 import Parametres from './pages/Admin/Parametres.jsx';
 import StudentDoc from "./pages/Student/studentDoc.js";
 import TeacherUploadDocument from "./pages/Enseignant/teacherUploadDoc.js";
 import "./pages/Student/studentDoc.css";
 // Routes publiques
-import Connexion from "./pages/Auth/inscription.js";
+import Connexion from "./pages/Auth/connexion.js";
 import Inscription from "./pages/Auth/inscription.js";
 import InscriptionEN from "./pages/Auth/inscriptionEN.js";
 import Enseignant from "./pages/Enseignant/enseignant.js";
@@ -83,6 +87,11 @@ function AppContent() {
           <Route path="formations" element={<GestionFormations />} />
           <Route path="statistiques" element={<Statistiques />} />
           <Route path="cours" element={<GestionCours />} />
+          <Route path="filière" element={<GestionFilieres />} />
+          <Route path="classe" element={<GestionClasses />} />
+          <Route path="matière" element={<GestionMatieres />} />
+          <Route path="semestre" element={<GestionSemestres />} />
+          
           <Route path="evenements" element={<GestionEvenements />} />
           <Route path="parametres" element={<Parametres />} />
         </Route>

@@ -886,7 +886,10 @@ app.post('/api/filieres', async (req, res) => {
     const { nom } = req.body;
     
     if (!nom) {
-      return res.status(400).json({ error: 'Le nom de la filière est requis' });
+      return res.status(400).json({ 
+        success: false,
+        message: 'Le nom de la filière est requis' 
+      });
     }
 
     const [result] = await pool.execute(
@@ -895,15 +898,30 @@ app.post('/api/filieres', async (req, res) => {
     );
 
     res.status(201).json({
+      success: true,
       id: result.insertId,
       nom,
       message: 'Filière créée avec succès'
     });
   } catch (error) {
     console.error('Erreur lors de la création de la filière:', error);
-    res.status(500).json({ error: 'Erreur serveur' });
+    
+    // Gestion spécifique des erreurs de doublon
+    if (error.code === 'ER_DUP_ENTRY') {
+      return res.status(400).json({
+        success: false,
+        message: 'Une filière avec ce nom existe déjà'
+      });
+    }
+    
+    res.status(500).json({ 
+      success: false,
+      message: 'Erreur serveur lors de la création de la filière',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
   }
 });
+
 
 app.get('/api/filieres', async (req, res) => {
   try {
@@ -1052,12 +1070,78 @@ app.get('/api/classes', async (req, res) => {
   }
 });
 
+// Dans server.js ou votre fichier de routes
+app.put('/api/classes/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { nom, filiere_id } = req.body;
 
+    // Validation
+    if (!nom || !filiere_id) {
+      return res.status(400).json({ error: 'Nom et filière sont requis' });
+    }
 
+    // Mise à jour dans la base de données
+    const [result] = await pool.query(
+      'UPDATE classes SET nom = ?, filiere_id = ? WHERE id = ?',
+      [nom, filiere_id, id]
+    );
 
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ error: 'Classe non trouvée' });
+    }
+
+    res.json({ success: true, message: 'Classe mise à jour' });
+  } catch (error) {
+    console.error('Erreur modification classe:', error);
+    res.status(500).json({ error: 'Erreur serveur' });
+  }
+});
+
+// Route DELETE pour supprimer une classe
+// Route DELETE pour supprimer une classe
+app.delete('/api/classes/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    // 1. Vérifier si la classe existe
+    const [classe] = await pool.query('SELECT id FROM classes WHERE id = ?', [id]);
+    if (!classe.length) {
+      return res.status(404).json({ 
+        success: false,
+        message: 'Classe non trouvée' 
+      });
+    }
+
+    // 2. Suppression effective
+    await pool.query('DELETE FROM classes WHERE id = ?', [id]);
+    
+    res.json({ 
+      success: true,
+      message: 'Classe supprimée avec succès' 
+    });
+
+  } catch (error) {
+    console.error('Erreur suppression:', error);
+    
+    // Gestion des contraintes de clé étrangère
+    if (error.code === 'ER_ROW_IS_REFERENCED_2') {
+      return res.status(400).json({
+        success: false,
+        message: 'Impossible de supprimer : des éléments sont liés à cette classe'
+      });
+    }
+    
+    res.status(500).json({
+      success: false,
+      message: 'Erreur serveur'
+    });
+  }
+});
 
 
 ///semestres
+// Route POST pour créer un semestre
 // Route POST pour créer un semestre
 app.post('/api/semestres', async (req, res) => {
   try {
@@ -1067,24 +1151,24 @@ app.post('/api/semestres', async (req, res) => {
     if (!numero || !classe_id) {
       return res.status(400).json({
         success: false,
-        error: 'Le numéro du semestre et l\'ID de la classe sont requis'
+        message: 'Le numéro et la classe sont obligatoires'
       });
     }
 
     // Vérifier si la classe existe
     const [classe] = await pool.query(
-      'SELECT id FROM classes WHERE id = ?',
+      'SELECT id FROM classes WHERE id = ?', 
       [classe_id]
     );
 
-    if (classe.length === 0) {
-      return res.status(404).json({
+    if (!classe.length) {
+      return res.status(400).json({
         success: false,
-        error: 'Classe non trouvée'
+        message: 'Classe non trouvée'
       });
     }
 
-    // Insertion du semestre
+    // Création du semestre
     const [result] = await pool.query(
       'INSERT INTO semestres (numero, classe_id) VALUES (?, ?)',
       [numero, classe_id]
@@ -1092,7 +1176,6 @@ app.post('/api/semestres', async (req, res) => {
 
     res.status(201).json({
       success: true,
-      message: 'Semestre créé avec succès',
       data: {
         id: result.insertId,
         numero,
@@ -1101,13 +1184,22 @@ app.post('/api/semestres', async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Erreur:', error);
+    console.error('Erreur création semestre:', error);
+    
+    if (error.code === 'ER_DUP_ENTRY') {
+      return res.status(400).json({
+        success: false,
+        message: 'Ce semestre existe déjà pour cette classe'
+      });
+    }
+    
     res.status(500).json({
       success: false,
-      error: 'Erreur serveur'
+      message: 'Erreur serveur'
     });
   }
 });
+
 
 // Route GET pour récupérer tous les semestres
 app.get('/api/semestres', async (req, res) => {
@@ -1132,8 +1224,30 @@ app.get('/api/semestres', async (req, res) => {
   }
 });
 
+// Route DELETE pour supprimer un semestre
+// Route DELETE pour supprimer un semestre
+app.delete('/api/semestres/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // 1. Vérifier si le semestre existe
+    const [semestre] = await pool.query('SELECT id FROM semestres WHERE id = ?', [id]);
+    if (!semestre.length) {
+      return res.status(404).json({ success: false, message: "Semestre non trouvé" });
+    }
+
+    // 2. Supprimer le semestre
+    await pool.query('DELETE FROM semestres WHERE id = ?', [id]);
+
+    res.json({ success: true, message: "Semestre supprimé avec succès" });
+  } catch (error) {
+    console.error("Erreur lors de la suppression :", error);
+    res.status(500).json({ success: false, message: "Erreur serveur" });
+  }
+});
 
 //////matieres 
+// Route POST pour créer une matière
 // Route POST pour créer une matière
 app.post('/api/matieres', async (req, res) => {
   try {
@@ -1143,46 +1257,65 @@ app.post('/api/matieres', async (req, res) => {
     if (!nom || !semestre_id) {
       return res.status(400).json({
         success: false,
-        error: 'Le nom de la matière et l\'ID du semestre sont obligatoires'
+        message: 'Le nom et le semestre sont obligatoires'
       });
     }
 
-    // Vérification de l'existence du semestre
+    // Vérifier si le semestre existe
     const [semestre] = await pool.query(
       'SELECT id FROM semestres WHERE id = ?',
       [semestre_id]
     );
 
-    if (semestre.length === 0) {
-      return res.status(404).json({
+    if (!semestre.length) {
+      return res.status(400).json({
         success: false,
-        error: 'Semestre non trouvé'
+        message: 'Semestre non trouvé'
       });
     }
 
-    // Insertion de la matière
+    // Vérifier si l'enseignant existe (si renseigné)
+    if (enseignant_id) {
+      const [enseignant] = await pool.query(
+        'SELECT Cin FROM enseignants WHERE Cin = ?',
+        [enseignant_id]
+      );
+      
+      if (!enseignant.length) {
+        return res.status(400).json({
+          success: false,
+          message: 'Enseignant non trouvé'
+        });
+      }
+    }
+
+    // Insertion
     const [result] = await pool.query(
       'INSERT INTO matieres (nom, credits, enseignant_id, semestre_id) VALUES (?, ?, ?, ?)',
-      [nom, credits || null, enseignant_id || null, semestre_id]
+      [nom, credits, enseignant_id, semestre_id]
     );
 
     res.status(201).json({
       success: true,
-      message: 'Matière créée avec succès',
       data: {
         id: result.insertId,
-        nom,
-        credits,
-        enseignant_id,
-        semestre_id
+        ...req.body
       }
     });
 
   } catch (error) {
-    console.error('Erreur:', error);
+    console.error('Erreur création matière:', error);
+    
+    if (error.code === 'ER_DUP_ENTRY') {
+      return res.status(400).json({
+        success: false,
+        message: 'Cette matière existe déjà pour ce semestre'
+      });
+    }
+    
     res.status(500).json({
       success: false,
-      error: 'Erreur serveur'
+      message: 'Erreur serveur'
     });
   }
 });
@@ -1211,6 +1344,235 @@ app.get('/api/matieres', async (req, res) => {
     res.status(500).json({
       success: false,
       error: 'Erreur serveur'
+    });
+  }
+});
+
+// Route PUT pour modifier une matière
+app.put('/api/matieres/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { nom, credits, enseignant_id, semestre_id } = req.body;
+
+    // Validation
+    if (!nom || !semestre_id) {
+      return res.status(400).json({
+        success: false,
+        message: 'Le nom et le semestre sont obligatoires'
+      });
+    }
+
+    // Vérifier si la matière existe
+    const [matiere] = await pool.query(
+      'SELECT id FROM matieres WHERE id = ?',
+      [id]
+    );
+
+    if (!matiere.length) {
+      return res.status(404).json({
+        success: false,
+        message: 'Matière non trouvée'
+      });
+    }
+
+    // Vérifier le semestre
+    const [semestre] = await pool.query(
+      'SELECT id FROM semestres WHERE id = ?',
+      [semestre_id]
+    );
+
+    if (!semestre.length) {
+      return res.status(400).json({
+        success: false,
+        message: 'Semestre non trouvé'
+      });
+    }
+
+    // Vérifier l'enseignant si renseigné
+    if (enseignant_id) {
+      const [enseignant] = await pool.query(
+        'SELECT Cin FROM enseignants WHERE Cin = ?',
+        [enseignant_id]
+      );
+      
+      if (!enseignant.length) {
+        return res.status(400).json({
+          success: false,
+          message: 'Enseignant non trouvé'
+        });
+      }
+    }
+
+    // Mise à jour
+    await pool.query(
+      'UPDATE matieres SET nom = ?, credits = ?, enseignant_id = ?, semestre_id = ? WHERE id = ?',
+      [nom, credits, enseignant_id, semestre_id, id]
+    );
+
+    res.json({
+      success: true,
+      message: 'Matière mise à jour avec succès'
+    });
+
+  } catch (error) {
+    console.error('Erreur modification matière:', error);
+    
+    if (error.code === 'ER_DUP_ENTRY') {
+      return res.status(400).json({
+        success: false,
+        message: 'Cette matière existe déjà pour ce semestre'
+      });
+    }
+    
+    res.status(500).json({
+      success: false,
+      message: 'Erreur serveur'
+    });
+  }
+});
+
+
+// Route DELETE pour supprimer une matière
+app.delete('/api/matieres/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // 1. Vérifier si la matière existe
+    const [matiere] = await pool.query(
+      'SELECT id FROM matieres WHERE id = ?',
+      [id]
+    );
+
+    if (!matiere.length) {
+      return res.status(404).json({
+        success: false,
+        message: 'Matière non trouvée'
+      });
+    }
+
+    // 2. Suppression effective
+    await pool.query(
+      'DELETE FROM matieres WHERE id = ?',
+      [id]
+    );
+
+    res.json({
+      success: true,
+      message: 'Matière supprimée avec succès'
+    });
+
+  } catch (error) {
+    console.error('Erreur suppression matière:', error);
+    
+    // Gestion des contraintes de clé étrangère
+    if (error.code === 'ER_ROW_IS_REFERENCED_2') {
+      return res.status(400).json({
+        success: false,
+        message: 'Impossible de supprimer : des éléments sont liés à cette matière'
+      });
+    }
+    
+    res.status(500).json({
+      success: false,
+      message: 'Erreur serveur'
+    });
+  }
+});
+
+
+
+// Route POST pour créer un événement
+app.post('/api/evenements', async (req, res) => {
+  try {
+    const { titre, date, lieu, type, description } = req.body;
+
+    // Validation
+    if (!titre || !date || !lieu || !type) {
+      return res.status(400).json({
+        success: false,
+        message: 'Les champs titre, date, lieu et type sont obligatoires'
+      });
+    }
+
+    const [result] = await pool.query(
+      'INSERT INTO evenements (titre, date, lieu, type, description) VALUES (?, ?, ?, ?, ?)',
+      [titre, new Date(date), lieu, type, description || null]
+    );
+
+    res.status(201).json({
+      success: true,
+      data: {
+        id: result.insertId,
+        ...req.body
+      }
+    });
+
+  } catch (error) {
+    console.error('Erreur création événement:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Erreur serveur'
+    });
+  }
+});
+
+// Route GET pour récupérer tous les événements
+app.get('/api/evenements', async (req, res) => {
+  try {
+    const [evenements] = await pool.query(
+      'SELECT id, titre, date, lieu, type, description FROM evenements ORDER BY date DESC'
+    );
+    
+    res.json({
+      success: true,
+      data: evenements
+    });
+
+  } catch (error) {
+    console.error('Erreur récupération événements:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Erreur serveur'
+    });
+  }
+});
+
+// Route PUT pour modifier un événement
+app.put('/api/evenements/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { titre, date, lieu, type, description } = req.body;
+
+    // Validation
+    if (!titre || !date || !lieu || !type) {
+      return res.status(400).json({
+        success: false,
+        message: 'Les champs titre, date, lieu et type sont obligatoires'
+      });
+    }
+
+    const [result] = await pool.query(
+      'UPDATE evenements SET titre = ?, date = ?, lieu = ?, type = ?, description = ? WHERE id = ?',
+      [titre, new Date(date), lieu, type, description || null, id]
+    );
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'Événement non trouvé'
+      });
+    }
+
+    res.json({
+      success: true,
+      message: 'Événement mis à jour avec succès'
+    });
+
+  } catch (error) {
+    console.error('Erreur modification événement:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Erreur serveur'
     });
   }
 });

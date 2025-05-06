@@ -71,10 +71,7 @@ const Connexion = () => {
         } else if (data.role === "etudiant") {
           localStorage.setItem('studentCin', data.cin);
           navigate("/etudiantProfil");
-        } else if (data.role === "admin") {
-          navigate("/admin/dashboard");
-        }
-        
+        } 
       } catch (error) {
         console.error("Erreur détaillée:", error);
         alert(`Erreur: ${error.message}\n\nVeuillez réessayer plus tard.`);

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Box, Typography, Button, Table, TableBody, TableCell, TableContainer,
@@ -9,13 +9,31 @@ import { Add, Edit, Delete, ArrowBack } from '@mui/icons-material';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
+import axios from 'axios';
+import MuiAlert from '@mui/material/Alert';
 
 const GestionEvenements = () => {
   const navigate = useNavigate();
-  const [events, setEvents] = useState([
-    { id: 1, titre: 'Conférence sur l\'IA', date: new Date('2023-06-15'), lieu: 'Amphi A', type: 'Conférence' },
-    { id: 2, titre: 'Atelier de programmation', date: new Date('2023-06-20'), lieu: 'Salle 101', type: 'Atelier' },
-  ]);
+  const [events, setEvents] = useState([]);
+  useEffect(() => {
+    const fetchEvents = async () => {
+      try {
+        const response = await axios.get("http://localhost:5000/api/evenements");
+        setEvents(response.data.data);
+      } catch (error) {
+        console.error("Erreur chargement événements:", error);
+        setSnackbar({ 
+          open: true, 
+          message: "Erreur lors du chargement des événements", 
+          severity: "error" 
+        });
+      }
+    };
+    fetchEvents();
+  }, []);
+  
+
+
   const [openDialog, setOpenDialog] = useState(false);
   const [formData, setFormData] = useState({ titre: '', date: null, lieu: '', type: '', description: '' });
   const [editingId, setEditingId] = useState(null);
@@ -39,16 +57,50 @@ const GestionEvenements = () => {
     setFormData({ ...formData, date: newDate });
   };
 
-  const handleSubmit = () => {
-    if (editingId) {
-      setEvents(events.map(e => e.id === editingId ? { ...formData, id: editingId } : e));
-    } else {
-      const newId = Math.max(...events.map(e => e.id)) + 1;
-      setEvents([...events, { ...formData, id: newId }]);
+  const handleSubmit = async () => {
+    try {
+      if (editingId) {
+        await axios.put(`http://localhost:5000/api/evenements/${editingId}`, formData);
+        setSnackbar({
+          open: true,
+          message: "Événement mis à jour avec succès",
+          severity: "success"
+        });
+      } else {
+        await axios.post("http://localhost:5000/api/evenements", formData);
+        setSnackbar({
+          open: true,
+          message: "Événement créé avec succès",
+          severity: "success"
+        });
+      }
+      
+      // Recharger les événements
+      const response = await axios.get("http://localhost:5000/api/evenements");
+      setEvents(response.data.data);
+      handleCloseDialog();
+      
+    } catch (error) {
+      setSnackbar({
+        open: true,
+        message: error.response?.data?.message || "Erreur lors de l'opération",
+        severity: "error"
+      });
     }
-    handleCloseDialog();
   };
 
+  const [snackbar, setSnackbar] = useState({
+    open: false,
+    message: "",
+    severity: "success"
+  });
+  
+  // Et la fonction pour afficher les alertes
+  const Alert = React.forwardRef(function Alert(props, ref) {
+    return <MuiAlert elevation={6} ref={ref} variant="filled" {...props} />;
+  });
+
+  
   const handleDelete = (id) => {
     setEvents(events.filter(e => e.id !== id));
   };

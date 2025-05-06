@@ -194,7 +194,7 @@ const InscriptionEn = () => {
                         value={formData.Email}
                         onChange={handleChange}
                         style={styles.input}
-                        placeholder="Adresse email académique"
+                        placeholder="Adresse email "
                       />
                       {errors.Email && <span style={styles.error}>{errors.Email}</span>}
                     </div>

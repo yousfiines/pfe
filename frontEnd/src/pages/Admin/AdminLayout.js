@@ -48,7 +48,7 @@ const AdminLayout = ({ children }) => {
   
   const handleLogout = () => {
     // Implémentez la déconnexion
-    navigate('/login');
+    navigate('/admin/login');
   };
 
   return (
