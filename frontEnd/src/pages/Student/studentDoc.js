@@ -1,6 +1,9 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import axios from 'axios';
+import { useNavigate } from 'react-router-dom';
 import filieresConfig from '../config/filieres';
+
+
 import {
   Card, List, ListItem, ListItemText, Typography,
   Button, Chip, Snackbar, Alert, Box, Paper, IconButton, InputBase, Avatar, styled,
@@ -20,7 +23,7 @@ import {
   NotificationsOff as NotificationsOffIcon
 } from '@mui/icons-material';
 
-const API_URL = 'http://localhost:5000/api';
+const API_URL = 'http://localhost:5000';
 
 const SearchField = styled(Paper)(({ theme }) => ({
   padding: '2px 12px',
@@ -62,49 +65,95 @@ const StudentDoc = () => {
   const [emailSubscribed, setEmailSubscribed] = useState(false);
   const [semesterExpanded, setSemesterExpanded] = useState(true);
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'info' });
-
+  const [isLoadingMatieres, setIsLoadingMatieres] = useState(false);
   const filieres = useMemo(() => filieresConfig, []);
+  const [filiereName, setFiliereName] = useState('');
+  const [className, setClassName] = useState('');
+  const [isLoadingProfile, setIsLoadingProfile] = useState(true);
+  const navigate = useNavigate();
 
-  // Chargement des données étudiant
-  useEffect(() => {
-    const fetchStudentData = async () => {
-      try {
-        const token = localStorage.getItem('studentToken');
-        const response = await axios.get(`${API_URL}/etudiant/profile`, {
-          headers: { 'Authorization': `Bearer ${token}` }
-        });
 
-        const { filiere, classe } = response.data;
-        const niveau = classe.substring(0, 3);
 
+  
+
+  // Dans StudentDoc.js, remplacez le useEffect qui charge les données étudiant
+useEffect(() => {
+  const fetchStudentData = async () => {
+    setIsLoadingProfile(true);
+    try {
+      const token = localStorage.getItem('studentToken');
+      const cin = localStorage.getItem('studentCin'); // Récupérez le CIN stocké lors de la connexion
+      
+      if (!token || !cin) {
+        navigate('/connexion');
+        return;
+      }
+
+      const response = await axios.get(`${API_URL}/etudiant/${cin}`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+
+      if (response.data) {
+        const { Filière, Classe } = response.data;
         setStudentData({
-          filiere,
-          classe,
-          niveau,
+          filiere: Filière,
+          classe: Classe,
+          niveau: Classe?.substring(0, 3) || '',
           semestre: 'S1'
         });
 
-        localStorage.setItem('studentProfile', JSON.stringify({ filiere, classe }));
-
-      } catch (error) {
-        console.error("Erreur de chargement du profil:", error);
-        const savedData = localStorage.getItem('studentProfile');
-        if (savedData) {
-          const { filiere, classe } = JSON.parse(savedData);
-          const niveau = classe.substring(0, 3);
-          setStudentData({
-            filiere,
-            classe,
-            niveau,
-            semestre: 'S1'
-          });
-        }
+        // Sauvegarder le profil dans localStorage
+        localStorage.setItem('studentProfile', JSON.stringify({
+          filiere: Filière,
+          classe: Classe
+        }));
       }
-    };
+    } catch (error) {
+      console.error("Erreur de chargement du profil:", error);
+      // Fallback avec localStorage si disponible
+      const savedProfile = localStorage.getItem('studentProfile');
+      if (savedProfile) {
+        const profile = JSON.parse(savedProfile);
+        setStudentData({
+          filiere: profile.filiere,
+          classe: profile.classe,
+          niveau: profile.classe?.substring(0, 3) || '',
+          semestre: 'S1'
+        });
+      }
+    } finally {
+      setIsLoadingProfile(false);
+    }
+  };
 
-    fetchStudentData();
-  }, []);
+  fetchStudentData();
+}, [navigate]);
 
+
+useEffect(() => {
+  const fetchMatieres = async () => {
+    if (!studentData?.filiere || !studentData?.classe || !studentData?.semestre) return;
+    
+    setIsLoadingMatieres(true);
+    try {
+      const semestreNum = studentData.semestre === 'S1' ? 1 : 2;
+      const response = await axios.get(
+        `${API_URL}/matieres/${studentData.filiere}/${studentData.classe}/${semestreNum}`
+      );
+      
+      setMatieres(response.data?.map(m => m.nom) || []);
+    } catch (error) {
+      console.error("Erreur chargement matières:", error);
+      setMatieres([]);
+    } finally {
+      setIsLoadingMatieres(false);
+    }
+  };
+
+  fetchMatieres();
+}, [studentData?.filiere, studentData?.classe, studentData?.semestre]);
+
+  
   // Chargement des matières - CORRIGÉ
   useEffect(() => {
     const loadMatieres = () => {
@@ -131,43 +180,50 @@ console.log(studentData.filiere)
   }, [studentData, filieres]); // Correction: ajout de studentData comme dépendance
 
   // Chargement des documents
-  useEffect(() => {
-    const fetchDocuments = async () => {
-      setIsLoading(true);
-      try {
-        const { filiere, classe } = studentData;
-        const response = await axios.get(`${API_URL}/documents/${filiere}/${classe}`);
-        setDocuments(response.data);
-      } catch (error) {
-        console.error("Erreur de chargement des documents:", error);
-        showNotification("Erreur lors du chargement des documents", 'error');
-      } finally {
-        setIsLoading(false);
-      }
-    };
+  // Chargement des documents
+// Chargement des documents
+useEffect(() => {
+  if (!studentData.filiere || !studentData.classe) return;
 
-    if (studentData.filiere && studentData.classe) {
-      fetchDocuments();
+  const fetchDocuments = async () => {
+    setIsLoading(true);
+    try {
+      const response = await axios.get(
+        `${API_URL}/documents/${studentData.filiere}/${studentData.classe}`
+      );
+      setDocuments(Array.isArray(response.data) ? response.data : []);
+    } catch (error) {
+      console.error("Erreur de chargement des documents:", error);
+      setDocuments([]);
+    } finally {
+      setIsLoading(false);
     }
-  }, [studentData]);
+  };
+
+  fetchDocuments();
+}, [studentData.filiere, studentData.classe]);
+
 
   // Filtrage des documents
   useEffect(() => {
-    let results = documents;
-
+    // S'assurer que results est toujours un tableau
+    let results = Array.isArray(documents) ? [...documents] : [];
+  
+    // Filtre par matière si sélectionnée
     if (selectedSubject) {
       results = results.filter(doc => doc.matiere === selectedSubject);
     }
-
+  
+    // Filtre par terme de recherche
     if (searchTerm) {
       const term = searchTerm.toLowerCase();
       results = results.filter(doc =>
-        doc.title.toLowerCase().includes(term) ||
-        doc.description.toLowerCase().includes(term) ||
-        doc.matiere.toLowerCase().includes(term)
+        doc.title?.toLowerCase().includes(term) ||
+        doc.description?.toLowerCase().includes(term) ||
+        doc.matiere?.toLowerCase().includes(term)
       );
     }
-
+  
     setFilteredDocs(results);
   }, [documents, selectedSubject, searchTerm]);
 
@@ -175,13 +231,73 @@ console.log(studentData.filiere)
     setSnackbar({ open: true, message, severity });
   };
 
+
+  useEffect(() => {
+    const fetchNames = async () => {
+      try {
+        // Pour la filière
+        const filiereRes = await axios.get(`${API_URL}/filieres/${studentData.filiere}`);
+        setFiliereName(filiereRes.data.nom);
+        
+        // Pour la classe
+        const classeRes = await axios.get(`${API_URL}/classes/${studentData.classe}`);
+        setClassName(classeRes.data.nom);
+      } catch (error) {
+        console.error("Erreur chargement noms:", error);
+        setFiliereName(studentData.filiere);
+        setClassName(studentData.classe);
+      }
+    };
+  
+    if (studentData.filiere && studentData.classe) {
+      fetchNames();
+    }
+  }, [studentData.filiere, studentData.classe]);
+
+
+  const getFiliereName = async (filiereId) => {
+    try {
+      const response = await axios.get(`${API_URL}/filieres/${filiereId}`);
+      return response.data.nom;
+    } catch (error) {
+      console.error("Erreur récupération filière:", error);
+      return filiereId; // Fallback
+    }
+  };
+  
+  const getClassName = async (classeId) => {
+    try {
+      const response = await axios.get(`${API_URL}/classes/${classeId}`);
+      return response.data.nom;
+    } catch (error) {
+      console.error("Erreur récupération classe:", error);
+      return classeId; // Fallback
+    }
+  };
+
+  useEffect(() => {
+    const loadNames = async () => {
+      if (studentData?.filiere) {
+        const nomFiliere = await getFiliereName(studentData.filiere);
+        setFiliereName(nomFiliere);
+      }
+      if (studentData?.classe) {
+        const nomClasse = await getClassName(studentData.classe);
+        setClassName(nomClasse);
+      }
+    };
+    
+    loadNames();
+  }, [studentData?.filiere, studentData?.classe]);
+
+
   const downloadFile = async (id, fileName) => {
     try {
       const token = localStorage.getItem('studentToken');
       const response = await axios.get(`${API_URL}/documents/${id}/download`, {
         responseType: 'blob',
         headers: {
-          'Authorization': `Bearer ${token}`
+          'Authorization':` Bearer ${token}`
         }
       });
 
@@ -230,6 +346,11 @@ console.log(studentData.filiere)
     setSelectedSubject('');
   };
   return (
+
+
+
+
+
     <Box sx={{ 
       p: { xs: 2, md: 4 },
       maxWidth: '1400px',
@@ -275,25 +396,21 @@ console.log(studentData.filiere)
               Documents académiques
             </Typography>
             <Box sx={{ display: 'flex', alignItems: 'center', mt: 1, flexWrap: 'wrap', gap: 1 }}>
-              <Chip 
-                label={studentData.filiere} 
-                color="primary" 
-                size="small" 
-                sx={{ fontWeight: 600 }} 
-              />
-              <Chip 
-                label={studentData.classe} 
-                variant="outlined" 
-                size="small" 
-                sx={{ fontWeight: 500 }} 
-              />
-              <Chip 
-                label={`Semestre ${studentData.semestre}`} 
-                color="secondary" 
-                size="small" 
-                sx={{ fontWeight: 500 }} 
-              />
-            </Box>
+            <Chip 
+  label={filiereName || studentData.filiere} 
+  color="primary" 
+/>
+<Chip 
+  label={className || studentData.classe} 
+  variant="outlined" 
+/>
+  <Chip 
+    label={`Semestre ${studentData.semestre}`} 
+    color="secondary" 
+    size="small" 
+    sx={{ fontWeight: 500 }} 
+  />
+</Box>
           </Box>
         </Box>
 
@@ -393,17 +510,18 @@ console.log(studentData.filiere)
     <MenuItem value="">
       <em>Toutes les matières</em>
     </MenuItem>
-    {matieres.map((matiere) => (
-      <MenuItem key={matiere} value={matiere}>
-        {matiere}
+    {matieres.length > 0 ? (
+      matieres.map((matiere) => (
+        <MenuItem key={matiere} value={matiere}>
+          {matiere}
+        </MenuItem>
+      ))
+    ) : (
+      <MenuItem disabled>
+        Aucune matière disponible
       </MenuItem>
-    ))}
+    )}
   </Select>
-  {matieres.length === 0 && (
-    <Typography variant="caption" color="textSecondary" sx={{ mt: 1, display: 'block' }}>
-      Aucune matière disponible pour {studentData.filiere} - {studentData.classe} - {studentData.semestre}
-    </Typography>
-  )}
 </FormControl>
             </Collapse>
           </Paper>
@@ -430,7 +548,7 @@ console.log(studentData.filiere)
             }}>
               <DescriptionIcon sx={{ mr: 1, color: 'primary.main' }} />
               {selectedSubject 
-                ? `Documents - ${selectedSubject}` 
+                ?` Documents - ${selectedSubject}` 
                 : `Tous les documents - Semestre ${studentData.semestre}`}
             </Typography>
             

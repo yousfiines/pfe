@@ -1,17 +1,15 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import axios from 'axios';
-import { FaCalendarAlt, FaClock, FaTicketAlt, FaMapMarkerAlt } from "react-icons/fa";
+import { 
+  FaCalendarAlt, FaClock, FaTicketAlt, FaMapMarkerAlt, 
+  FaUser, FaClipboardList, FaSignOutAlt, FaBookOpen 
+} from "react-icons/fa";
 import { MdLocationOn } from "react-icons/md";
 import { motion } from 'framer-motion';
 import styled, { keyframes } from 'styled-components';
-import { 
-  FaUser, 
-  FaClipboardList, 
-  FaSignOutAlt, 
-  FaBookOpen
-} from 'react-icons/fa';
 
+// Styles (conservés identiques)
 const fadeIn = keyframes`
   from { opacity: 0; transform: translateY(20px); }
   to { opacity: 1; transform: translateY(0); }
@@ -23,7 +21,6 @@ const Container = styled.div`
   background-color: #f8f9fa;
   font-family: 'Poppins', sans-serif;
 `;
-
 const Sidebar = styled.div`
   width: 280px;
   background: linear-gradient(135deg, #2c3e50 0%, #3498db 100%);
@@ -147,6 +144,7 @@ const DetailItem = styled.div`
   padding: 1.2rem;
   border-radius: 8px;
   transition: transform 0.3s;
+  flex: 1;
   
   &:hover {
     transform: translateY(-3px);
@@ -159,14 +157,15 @@ const DetailLabel = styled.div`
   text-transform: uppercase;
   letter-spacing: 1px;
   margin-bottom: 0.5rem;
+  font-weight: bold;
 `;
 
 const DetailValue = styled.div`
   font-size: 1.1rem;
   color: #2c3e50;
   font-weight: 500;
+  word-break: break-all;
 `;
-
 const ScheduleTable = styled.table`
   width: 100%;
   border-collapse: separate;
@@ -440,9 +439,34 @@ const EtudiantProfil = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [events, setEvents] = useState([]);
+  const [filiereData, setFiliereData] = useState({});
+  const [classeData, setClasseData] = useState({});
+
+  
+
+  // Fonction pour charger les données des filières et classes
+  const loadReferenceData = async () => {
+    try {
+      const [filieresRes, classesRes] = await Promise.all([
+        axios.get('http://localhost:5000/api/filieres'),
+        axios.get('http://localhost:5000/api/classes')
+      ]);
+  
+      const filieresMap = {};
+      filieresRes.data.forEach(f => filieresMap[f.id] = f.nom);
+      
+      const classesMap = {};
+      classesRes.data.forEach(c => classesMap[c.id] = c.nom);
+  
+      setFiliereData(filieresMap);
+      setClasseData(classesMap);
+    } catch (error) {
+      console.error("Erreur chargement données référence:", error);
+    }
+  };
 
   useEffect(() => {
-    const fetchStudentData = async () => {
+    const fetchData = async () => {
       try {
         const token = localStorage.getItem('token');
         const cin = localStorage.getItem('studentCin');
@@ -451,23 +475,24 @@ const EtudiantProfil = () => {
           navigate('/connexion');
           return;
         }
-
+  
+        // Charge d'abord les données de référence
+        await loadReferenceData();
+  
         const response = await axios.get(`http://localhost:5000/api/etudiant/${cin}`, {
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
+          headers: { 'Authorization': `Bearer ${token}` }
         });
-
+  
+        console.log('Données reçues:', response.data); // Ajoutez ce log pour vérification
+  
         if (response.data.success) {
           setStudentData({
             profile: {
-              nom: response.data.data.Nom_et_prénom,
-              cin: response.data.data.CIN,
-              email: response.data.data.Email,
-              telephone: response.data.data.Téléphone,
-              filiere: response.data.data.Filière,
-              classe: response.data.data.Classe,
-              photo: 'https://randomuser.me/api/portraits/men/32.jpg' // Photo par défaut
+              ...response.data.data,
+              email: response.data.data.email, // Assurez-vous d'utiliser le bon nom de champ
+              filiereNom: filiereData[response.data.data.Filière] || response.data.data.Filière,
+              classeNom: classeData[response.data.data.Classe] || response.data.data.Classe,
+              photo: 'https://randomuser.me/api/portraits/men/32.jpg'
             },
             schedule: [
               { id: 1, jour: 'Lundi', matiere: 'Algorithmique avancée', heure: '08:30-10:00', salle: 'B201', professeur: 'Prof. Martin' },
@@ -483,34 +508,18 @@ const EtudiantProfil = () => {
               { id: 4, matiere: 'Développement Web React', date: '2023-06-22', heure: '09:00-11:00', salle: 'Salle D08', coefficient: 2 }
             ]
           });
-        } else {
-          setError(response.data.message || "Erreur lors du chargement des données");
-        }
-      } catch (err) {
-        console.error("Erreur:", err);
-        setError(err.response?.data?.message || "Erreur serveur");
-        if (err.response?.status === 401) {
-          localStorage.removeItem('token');
-          localStorage.removeItem('studentCin');
-          navigate('/connexion');
-        }
-      } finally {
-        setLoading(false);
-      }
-    };
+        }  
+        const eventsRes = await axios.get("http://localhost:5000/api/evenements");
+      setEvents(eventsRes.data.data || []);
+    } catch (err) {
+      setError(err.response?.data?.message || "Erreur serveur");
+    } finally {
+      setLoading(false);
+    }
+  };
 
-    const fetchEvents = async () => {
-      try {
-        const response = await axios.get("http://localhost:5000/api/evenements");
-        setEvents(response.data.data);
-      } catch (error) {
-        console.error("Erreur chargement événements:", error);
-      }
-    };
-
-    fetchStudentData();
-    fetchEvents();
-  }, [navigate]);
+  fetchData();
+}, [navigate, filiereData, classeData]);
 
   const handleLogout = () => {
     localStorage.removeItem('token');
@@ -519,14 +528,21 @@ const EtudiantProfil = () => {
   };
 
   const navigateToDocuments = () => {
-    navigate('/studentDoc');
+    const token = localStorage.getItem('token');
+    const cin = localStorage.getItem('studentCin');
+    
+    if (!token || !cin) {
+      navigate('/connexion');
+    } else {
+      navigate('/studentDoc');
+    }
   };
-
   const handleEventClick = (eventName) => {
     navigate('/eventForm', { state: { selectedEvent: eventName } });
   };
 
-  function getArtGradient(type) {
+
+  const getArtGradient = (type) => {
     const gradients = {
       'Conférence': '#8b5cf6, #7c3aed',
       'Atelier': '#ec4899, #db2777',
@@ -534,7 +550,10 @@ const EtudiantProfil = () => {
       'Performance': '#10b981, #059669'
     };
     return gradients[type] || '#6d28d9, #4c1d95';
-  }
+  };
+
+  
+ 
 
   if (loading) {
     return (
@@ -557,83 +576,73 @@ const EtudiantProfil = () => {
   return (
     <Container>
       <Sidebar>
-        <NavItem 
-          active={activeSection === 'profile'} 
-          onClick={() => setActiveSection('profile')}
-        >
+        <NavItem active={activeSection === 'profile'} onClick={() => setActiveSection('profile')}>
           <FaUser /> Profil
         </NavItem>
-        <NavItem 
-          active={activeSection === 'schedule'} 
-          onClick={() => setActiveSection('schedule')}
-        >
+        <NavItem active={activeSection === 'schedule'} onClick={() => setActiveSection('schedule')}>
           <FaCalendarAlt /> Emploi du temps
         </NavItem>
-        <NavItem 
-          active={activeSection === 'exams'} 
-          onClick={() => setActiveSection('exams')}
-        >
+        <NavItem active={activeSection === 'exams'} onClick={() => setActiveSection('exams')}>
           <FaClipboardList /> Examens
         </NavItem>
-        <NavItem 
-          active={activeSection === 'events'} 
-          onClick={() => setActiveSection('events')}
-        >
+        <NavItem active={activeSection === 'events'} onClick={() => setActiveSection('events')}>
           <FaCalendarAlt /> Événements
         </NavItem>
-        <NavItem 
-          onClick={navigateToDocuments}
-          style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}
-        >
-          <FaBookOpen />
-          Consulter cours 
+        <NavItem onClick={navigateToDocuments}>
+          <FaBookOpen /> Consulter cours
         </NavItem>
       </Sidebar>
 
       <MainContent>
         <Header>
-          <Title>Bienvenue, {studentData?.profile?.nom}</Title>
-          <LogoutButton onClick={handleLogout}>
+          <Title>Bienvenue, {studentData?.profile?.Nom_et_prénom}</Title>
+          <LogoutButton onClick={() => {
+            localStorage.removeItem('token');
+            localStorage.removeItem('studentCin');
+            navigate('/connexion');
+          }}>
             <FaSignOutAlt /> Déconnexion
           </LogoutButton>
         </Header>
 
-        {activeSection === 'profile' && (
-          <Section>
-            <SectionTitle>Informations personnelles</SectionTitle>
-            <ProfileContainer>
-              <ProfilePhoto>
-                <img src={studentData.profile.photo} alt="Profil étudiant" />
-              </ProfilePhoto>
-              <ProfileDetails>
-                <DetailItem>
-                  <DetailLabel>Nom complet</DetailLabel>
-                  <DetailValue>{studentData.profile.nom}</DetailValue>
-                </DetailItem>
-                <DetailItem>
-                  <DetailLabel>CIN</DetailLabel>
-                  <DetailValue>{studentData.profile.cin}</DetailValue>
-                </DetailItem>
-                <DetailItem>
-                  <DetailLabel>Email</DetailLabel>
-                  <DetailValue>{studentData.profile.email}</DetailValue>
-                </DetailItem>
-                <DetailItem>
-                  <DetailLabel>Téléphone</DetailLabel>
-                  <DetailValue>{studentData.profile.telephone}</DetailValue>
-                </DetailItem>
-                <DetailItem>
-                  <DetailLabel>Filière</DetailLabel>
-                  <DetailValue>{studentData.profile.filiere}</DetailValue>
-                </DetailItem>
-                <DetailItem>
-                  <DetailLabel>Classe</DetailLabel>
-                  <DetailValue>{studentData.profile.classe}</DetailValue>
-                </DetailItem>
-              </ProfileDetails>
-            </ProfileContainer>
-          </Section>
-        )}
+        {activeSection === 'profile' && studentData && (
+  <Section>
+    <SectionTitle>Informations personnelles</SectionTitle>
+    <ProfileContainer>
+      <ProfilePhoto>
+        <img src={studentData.profile.photo} alt="Profil étudiant" />
+      </ProfilePhoto>
+      <ProfileDetails>
+        <DetailItem>
+          <DetailLabel>Nom complet</DetailLabel>
+          <DetailValue>{studentData.profile.Nom_et_prénom}</DetailValue>
+        </DetailItem>
+        <DetailItem>
+          <DetailLabel>CIN</DetailLabel>
+          <DetailValue>{studentData.profile.CIN}</DetailValue>
+        </DetailItem>
+        <DetailItem>
+  <DetailLabel>Email</DetailLabel>
+  <DetailValue>
+    {studentData.profile.Email || 'Non renseigné'}
+  </DetailValue>
+</DetailItem>
+        <DetailItem>
+          <DetailLabel>Téléphone</DetailLabel>
+          <DetailValue>{studentData.profile.Téléphone}</DetailValue>
+        </DetailItem>
+        <DetailItem>
+          <DetailLabel>FILIÈRE</DetailLabel>
+          <DetailValue>{studentData.profile.filiereNom}</DetailValue>
+        </DetailItem>
+        <DetailItem>
+          <DetailLabel>CLASSE</DetailLabel>
+          <DetailValue>{studentData.profile.classeNom}</DetailValue>
+        </DetailItem>
+      </ProfileDetails>
+    </ProfileContainer>
+  </Section>
+)}
 
         {activeSection === 'schedule' && (
           <Section>
