@@ -127,7 +127,7 @@ app.post("/connexion", async (req, res) => {
         const token = jwt.sign(
           { cin: enseignant.CIN, role: 'enseignant' },
           process.env.JWT_SECRET || 'dev-secret-only',
-          { expiresIn: '1h' }
+          { expiresIn: '24h' }
         );
       
         return res.json({
@@ -454,7 +454,7 @@ router.post('/extend-session', (req, res) => {
     const newToken = jwt.sign(
       { userId: decoded.userId },
       process.env.JWT_SECRET,
-      { expiresIn: '3m' } // Nouvelle expiration
+      { expiresIn: '4h' } // Nouvelle expiration
     );
 
     res.json({ token: newToken });
@@ -532,80 +532,55 @@ app.post('/api/register', async (req, res) => {
 });
 
 // Middleware d'authentification amélioré
-// Middleware d'authentification
-const auth = async (req, res, next) => {
-  try {
-    // 1. Vérifier si le header Authorization existe
-    if (!req.headers.authorization) {
-      return res.status(401).json({ message: "Aucun token fourni" });
-    }
-
-    // 2. Extraire le token
-    const token = req.headers.authorization.split(' ')[1];
-    
-    // 3. Vérifier le format (doit commencer par 'Bearer ')
-    if (!req.headers.authorization.startsWith('Bearer ')) {
-      return res.status(401).json({ message: "Format de token invalide" });
-    }
-
-    // 4. Vérifier le token
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    req.user = decoded;
-    next();
-  } catch (error) {
-    console.error("Erreur JWT:", error.message);
-    return res.status(401).json({ 
-      message: "Non autorisé - Token invalide",
-      error: error.message 
-    });
-  }
-};
-
-// Middleware d'authentification pour les enseignants
 const authenticateTeacher = async (req, res, next) => {
   try {
-    // 1. Vérifier si le header Authorization existe
-    if (!req.headers.authorization) {
-      return res.status(401).json({ message: "Aucun token fourni" });
+    // 1. Vérifier la présence du token
+    const authHeader = req.headers.authorization;
+    if (!authHeader?.startsWith('Bearer ')) {
+      return res.status(401).json({ 
+        success: false,
+        message: "Authorization header manquant ou invalide" 
+      });
     }
 
-    // 2. Extraire le token
-    const token = req.headers.authorization.split(' ')[1];
+    const token = authHeader.split(' ')[1];
     
-    // 3. Vérifier le format (doit commencer par 'Bearer ')
-    if (!req.headers.authorization.startsWith('Bearer ')) {
-      return res.status(401).json({ message: "Format de token invalide" });
-    }
-
-    // 4. Vérifier le token
+    // 2. Vérifier et décoder le token
     const decoded = jwt.verify(token, process.env.JWT_SECRET || 'dev-secret-only');
     
-    // 5. Vérifier que l'utilisateur est bien un enseignant
-    if (decoded.role !== 'enseignant') {
-      return res.status(403).json({ message: "Accès réservé aux enseignants" });
-    }
-
-    // 6. Vérifier que l'enseignant existe dans la base
-    const [teacher] = await pool.query(
-      "SELECT CIN FROM enseignants WHERE CIN = ?", 
+    // 3. Vérification minimale dans la base de données
+    const [user] = await pool.query(
+      "SELECT Cin FROM enseignants WHERE Cin = ? LIMIT 1", 
       [decoded.cin]
     );
     
-    if (!teacher.length) {
-      return res.status(401).json({ message: "Enseignant non trouvé" });
+    if (!user.length) {
+      return res.status(401).json({ 
+        success: false,
+        message: "Utilisateur non autorisé" 
+      });
     }
     
-    req.user = decoded;
+    // 4. Ajouter les infos utilisateur à la requête
+    req.user = { cin: decoded.cin };
     next();
+
   } catch (error) {
-    console.error("Erreur authentification enseignant:", error.message);
+    console.error('Erreur authentification:', error);
+    
+    let message = "Erreur d'authentification";
+    if (error.name === 'TokenExpiredError') {
+      message = "Session expirée - Veuillez vous reconnecter";
+    } else if (error.name === 'JsonWebTokenError') {
+      message = "Token invalide";
+    }
+    
     return res.status(401).json({ 
-      message: "Non autorisé - Token invalide",
-      error: error.message 
+      success: false,
+      message 
     });
   }
 };
-
 
 app.get("/api/enseignants", authenticateTeacher, async (req, res) => {
   try {
@@ -758,36 +733,44 @@ app.post('/api/etudiant', (req, res) => {
 });
 
 // Route pour récupérer les données d'un étudiant
-// Route pour récupérer un étudiant avec les noms de filière et classe
-app.get('/api/etudiant/:cin', async (req, res) => {
+app.get("/api/etudiant/:cin", async (req, res) => {
+  const { cin } = req.params;
+  
   try {
-    const [etudiant] = await pool.query(
-      `SELECT e.*, f.nom AS filiere_nom, c.nom AS classe_nom 
-       FROM etudiant e
-       LEFT JOIN filieres f ON e.Filière = f.id
-       LEFT JOIN classes c ON e.Classe = c.id
-       WHERE e.CIN = ?`, 
-      [req.params.cin]
-    );
-    
+    const [etudiant] = await pool.query(`
+      SELECT 
+        e.CIN, 
+        e.Nom_et_prénom, 
+        e.Téléphone, 
+        e.Email,
+        e.Filière AS filiere_id,
+        e.Classe AS classe_id,
+        f.nom AS filiere_nom,
+        c.nom AS classe_nom
+      FROM etudiant e
+      LEFT JOIN filieres f ON e.Filière = f.id
+      LEFT JOIN classes c ON e.Classe = c.id
+      WHERE e.CIN = ?
+    `, [cin]);
+
     if (etudiant.length === 0) {
       return res.status(404).json({ success: false, message: "Étudiant non trouvé" });
     }
 
     res.json({
       success: true,
-      data: etudiant[0]
+      data: {
+        ...etudiant[0],
+        // Utilisez les noms complets pour l'affichage
+        Filière: etudiant[0].filiere_nom || etudiant[0].filiere_id,
+        Classe: etudiant[0].classe_nom || etudiant[0].classe_id
+      }
     });
   } catch (error) {
-    console.error('Erreur:', error);
-    res.status(500).json({ 
-      success: false, 
-      message: "Erreur serveur",
-      error: process.env.NODE_ENV === 'development' ? error.message : undefined
-    });
+    console.error("Erreur:", error);
+    res.status(500).json({ success: false, message: "Erreur serveur" });
   }
 });
-
 
 
 // Middleware pour les erreurs
@@ -896,10 +879,20 @@ app.get('/api/filieres', async (req, res) => {
 
 app.get('/api/filieres/:id', async (req, res) => {
   try {
-    const [filiere] = await pool.query('SELECT id, nom FROM filieres WHERE id = ?', [req.params.id]);
-    res.json(filiere[0] || {});
+    const { id } = req.params;
+    const [filiere] = await pool.execute(
+      'SELECT * FROM filieres WHERE id = ?',
+      [id]
+    );
+
+    if (filiere.length === 0) {
+      return res.status(404).json({ error: 'Filière non trouvée' });
+    }
+
+    res.json(filiere[0]);
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error('Erreur lors de la récupération de la filière:', error);
+    res.status(500).json({ error: 'Erreur serveur' });
   }
 });
 
@@ -1017,19 +1010,6 @@ app.get('/api/classes', async (req, res) => {
       success: false,
       error: 'Erreur serveur' 
     });
-  }
-});
-
-
-app.get('/api/classes/:id', async (req, res) => {
-  try {
-    const [classe] = await pool.query(
-      'SELECT id, nom FROM classes WHERE id = ? AND filiere_id = ?',
-      [req.params.id, req.query.filiere]
-    );
-    res.json(classe[0] || {});
-  } catch (error) {
-    res.status(500).json({ error: error.message });
   }
 });
 
@@ -1545,153 +1525,44 @@ app.put('/api/evenements/:id', async (req, res) => {
 // Route pour obtenir toutes les filières
 app.get('/api/filieres', async (req, res) => {
   try {
-    const [filieres] = await pool.query('SELECT id, nom FROM filieres');
-    res.json(filieres);
+    const [filieres] = await pool.query('SELECT * FROM filieres');
+    res.json(filieres || []); // Retourne un tableau vide si undefined
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error('Erreur:', error);
+    res.status(500).json([]); // Retourne un tableau vide en cas d'erreur
   }
 });
 
 // Dans votre fichier server.js
 app.get('/api/classes', async (req, res) => {
   try {
-    const [classes] = await pool.query('SELECT id, nom FROM classes');
-    res.json(classes);
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
+    const { filiere } = req.query;
 
-// Définissez authMiddleware avant de l'utiliser
-const authMiddleware = async (req, res, next) => {
-  try {
-    const token = req.headers.authorization?.split(' ')[1];
-    
-    if (!token) {
-      return res.status(401).json({ message: "Token manquant" });
-    }
-
-    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'dev-secret-only');
-    
-    // Vérifiez que l'utilisateur existe
-    const [user] = await pool.query(
-      "SELECT CIN FROM etudiant WHERE CIN = ?", 
-      [decoded.cin]
-    );
-    
-    if (!user.length) {
-      return res.status(401).json({ message: "Utilisateur non autorisé" });
-    }
-    
-    req.user = { cin: decoded.cin };
-    next();
-  } catch (error) {
-    console.error('Erreur authentification:', error);
-    return res.status(401).json({ message: "Token invalide" });
-  }
-};
-
-
-
-// Dans votre serveur Node.js (backend)
-router.get('/etudiants/:cin', authMiddleware, async (req, res) => {
-  try {
-    const etudiant = await Etudiant.findOne({ CIN: req.params.cin });
-    if (!etudiant) return res.status(404).json({ message: "Étudiant non trouvé" });
-    res.json({
-      success: true,
-      data: {
-        Filière: etudiant.filiere,
-        Classe: etudiant.classe,
-        // ... autres champs
-      }
-    });
-  } catch (err) {
-    res.status(500).json({ success: false, message: err.message });
-  }
-});
-
-router.get('/documents', authMiddleware, async (req, res) => {
-  try {
-    const { filiere, classe } = req.query;
-    const documents = await Document.find({ filiere, classe });
-    res.json(documents);
-  } catch (err) {
-    res.status(500).json({ success: false, message: err.message });
-  }
-});
-
-// Route pour récupérer les documents par filière et classe
-app.get('/api/documents/:filiere/:classe', async (req, res) => {
-  try {
-    const { filiere, classe } = req.params;
-    
-    // Validation des paramètres
-    if (!filiere || !classe) {
-      return res.status(400).json({ 
+    // Validation du paramètre
+    if (!filiere || isNaN(filiere)) {
+      return res.status(400).json({
         success: false,
-        message: "Filière et classe sont requis" 
+        message: "ID de filière invalide"
       });
     }
 
-    // Requête à la base de données
-    const [documents] = await pool.query(
-      `SELECT * FROM documents 
-       WHERE filiere = ? AND classe = ? 
-       ORDER BY createdAt DESC`,
-      [filiere, classe]
-    );
+    // Requête SQL avec jointure pour vérifier l'existence de la filière
+    const [classes] = await pool.query(`
+      SELECT c.id, c.nom 
+      FROM classes c
+      JOIN filieres f ON c.filiere_id = f.id
+      WHERE f.id = ?
+      ORDER BY c.nom
+    `, [filiere]);
 
     res.json({
       success: true,
-      data: documents
+      data: classes
     });
 
   } catch (error) {
-    console.error('Erreur récupération documents:', error);
-    res.status(500).json({ 
-      success: false,
-      message: "Erreur serveur" 
-    });
-  }
-});
-
-
-
-
-
-
-
-
-// Route pour récupérer le profil étudiant
-app.get("/etudiant/profile", async (req, res) => {
-  const token = req.headers.authorization?.split(' ')[1];
-
-  try {
-    if (!token) {
-      return res.status(401).json({ success: false, message: "Token manquant" });
-    }
-
-    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'dev-secret-only');
-    
-    // Récupération des données de l'étudiant
-    const [etudiant] = await pool.query(
-      "SELECT CIN, Nom_et_prénom, Filière as filiere, Classe as classe FROM etudiant WHERE CIN = ?",
-      [decoded.cin]
-    );
-
-    if (etudiant.length === 0) {
-      return res.status(404).json({ success: false, message: "Étudiant non trouvé" });
-    }
-
-    res.json({
-      success: true,
-      data: etudiant[0]
-    });
-
-  } catch (error) {
-    console.error("Erreur:", error);
-    res.status(500).json({ 
+    console.error('Erreur API classes:', error);
+    res.status(500).json({
       success: false,
       message: "Erreur serveur"
     });
@@ -1699,102 +1570,180 @@ app.get("/etudiant/profile", async (req, res) => {
 });
 
 
-
-// Route pour récupérer le profil étudiant
-app.get("/api/etudiant/profile", async (req, res) => {
-  const token = req.headers.authorization?.split(' ')[1];
-
+// Route pour récupérer les documents d'un étudiant
+app.get('/api/student-documents', authenticateStudent, async (req, res) => {
   try {
-    if (!token) {
-      return res.status(401).json({ success: false, message: "Token manquant" });
-    }
-
-    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'dev-secret-only');
+    const { filiere, classe } = req.query;
     
-    // Récupération des données de l'étudiant avec les noms complets
-    const [etudiant] = await pool.query(`
-      SELECT e.CIN, e.Nom_et_prénom, e.Téléphone, e.Email, 
-             e.Filière as filiere_id, f.nom as filiere_nom,
-             e.Classe as classe_id, c.nom as classe_nom
-      FROM etudiant e
-      LEFT JOIN filieres f ON e.Filière = f.id
-      LEFT JOIN classes c ON e.Classe = c.id
-      WHERE e.CIN = ?
-    `, [decoded.cin]);
+    // 1. Récupérer les matières de la filière et classe
+    const [subjects] = await pool.query(`
+      SELECT m.id, m.nom, s.numero AS semestre
+      FROM matieres m
+      JOIN semestres s ON m.semestre_id = s.id
+      JOIN classes c ON s.classe_id = c.id
+      JOIN filieres f ON c.filiere_id = f.id
+      WHERE f.nom = ? AND c.nom = ?
+    `, [filiere, classe]);
 
-    if (etudiant.length === 0) {
-      return res.status(404).json({ success: false, message: "Étudiant non trouvé" });
-    }
+    // 2. Récupérer les documents associés
+    const [documents] = await pool.query(`
+      SELECT d.id, d.titre, d.description, d.date_upload AS date, 
+             d.taille AS size, d.type, d.matiere_id,
+             m.nom AS matiere, s.numero AS semestre
+      FROM documents d
+      JOIN matieres m ON d.matiere_id = m.id
+      JOIN semestres s ON m.semestre_id = s.id
+      JOIN classes c ON s.classe_id = c.id
+      JOIN filieres f ON c.filiere_id = f.id
+      WHERE f.nom = ? AND c.nom = ?
+    `, [filiere, classe]);
 
     res.json({
       success: true,
-      data: {
-        ...etudiant[0],
-        filiere: etudiant[0].filiere_id,
-        filiereNom: etudiant[0].filiere_nom,
-        classe: etudiant[0].classe_id,
-        classeNom: etudiant[0].classe_nom
-      }
+      subjects,
+      documents: documents.map(doc => ({
+        ...doc,
+        viewed: false // Vous pourriez suivre les vues dans la base
+      }))
     });
-
   } catch (error) {
-    console.error("Erreur:", error);
+    console.error('Erreur:', error);
+    res.status(500).json({ success: false, message: 'Erreur serveur' });
+  }
+});
+
+// Middleware d'authentification étudiant
+function authenticateStudent(req, res, next) {
+  const token = req.headers.authorization?.split(' ')[1];
+  
+  if (!token) {
+    return res.status(401).json({ success: false, message: 'Token manquant' });
+  }
+
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    if (decoded.role !== 'etudiant') {
+      return res.status(403).json({ success: false, message: 'Accès non autorisé' });
+    }
+    next();
+  } catch (error) {
+    res.status(401).json({ success: false, message: 'Token invalide' });
+  }
+}
+
+
+// Route pour les documents par matière
+app.get('/api/documents-matiere', authenticateStudent, async (req, res) => {
+  try {
+    const { matiereId } = req.query;
+    
+    const [documents] = await pool.query(`
+      SELECT id, titre, description, file_path AS path, 
+             DATE_FORMAT(createdAt, '%Y-%m-%d') AS date,
+             ROUND(LENGTH(contenu)/1024) AS size_kb,
+             'pdf' AS type
+      FROM documents
+      WHERE matiere_id = ?
+    `, [matiereId]);
+
+    res.json({
+      success: true,
+      documents
+    });
+  } catch (error) {
+    console.error('Erreur:', error);
     res.status(500).json({ 
       success: false,
-      message: "Erreur serveur"
+      message: 'Erreur serveur' 
     });
   }
 });
 
-// Route pour récupérer les matières par filière, classe et semestre
-
-// Route pour récupérer les documents par filière et classe
-app.get('/api/documents/:filiere/:classe', async (req, res) => {
+// Route pour télécharger un document
+app.get('/api/download-document/:id', authenticateStudent, async (req, res) => {
   try {
-    const { filiere, classe } = req.params;
+    const { id } = req.params;
     
-    const [documents] = await pool.query(
-      `SELECT * FROM documents 
-       WHERE filiere_id = ? AND classe_id = ? 
-       ORDER BY createdAt DESC`,
-      [filiere, classe]
+    const [document] = await pool.query(`
+      SELECT contenu, nom_fichier 
+      FROM documents 
+      WHERE id = ?
+    `, [id]);
+
+    if (!document.length) {
+      return res.status(404).json({ success: false, message: 'Document non trouvé' });
+    }
+
+    // Convertir le buffer stocké en base64
+    const fileBuffer = Buffer.from(document[0].contenu, 'base64');
+    
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename=${document[0].nom_fichier}`);
+    res.send(fileBuffer);
+  } catch (error) {
+    console.error('Erreur:', error);
+    res.status(500).json({ success: false, message: 'Erreur serveur' });
+  }
+});
+
+
+
+
+// Route pour récupérer les cours par filière et classe
+app.get('/api/cours-etudiant', authenticateStudent, async (req, res) => {
+  try {
+    const { filiere, classe } = req.query;
+    
+    // 1. Récupérer l'ID de la classe
+    const [classeData] = await pool.query(
+      'SELECT id FROM classes WHERE nom = ? LIMIT 1',
+      [classe]
     );
 
+    if (!classeData.length) {
+      return res.status(404).json({ 
+        success: false,
+        message: 'Classe non trouvée' 
+      });
+    }
+
+    const classeId = classeData[0].id;
+
+    // 2. Récupérer les semestres de cette classe
+    const [semestres] = await pool.query(
+      'SELECT id, numero FROM semestres WHERE classe_id = ?',
+      [classeId]
+    );
+
+    // 3. Pour chaque semestre, récupérer les matières
+    const result = await Promise.all(semestres.map(async (semestre) => {
+      const [matieres] = await pool.query(`
+        SELECT m.id, m.nom, m.credits, 
+               e.Nom_et_prénom AS enseignant
+        FROM matieres m
+        LEFT JOIN enseignants e ON m.enseignant_id = e.CIN
+        WHERE m.semestre_id = ?
+      `, [semestre.id]);
+
+      return {
+        semestre: semestre.numero,
+        matieres
+      };
+    }));
+
     res.json({
       success: true,
-      data: documents
+      data: result
     });
+
   } catch (error) {
-    console.error('Erreur récupération documents:', error);
+    console.error('Erreur:', error);
     res.status(500).json({ 
       success: false,
-      message: "Erreur serveur" 
+      message: 'Erreur serveur' 
     });
   }
 });
-
-
-
-app.get('/filieres/:id', async (req, res) => {
-  try {
-    const [filiere] = await pool.query('SELECT * FROM filieres WHERE id = ?', [req.params.id]);
-    res.json(filiere[0] || {});
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-// Détails d'une classe
-app.get('/classes/:id', async (req, res) => {
-  try {
-    const [classe] = await pool.query('SELECT * FROM classes WHERE id = ?', [req.params.id]);
-    res.json(classe[0] || {});
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-
 
 // Protégez vos routes
 app.get("/api/protected-route", authenticateTeacher, (req, res) => {

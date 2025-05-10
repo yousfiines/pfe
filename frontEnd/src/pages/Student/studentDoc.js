@@ -1,737 +1,824 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import axios from 'axios';
-import { useNavigate } from 'react-router-dom';
-import filieresConfig from '../config/filieres';
-
-
+import React, { useState, useEffect } from 'react';
 import {
-  Card, List, ListItem, ListItemText, Typography,
-  Button, Chip, Snackbar, Alert, Box, Paper, IconButton, InputBase, Avatar, styled,
-  MenuItem, FormControl, Select, Divider, InputLabel,
-  CircularProgress, Collapse, Tooltip, Breadcrumbs, Link
+  Box, Paper, Typography, Button, Chip, List, ListItem,
+  ListItemText, IconButton, InputBase, Avatar, Divider,
+  CircularProgress, Grid, Fade, Grow, Slide, styled
 } from '@mui/material';
 import {
-  Description as DescriptionIcon,
-  Home as HomeIcon,
-  Search as SearchIcon,
-  School as SchoolIcon,
-  Folder as FolderIcon,
-  Download as DownloadIcon,
-  ExpandMore as ExpandMoreIcon,
-  ExpandLess as ExpandLessIcon,
-  NotificationsActive as NotificationsActiveIcon,
-  NotificationsOff as NotificationsOffIcon
+  ChevronLeft, Description, Download, MenuBook,
+  CalendarMonth, FilterAlt, Search
 } from '@mui/icons-material';
+import { useNavigate, useLocation } from 'react-router-dom';
+import { motion } from 'framer-motion';
+import axios from 'axios';
 
-const API_URL = 'http://localhost:5000';
+const GlassPaper = styled(Paper)(({ theme }) => ({
+  background: 'rgba(255, 255, 255, 0.85)',
+  backdropFilter: 'blur(12px)',
+  borderRadius: '18px',
+  boxShadow: '0 8px 32px rgba(0,0,0,0.08)',
+  border: '1px solid rgba(255,255,255,0.2)',
+  transition: 'all 0.3s ease',
+  '&:hover': {
+    transform: 'translateY(-5px)',
+    boxShadow: '0 12px 40px rgba(0,0,0,0.12)'
+  }
+}));
 
-const SearchField = styled(Paper)(({ theme }) => ({
-  padding: '2px 12px',
-  display: 'flex',
-  alignItems: 'center',
-  width: '100%',
+const SubjectButton = styled(ListItem)(({ theme, selected }) => ({
+  borderRadius: '14px',
+  marginBottom: '8px',
+  padding: '8px 16px',
+  background: selected ? 
+    'linear-gradient(90deg, rgba(101,87,255,0.1) 0%, rgba(101,87,255,0.05) 100%)' : 
+    'transparent',
+  transition: 'all 0.2s ease',
+  '&:hover': {
+    background: 'rgba(101,87,255,0.05)'
+  }
+}));
+
+const GradientButton = styled(Button)({
+  background: 'linear-gradient(45deg, #6557FF 0%, #8B7AFF 100%)',
+  color: 'white',
+  fontWeight: 'bold',
   borderRadius: '12px',
-  boxShadow: '0 2px 12px rgba(0,0,0,0.08)',
-  backgroundColor: theme.palette.background.paper,
-  transition: 'all 0.3s ease',
+  padding: '10px 24px',
+  boxShadow: '0 4px 15px rgba(101,87,255,0.3)',
   '&:hover': {
-    boxShadow: '0 4px 16px rgba(0,0,0,0.12)'
+    background: 'linear-gradient(45deg, #5949FF 0%, #7B6AFF 100%)',
+    boxShadow: '0 6px 20px rgba(101,87,255,0.4)'
   }
-}));
-
-const DocumentCard = styled(Card)(({ theme }) => ({
-  transition: 'all 0.3s ease',
-  borderLeft: '4px solid transparent',
-  '&:hover': {
-    transform: 'translateY(-3px)',
-    boxShadow: theme.shadows[4],
-    borderLeft: `4px solid ${theme.palette.primary.main}`
-  }
-}));
+});
 
 const StudentDoc = () => {
-  const [studentData, setStudentData] = useState({
+  const [documents, setDocuments] = useState([]);
+  const [selectedSubject, setSelectedSubject] = useState(null);
+  const [selectedSemester, setSelectedSemester] = useState('');
+  const [isLoading, setIsLoading] = useState(true);
+  const [mobileOpen, setMobileOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [studentInfo, setStudentInfo] = useState({
     filiere: '',
     classe: '',
-    niveau: '',
-    semestre: 'S1'
+    semestres: {},
+    filiereId: '',
+    classeId: ''
   });
-  const [documents, setDocuments] = useState([]);
-  const [filteredDocs, setFilteredDocs] = useState([]);
-  const [matieres, setMatieres] = useState([]);
-  const [selectedSubject, setSelectedSubject] = useState('');
-  const [searchTerm, setSearchTerm] = useState('');
-  const [isLoading, setIsLoading] = useState(true);
-  const [emailSubscribed, setEmailSubscribed] = useState(false);
-  const [semesterExpanded, setSemesterExpanded] = useState(true);
-  const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'info' });
-  const [isLoadingMatieres, setIsLoadingMatieres] = useState(false);
-  const filieres = useMemo(() => filieresConfig, []);
-  const [filiereName, setFiliereName] = useState('');
-  const [className, setClassName] = useState('');
-  const [isLoadingProfile, setIsLoadingProfile] = useState(true);
+
   const navigate = useNavigate();
+  const location = useLocation();
+  const token = localStorage.getItem('token');
+  const studentCin = localStorage.getItem('studentCin');
 
+  const formatFileSize = (bytes) => {
+    if (!bytes) return '0 Bytes';
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+  };
 
+// Obtenir les semestres disponibles de manière sécurisée
+  const availableSemesters = Object.keys(studentInfo.semestres || {});
 
-  
+const subjectsForSemester = selectedSemester 
+    ? studentInfo.semestres[selectedSemester] || []
+    : [];
 
-  // Dans StudentDoc.js, remplacez le useEffect qui charge les données étudiant
-useEffect(() => {
-  const fetchStudentData = async () => {
-    setIsLoadingProfile(true);
-    try {
-      const token = localStorage.getItem('studentToken');
-      const cin = localStorage.getItem('studentCin'); // Récupérez le CIN stocké lors de la connexion
-      
-      if (!token || !cin) {
-        navigate('/connexion');
-        return;
+  useEffect(() => {
+    const fetchStudentData = async () => {
+      try {
+        setIsLoading(true);
+        
+        // 1. Récupérer les données de l'étudiant avec les noms complets
+        const response = await axios.get(`http://localhost:5000/api/etudiant/${studentCin}`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+
+        if (response.data.success) {
+          const studentData = response.data.data;
+          
+          // 2. Récupérer les matières par filière/classe
+          const matieresResponse = await axios.get('http://localhost:5000/api/cours-etudiant', {
+            params: {
+              filiere: studentData.filiere_id,
+              classe: studentData.classe_id
+            },
+            headers: { 'Authorization': `Bearer ${token}` }
+          });
+
+          if (matieresResponse.data.success) {
+            // Organiser les matières par semestre
+            const semestresData = {};
+            matieresResponse.data.data.forEach(semestre => {
+              semestresData[semestre.semestre] = semestre.matieres.map(m => m.nom);
+            });
+
+            setStudentInfo({
+              filiere: studentData.Filière,
+              classe: studentData.Classe,
+              filiereId: studentData.filiere_id,
+              classeId: studentData.classe_id,
+              semestres: semestresData
+            });
+
+            // Sélectionner le premier semestre disponible
+            const semesters = Object.keys(semestresData);
+            if (semesters.length > 0 && !selectedSemester) {
+              setSelectedSemester(semesters[0]);
+            }
+          }
+        }
+      } catch (error) {
+        console.error("Erreur lors du chargement des données:", error);
+      } finally {
+        setIsLoading(false);
       }
+    };
 
-      const response = await axios.get(`${API_URL}/etudiant/${cin}`, {
+    if (token && studentCin) {
+      fetchStudentData();
+    }
+  }, [token, studentCin]);
+
+  const loadDocumentsForSubject = async (matiereNom) => {
+    try {
+      // 1. Trouver l'ID de la matière
+      const [matieres] = await axios.get('http://localhost:5000/api/matieres', {
+        params: { search: matiereNom },
         headers: { 'Authorization': `Bearer ${token}` }
       });
 
-      if (response.data) {
-        const { Filière, Classe } = response.data;
-        setStudentData({
-          filiere: Filière,
-          classe: Classe,
-          niveau: Classe?.substring(0, 3) || '',
-          semestre: 'S1'
-        });
-
-        // Sauvegarder le profil dans localStorage
-        localStorage.setItem('studentProfile', JSON.stringify({
-          filiere: Filière,
-          classe: Classe
-        }));
-      }
-    } catch (error) {
-      console.error("Erreur de chargement du profil:", error);
-      // Fallback avec localStorage si disponible
-      const savedProfile = localStorage.getItem('studentProfile');
-      if (savedProfile) {
-        const profile = JSON.parse(savedProfile);
-        setStudentData({
-          filiere: profile.filiere,
-          classe: profile.classe,
-          niveau: profile.classe?.substring(0, 3) || '',
-          semestre: 'S1'
-        });
-      }
-    } finally {
-      setIsLoadingProfile(false);
-    }
-  };
-
-  fetchStudentData();
-}, [navigate]);
-
-
-useEffect(() => {
-  const fetchMatieres = async () => {
-    if (!studentData?.filiere || !studentData?.classe || !studentData?.semestre) return;
-    
-    setIsLoadingMatieres(true);
-    try {
-      const semestreNum = studentData.semestre === 'S1' ? 1 : 2;
-      const response = await axios.get(
-        `${API_URL}/matieres/${studentData.filiere}/${studentData.classe}/${semestreNum}`
-      );
-      
-      setMatieres(response.data?.map(m => m.nom) || []);
-    } catch (error) {
-      console.error("Erreur chargement matières:", error);
-      setMatieres([]);
-    } finally {
-      setIsLoadingMatieres(false);
-    }
-  };
-
-  fetchMatieres();
-}, [studentData?.filiere, studentData?.classe, studentData?.semestre]);
-
-  
-  // Chargement des matières - CORRIGÉ
-  useEffect(() => {
-    const loadMatieres = () => {
-      const { filiere, classe, semestre } = studentData;
-console.log(studentData.filiere)
-      if (filiere && classe && semestre) {
-        try {
-          const filiereData = filieres[filiere];
-          console.log('-----------', filiereData)
-          if (filiereData?.classes?.[classe]?.semestres?.[semestre]) {
-            const matieresForSemester = filiereData.classes[classe].semestres[semestre];
-            setMatieres(matieresForSemester);
-          } else {
-            setMatieres([]);
-          }
-        } catch (error) {
-          console.error('Erreur chargement matières:', error);
-          setMatieres([]);
-        }
-      }
-    };
-
-    loadMatieres();
-  }, [studentData, filieres]); // Correction: ajout de studentData comme dépendance
-
-  // Chargement des documents
-  // Chargement des documents
-// Chargement des documents
-useEffect(() => {
-  if (!studentData.filiere || !studentData.classe) return;
-
-  const fetchDocuments = async () => {
-    setIsLoading(true);
-    try {
-      const response = await axios.get(
-        `${API_URL}/documents/${studentData.filiere}/${studentData.classe}`
-      );
-      setDocuments(Array.isArray(response.data) ? response.data : []);
-    } catch (error) {
-      console.error("Erreur de chargement des documents:", error);
-      setDocuments([]);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  fetchDocuments();
-}, [studentData.filiere, studentData.classe]);
-
-
-  // Filtrage des documents
-  useEffect(() => {
-    // S'assurer que results est toujours un tableau
-    let results = Array.isArray(documents) ? [...documents] : [];
-  
-    // Filtre par matière si sélectionnée
-    if (selectedSubject) {
-      results = results.filter(doc => doc.matiere === selectedSubject);
-    }
-  
-    // Filtre par terme de recherche
-    if (searchTerm) {
-      const term = searchTerm.toLowerCase();
-      results = results.filter(doc =>
-        doc.title?.toLowerCase().includes(term) ||
-        doc.description?.toLowerCase().includes(term) ||
-        doc.matiere?.toLowerCase().includes(term)
-      );
-    }
-  
-    setFilteredDocs(results);
-  }, [documents, selectedSubject, searchTerm]);
-
-  const showNotification = (message, severity) => {
-    setSnackbar({ open: true, message, severity });
-  };
-
-
-  useEffect(() => {
-    const fetchNames = async () => {
-      try {
-        // Pour la filière
-        const filiereRes = await axios.get(`${API_URL}/filieres/${studentData.filiere}`);
-        setFiliereName(filiereRes.data.nom);
+      if (matieres.data.length > 0) {
+        const matiereId = matieres.data[0].id;
         
-        // Pour la classe
-        const classeRes = await axios.get(`${API_URL}/classes/${studentData.classe}`);
-        setClassName(classeRes.data.nom);
-      } catch (error) {
-        console.error("Erreur chargement noms:", error);
-        setFiliereName(studentData.filiere);
-        setClassName(studentData.classe);
-      }
-    };
-  
-    if (studentData.filiere && studentData.classe) {
-      fetchNames();
-    }
-  }, [studentData.filiere, studentData.classe]);
+        // 2. Charger les documents associés
+        const docsResponse = await axios.get('http://localhost:5000/api/documents-matiere', {
+          params: { matiereId },
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
 
-
-  const getFiliereName = async (filiereId) => {
-    try {
-      const response = await axios.get(`${API_URL}/filieres/${filiereId}`);
-      return response.data.nom;
-    } catch (error) {
-      console.error("Erreur récupération filière:", error);
-      return filiereId; // Fallback
-    }
-  };
-  
-  const getClassName = async (classeId) => {
-    try {
-      const response = await axios.get(`${API_URL}/classes/${classeId}`);
-      return response.data.nom;
-    } catch (error) {
-      console.error("Erreur récupération classe:", error);
-      return classeId; // Fallback
-    }
-  };
-
-  useEffect(() => {
-    const loadNames = async () => {
-      if (studentData?.filiere) {
-        const nomFiliere = await getFiliereName(studentData.filiere);
-        setFiliereName(nomFiliere);
-      }
-      if (studentData?.classe) {
-        const nomClasse = await getClassName(studentData.classe);
-        setClassName(nomClasse);
-      }
-    };
-    
-    loadNames();
-  }, [studentData?.filiere, studentData?.classe]);
-
-
-  const downloadFile = async (id, fileName) => {
-    try {
-      const token = localStorage.getItem('studentToken');
-      const response = await axios.get(`${API_URL}/documents/${id}/download`, {
-        responseType: 'blob',
-        headers: {
-          'Authorization':` Bearer ${token}`
+        if (docsResponse.data.success) {
+          setDocuments(docsResponse.data.documents.map(doc => ({
+            ...doc,
+            matiere: matiereNom,
+            size: doc.size_kb * 1024 // Convertir en bytes
+          })));
         }
+      }
+    } catch (error) {
+      console.error("Erreur chargement documents:", error);
+    }
+  };
+
+  const handleSubjectSelect = (matiere) => {
+    setSelectedSubject(matiere);
+    loadDocumentsForSubject(matiere);
+  };
+
+  const handleDrawerToggle = () => {
+    setMobileOpen(!mobileOpen);
+  };
+
+  const handleDownload = async (documentId, filename) => {
+    try {
+      const response = await axios.get(`http://localhost:5000/api/download-document/${documentId}`, {
+        headers: { 'Authorization': `Bearer ${token}` },
+        responseType: 'blob'
       });
 
       const url = window.URL.createObjectURL(new Blob([response.data]));
       const link = document.createElement('a');
       link.href = url;
-      link.setAttribute('download', fileName);
+      link.setAttribute('download', filename || `document-${documentId}`);
       document.body.appendChild(link);
       link.click();
       link.remove();
-
-      showNotification(`Téléchargement de "${fileName}" réussi`, 'success');
     } catch (error) {
-      showNotification("Erreur lors du téléchargement", 'error');
-      console.error("Erreur API:", error);
+      console.error("Erreur lors du téléchargement:", error);
     }
   };
 
-  const formatDate = (dateString) => {
-    return new Date(dateString).toLocaleDateString('fr-FR', {
-      day: 'numeric',
-      month: 'short',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
-  };
+  const filteredDocuments = documents.filter(doc => {
+    const matchesSubject = !selectedSubject || doc.matiere === selectedSubject;
+    const matchesSemester = !selectedSemester || doc.semestre === selectedSemester;
+    const matchesSearch = searchQuery 
+      ? (doc.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+         doc.description?.toLowerCase().includes(searchQuery.toLowerCase()))
+      : true;
+    return matchesSubject && matchesSemester && matchesSearch;
+  });
 
-  const getFileIcon = (type) => {
-    const icons = {
-      pdf: '📕',
-      doc: '📘',
-      docx: '📘',
-      ppt: '📊',
-      pptx: '📊',
-      xls: '📈',
-      xlsx: '📈',
-      txt: '📄'
-    };
-    const fileType = type?.split('/')[1] || '';
-    return icons[fileType] || '📁';
-  };
-
-  const handleSemesterChange = (semester) => {
-    setStudentData(prev => ({ ...prev, semestre: semester }));
-    setSelectedSubject('');
-  };
-  return (
-
-
-
-
-
-    <Box sx={{ 
-      p: { xs: 2, md: 4 },
-      maxWidth: '1400px',
-      margin: '0 auto',
-      backgroundColor: 'background.default',
-      minHeight: '100vh'
-    }}>
-      <Breadcrumbs aria-label="breadcrumb" sx={{ mb: 2 }}>
-        <Link underline="hover" color="inherit" href="/etudiantProfil">
-          <HomeIcon sx={{ mr: 0.5, fontSize: 20 }} />
-          Accueil
-        </Link>
-        <Typography color="text.primary">
-          Documents
-        </Typography>
-      </Breadcrumbs>
-
-      <Box sx={{ 
+  if (isLoading) {
+    return (
+      <Box sx={{
         display: 'flex',
-        justifyContent: 'space-between',
+        justifyContent: 'center',
         alignItems: 'center',
-        mb: 4,
-        flexDirection: { xs: 'column', md: 'row' },
-        gap: 2
+        height: '100vh'
       }}>
-        <Box sx={{ 
-          display: 'flex',
-          alignItems: 'center',
-          flex: 1,
-          width: '100%'
-        }}>
-          <Avatar sx={{ 
-            bgcolor: 'primary.main', 
-            width: 60, 
-            height: 60, 
-            mr: 2,
-            boxShadow: 2
-          }}>
-            <FolderIcon fontSize="large" />
-          </Avatar>
-          <Box>
-            <Typography variant="h5" sx={{ fontWeight: 600 }}>
-              Documents académiques
-            </Typography>
-            <Box sx={{ display: 'flex', alignItems: 'center', mt: 1, flexWrap: 'wrap', gap: 1 }}>
-            <Chip 
-  label={filiereName || studentData.filiere} 
-  color="primary" 
-/>
-<Chip 
-  label={className || studentData.classe} 
-  variant="outlined" 
-/>
-  <Chip 
-    label={`Semestre ${studentData.semestre}`} 
-    color="secondary" 
-    size="small" 
-    sx={{ fontWeight: 500 }} 
-  />
-</Box>
-          </Box>
-        </Box>
-
-        <Box sx={{ 
-          display: 'flex',
-          alignItems: 'center',
-          gap: 2
-        }}>
-          <SearchField>
-            <InputBase
-              placeholder="Rechercher un document..."
-              sx={{ ml: 1, flex: 1 }}
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
-            <IconButton type="submit" sx={{ p: '10px' }}>
-              <SearchIcon />
-            </IconButton>
-          </SearchField>
-
-          <Tooltip title={emailSubscribed ? "Désactiver les notifications" : "Activer les notifications"}>
-            <IconButton
-              color={emailSubscribed ? "primary" : "default"}
-              onClick={() => setEmailSubscribed(!emailSubscribed)}
-              sx={{ ml: 1 }}
-            >
-              {emailSubscribed ? <NotificationsActiveIcon /> : <NotificationsOffIcon />}
-            </IconButton>
-          </Tooltip>
-        </Box>
+        <CircularProgress size={60} />
       </Box>
+    );
+  }
 
-      <Box sx={{ 
-        display: 'flex',
-        flexDirection: { xs: 'column', lg: 'row' },
-        gap: 3,
-        mt: 2
+  return (
+    <Box sx={{
+      display: 'flex',
+      minHeight: '100vh',
+      background: 'linear-gradient(135deg, #f9f9ff 0%, #f0f2ff 100%)'
+    }}>
+      {/* Sidebar - Version desktop */}
+      <Paper sx={{
+        display: { xs: 'none', md: 'block' },
+        width: 320,
+        height: '100vh',
+        position: 'sticky',
+        top: 0,
+        borderRadius: 0,
+        borderRight: '1px solid rgba(0,0,0,0.05)',
+        p: 4,
+        background: 'rgba(255,255,255,0.7)',
+        backdropFilter: 'blur(12px)'
       }}>
-        <Box sx={{ 
-          width: { xs: '100%', lg: '300px' },
-          flexShrink: 0
+        <Box sx={{
+          display: 'flex',
+          alignItems: 'center',
+          mb: 4
         }}>
-          <Paper elevation={0} sx={{ 
-            p: 2, 
-            borderRadius: '12px',
-            backgroundColor: 'background.paper',
-            boxShadow: '0 2px 10px rgba(0,0,0,0.05)'
+          <Box sx={{
+            width: 40,
+            height: 40,
+            background: 'linear-gradient(45deg, #6557FF 0%, #8B7AFF 100%)',
+            borderRadius: '10px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            mr: 2,
+            color: 'white'
           }}>
-            <Box sx={{ 
-              display: 'flex', 
-              alignItems: 'center', 
-              justifyContent: 'space-between',
-              cursor: 'pointer'
-            }} onClick={() => setSemesterExpanded(!semesterExpanded)}>
-              <Typography variant="h6" sx={{ 
-                display: 'flex',
-                alignItems: 'center',
-                color: 'text.secondary'
-              }}>
-                <SchoolIcon sx={{ mr: 1, color: 'primary.main' }} />
-                Filtres
-              </Typography>
-              {semesterExpanded ? <ExpandLessIcon /> : <ExpandMoreIcon />}
-            </Box>
-            
-            <Collapse in={semesterExpanded}>
-              <Divider sx={{ my: 2 }} />
-              
-              <Box sx={{ mb: 2 }}>
-                <Typography variant="subtitle2" sx={{ mb: 1, color: 'text.secondary' }}>
-                  Sélectionnez un semestre
-                </Typography>
-                <Box sx={{ display: 'flex', gap: 1 }}>
-                  <Chip 
-                    label="Semestre 1" 
-                    onClick={() => handleSemesterChange('S1')}
-                    color={studentData.semestre === 'S1' ? 'primary' : 'default'}
-                    variant={studentData.semestre === 'S1' ? 'filled' : 'outlined'}
-                  />
-                  <Chip 
-                    label="Semestre 2" 
-                    onClick={() => handleSemesterChange('S2')}
-                    color={studentData.semestre === 'S2' ? 'primary' : 'default'}
-                    variant={studentData.semestre === 'S2' ? 'filled' : 'outlined'}
-                  />
-                </Box>
-              </Box>
-
-              <FormControl fullWidth sx={{ mt: 2 }}>
-  <InputLabel>Matières {studentData.semestre}</InputLabel>
-  <Select
-    value={selectedSubject}
-    onChange={(e) => setSelectedSubject(e.target.value)}
-    label={`Matières - ${studentData.semestre}`}
-    sx={{ borderRadius: '12px' }}
-  >
-    <MenuItem value="">
-      <em>Toutes les matières</em>
-    </MenuItem>
-    {matieres.length > 0 ? (
-      matieres.map((matiere) => (
-        <MenuItem key={matiere} value={matiere}>
-          {matiere}
-        </MenuItem>
-      ))
-    ) : (
-      <MenuItem disabled>
-        Aucune matière disponible
-      </MenuItem>
-    )}
-  </Select>
-</FormControl>
-            </Collapse>
-          </Paper>
+            <MenuBook fontSize="small" />
+          </Box>
+          <Typography variant="h5" fontWeight="bold" sx={{
+            background: 'linear-gradient(45deg, #6557FF 0%, #8B7AFF 100%)',
+            WebkitBackgroundClip: 'text',
+            WebkitTextFillColor: 'transparent'
+          }}>
+            Mes Cours
+          </Typography>
         </Box>
 
-        <Box sx={{ 
-          flex: 1,
-          backgroundColor: 'background.paper',
-          borderRadius: '12px',
-          p: 3,
-          boxShadow: '0 2px 10px rgba(0,0,0,0.05)'
-        }}>
-          <Box sx={{ 
-            display: 'flex', 
-            justifyContent: 'space-between', 
-            alignItems: 'center',
-            mb: 3
-          }}>
-            <Typography variant="h5" sx={{ 
-              fontWeight: 600,
-              color: 'text.primary',
-              display: 'flex',
-              alignItems: 'center'
-            }}>
-              <DescriptionIcon sx={{ mr: 1, color: 'primary.main' }} />
-              {selectedSubject 
-                ?` Documents - ${selectedSubject}` 
-                : `Tous les documents - Semestre ${studentData.semestre}`}
-            </Typography>
-            
-            <Typography variant="body2" color="text.secondary">
-              {filteredDocs.length} document{filteredDocs.length !== 1 ? 's' : ''} trouvé{filteredDocs.length !== 1 ? 's' : ''}
-            </Typography>
-          </Box>
+        <Divider sx={{
+          mb: 4,
+          borderColor: 'rgba(0,0,0,0.05)'
+        }} />
 
-          {isLoading ? (
-            <Box sx={{ 
-              display: 'flex', 
-              justifyContent: 'center', 
-              alignItems: 'center',
-              height: '300px'
+
+        {/* Sélecteur de semestre */}
+        <Box sx={{ mb: 4 }}>
+          <Typography variant="subtitle2" sx={{
+            mb: 2,
+            color: 'text.secondary',
+            fontWeight: 'medium',
+            letterSpacing: '0.5px',
+            fontSize: '0.75rem'
+          }}>
+            SEMESTRES
+          </Typography>
+          {Object.keys(studentInfo.semestres).length > 0 ? (
+            <Box sx={{
+              display: 'flex',
+              gap: 1,
+              background: 'rgba(101,87,255,0.05)',
+              p: 1,
+              borderRadius: '14px'
             }}>
-              <CircularProgress />
-            </Box>
-          ) : filteredDocs.length === 0 ? (
-            <Box sx={{ 
-              textAlign: 'center', 
-              mt: 6,
-              p: 4,
-              backgroundColor: 'action.hover',
-              borderRadius: '12px'
-            }}>
-              <Typography variant="h6" sx={{ color: 'text.secondary', mb: 1 }}>
-                {searchTerm || selectedSubject
-                  ? "Aucun document trouvé"
-                  : "Aucun document disponible pour ce semestre"}
-              </Typography>
-              <Typography variant="body2" sx={{ color: 'text.secondary' }}>
-                {searchTerm || selectedSubject
-                  ? "Modifiez vos critères de recherche"
-                  : "Revenez plus tard pour voir les nouveaux documents"}
-              </Typography>
-            </Box>
-          ) : (
-            <List sx={{ width: '100%' }}>
-              {filteredDocs.map((doc) => (
-                <DocumentCard
-                  key={doc.id}
+              {Object.keys(studentInfo.semestres).map(sem => (
+                <Button
+                  key={sem}
+                  fullWidth
+                  onClick={() => setSelectedSemester(sem)}
                   sx={{
-                    mb: 2,
-                    borderLeft: doc.isNew 
-                      ? '4px solid #4CAF50'
-                      : '4px solid transparent'
+                    borderRadius: '10px',
+                    py: 1.5,
+                    fontWeight: 'medium',
+                    fontSize: '0.875rem',
+                    background: selectedSemester === sem ?
+                      'linear-gradient(45deg, #6557FF 0%, #8B7AFF 100%)' : 'transparent',
+                    color: selectedSemester === sem ? '#fff' : 'text.primary',
+                    boxShadow: selectedSemester === sem ? '0 4px 12px rgba(101,87,255,0.3)' : 'none',
+                    '&:hover': {
+                      background: selectedSemester === sem ?
+                        'linear-gradient(45deg, #5949FF 0%, #7B6AFF 100%)' : 'rgba(101,87,255,0.08)'
+                    }
                   }}
                 >
-                  <ListItem sx={{ 
-                    py: 2,
-                    display: 'flex',
-                    alignItems: 'flex-start'
-                  }}>
-                    <Box sx={{ 
-                      fontSize: '2rem', 
-                      mr: 2,
-                      mt: 1,
-                      color: '#2196F3'
-                    }}>
-                      {getFileIcon(doc.file?.type)}
-                    </Box>
-
-                    <ListItemText
-                      primary={
-                        <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                          <Typography
-                            variant="h6"
-                            sx={{ 
-                              fontWeight: 600,
-                              color: 'text.primary'
-                            }}
-                          >
-                            {doc.title}
-                          </Typography>
-                          {doc.isNew && (
-                            <Chip 
-                              label="Nouveau" 
-                              color="success" 
-                              size="small" 
-                              sx={{ 
-                                ml: 1, 
-                                fontWeight: 500,
-                                backgroundColor: '#4CAF5020'
-                              }} 
-                            />
-                          )}
-                        </Box>
-                      }
-                      secondary={
-                        <>
-                          <Typography variant="body2" sx={{ 
-                            mt: 0.5,
-                            color: 'text.secondary'
-                          }}>
-                            {doc.description}
-                          </Typography>
-                          <Box sx={{ 
-                            display: 'flex', 
-                            alignItems: 'center',
-                            mt: 1.5,
-                            flexWrap: 'wrap',
-                            gap: 1
-                          }}>
-                            <Chip 
-                              label={doc.matiere} 
-                              size="small" 
-                              variant="outlined" 
-                              sx={{ 
-                                fontWeight: 500,
-                                backgroundColor: '#2196F320',
-                                borderColor: '#2196F350'
-                              }} 
-                            />
-                            <Chip 
-                              label={studentData.semestre} 
-                              size="small" 
-                              sx={{ 
-                                fontWeight: 500,
-                                backgroundColor: 'action.hover'
-                              }} 
-                            />
-                            <Typography variant="caption" sx={{ 
-                              color: 'text.disabled',
-                              ml: 'auto'
-                            }}>
-                              {formatDate(doc.createdAt)} • {(doc.file?.size / 1024).toFixed(1)} KB
-                            </Typography>
-                          </Box>
-                        </>
-                      }
-                      sx={{ flex: 1 }}
-                    />
-
-                    <Button
-                      variant="contained"
-                      color="primary"
-                      onClick={() => downloadFile(doc._id, doc.title)}
-                      startIcon={<DownloadIcon />}
-                      sx={{
-                        minWidth: '160px',
-                        borderRadius: '8px',
-                        boxShadow: 'none',
-                        textTransform: 'none',
-                        fontWeight: 500,
-                        px: 2,
-                        py: 1,
-                        '&:hover': {
-                          boxShadow: '0 2px 12px rgba(0,0,0,0.2)'
-                        }
-                      }}
-                    >
-                      Télécharger
-                    </Button>
-                  </ListItem>
-                </DocumentCard>
+                  Semestre {sem}
+                </Button>
               ))}
-            </List>
+            </Box>
+          ) : (
+            <Typography variant="body2" color="text.secondary">
+              Aucun semestre disponible
+            </Typography>
           )}
         </Box>
+
+        {/* Liste des matières */}
+        {selectedSemester && (
+          <>
+            <Typography variant="subtitle2" sx={{
+              mb: 2,
+              color: 'text.secondary',
+              fontWeight: 'medium',
+              letterSpacing: '0.5px',
+              fontSize: '0.75rem'
+            }}>
+              MATIÈRES ({selectedSemester})
+            </Typography>
+            <List dense sx={{ maxHeight: '55vh', overflowY: 'auto', pr: 1 }}>
+              <SubjectButton
+                selected={!selectedSubject}
+                onClick={() => {
+                  setSelectedSubject(null);
+                  setDocuments([]);
+                }}
+                sx={{ mb: 1 }}
+              >
+                <ListItemText
+                  primary="Toutes les matières"
+                  primaryTypographyProps={{
+                    fontWeight: 'medium',
+                    fontSize: '0.9rem'
+                  }}
+                />
+              </SubjectButton>
+
+              {studentInfo.semestres[selectedSemester]?.map((matiere) => (
+                <motion.div
+                  key={matiere}
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                >
+                  <SubjectButton
+                    selected={selectedSubject === matiere}
+                    onClick={() => handleSubjectSelect(matiere)}
+                  >
+                    <Avatar sx={{
+                      width: 32,
+                      height: 32,
+                      mr: 2,
+                      bgcolor: selectedSubject === matiere ? '#6557FF' : 'rgba(101,87,255,0.1)',
+                      color: selectedSubject === matiere ? '#fff' : '#6557FF',
+                      fontSize: '0.9rem',
+                      fontWeight: 'bold'
+                    }}>
+                      {matiere.charAt(0)}
+                    </Avatar>
+                    <ListItemText
+                      primary={matiere}
+                      primaryTypographyProps={{
+                        fontWeight: selectedSubject === matiere ? 'bold' : 'medium',
+                        fontSize: '0.9rem'
+                      }}
+                    />
+                    {selectedSubject === matiere && (
+                      <Box sx={{
+                        width: 8,
+                        height: 8,
+                        borderRadius: '50%',
+                        background: '#6557FF',
+                        ml: 1
+                      }} />
+                    )}
+                  </SubjectButton>
+                </motion.div>
+              ))}
+            </List>
+          </>
+        )}
+      </Paper>
+
+      {/* Main content */}
+      <Box sx={{
+        flexGrow: 1,
+        p: { xs: 3, md: 5 },
+        maxWidth: { md: 'calc(100% - 320px)' }
+      }}>
+        {/* Header */}
+        <Box sx={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          mb: 5
+        }}>
+          <Box sx={{ display: 'flex', alignItems: 'center' }}>
+            <IconButton
+              onClick={() => navigate(-1)}
+              sx={{
+                mr: 2,
+                background: 'rgba(101,87,255,0.1)',
+                color: '#6557FF',
+                '&:hover': {
+                  background: 'rgba(101,87,255,0.2)'
+                }
+              }}
+            >
+              <ChevronLeft />
+            </IconButton>
+
+            <Box>
+              <Typography variant="body2" sx={{
+                color: '#6557FF',
+                fontWeight: 'bold',
+                mb: 0.5
+              }}>
+                {studentInfo.filiere || 'Filière non spécifiée'}
+              </Typography>
+              <Typography variant="h4" sx={{
+                fontWeight: 'bold',
+                background: 'linear-gradient(45deg, #6557FF 0%, #8B7AFF 100%)',
+                WebkitBackgroundClip: 'text',
+                WebkitTextFillColor: 'transparent'
+              }}>
+                {studentInfo.classe || 'Classe non spécifiée'}
+              </Typography>
+            </Box>
+          </Box>
+
+          {selectedSemester && (
+            <Chip
+              icon={<CalendarMonth fontSize="small" sx={{ color: '#6557FF' }} />}
+              label={`Semestre ${selectedSemester}`}
+              sx={{
+                fontWeight: 'bold',
+                background: 'rgba(101,87,255,0.1)',
+                color: '#6557FF'
+              }}
+            />
+          )}
+        </Box>
+
+        {/* Search and filter */}
+        <Box sx={{
+          display: 'flex',
+          gap: 2,
+          mb: 5,
+          flexDirection: { xs: 'column', sm: 'row' }
+        }}>
+          <Paper
+            component="form"
+            sx={{
+              p: '2px 4px',
+              display: 'flex',
+              alignItems: 'center',
+              flexGrow: 1,
+              borderRadius: '14px',
+              background: 'rgba(255,255,255,0.7)',
+              backdropFilter: 'blur(8px)',
+              border: '1px solid rgba(0,0,0,0.05)',
+              boxShadow: '0 4px 20px rgba(0,0,0,0.05)'
+            }}
+          >
+            <IconButton sx={{ p: '10px', color: 'text.secondary' }} aria-label="search">
+              <Search />
+            </IconButton>
+            <InputBase
+              sx={{ ml: 1, flex: 1, fontSize: '0.9rem' }}
+              placeholder="Rechercher un document..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
+          </Paper>
+
+          <Button
+            variant="outlined"
+            startIcon={<FilterAlt />}
+            onClick={handleDrawerToggle}
+            sx={{
+              borderRadius: '14px',
+              fontWeight: 'bold',
+              minWidth: '120px',
+              color: '#6557FF',
+              borderColor: 'rgba(101,87,255,0.3)',
+              '&:hover': {
+                borderColor: '#6557FF',
+                background: 'rgba(101,87,255,0.05)'
+              }
+            }}
+          >
+            Filtres
+          </Button>
+        </Box>
+
+        {/* Content title */}
+        <Box sx={{ mb: 4 }}>
+          <Typography variant="h5" sx={{
+            fontWeight: 'bold',
+            mb: 1
+          }}>
+            {selectedSubject || 'Tous les documents'}
+          </Typography>
+          <Typography variant="body2" sx={{
+            color: 'text.secondary',
+            display: 'flex',
+            alignItems: 'center'
+          }}>
+            <Box component="span" sx={{
+              width: 6,
+              height: 6,
+              background: '#6557FF',
+              borderRadius: '50%',
+              mr: 1
+            }} />
+            {filteredDocuments.length} document{filteredDocuments.length !== 1 ? 's' : ''} disponible{filteredDocuments.length !== 1 ? 's' : ''}
+          </Typography>
+        </Box>
+
+        {/* Documents grid */}
+        {filteredDocuments.length === 0 ? (
+          <Grow in={true}>
+            <GlassPaper sx={{
+              p: 5,
+              textAlign: 'center'
+            }}>
+              <Box sx={{
+                width: 80,
+                height: 80,
+                background: 'rgba(101,87,255,0.1)',
+                borderRadius: '50%',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                mb: 3,
+                mx: 'auto'
+              }}>
+                <Description sx={{ fontSize: 40, color: '#6557FF' }} />
+              </Box>
+              <Typography variant="h6" sx={{ mb: 1, fontWeight: 'bold' }}>
+                Aucun document trouvé
+              </Typography>
+              <Typography color="text.secondary" sx={{ maxWidth: 400, mx: 'auto' }}>
+                {selectedSubject
+                  ? `Aucun document disponible pour "${selectedSubject}" ce semestre`
+                  : 'Aucun document disponible pour cette sélection'}
+              </Typography>
+            </GlassPaper>
+          </Grow>
+        ) : (
+          <Grid container spacing={3}>
+            {filteredDocuments.map((doc, index) => (
+              <Grid item xs={12} sm={6} lg={4} key={doc.id}>
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: index * 0.1 }}
+                >
+                  <GlassPaper>
+                    <Box sx={{
+                      p: 3,
+                      borderBottom: '1px solid',
+                      borderColor: 'divider'
+                    }}>
+                      <Box sx={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        mb: 2
+                      }}>
+                        <Avatar sx={{
+                          bgcolor: 'rgba(101,87,255,0.1)',
+                          color: '#6557FF',
+                          mr: 2,
+                          width: 48,
+                          height: 48,
+                          fontSize: '1.2rem',
+                          fontWeight: 'bold'
+                        }}>
+                          {doc.matiere.charAt(0)}
+                        </Avatar>
+                        <Box>
+                          <Typography variant="subtitle1" fontWeight="bold">
+                            {doc.matiere}
+                          </Typography>
+                          <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.75rem' }}>
+                            {new Date(doc.date).toLocaleDateString()} • {formatFileSize(doc.size)}
+                          </Typography>
+                        </Box>
+                      </Box>
+
+                      <Typography variant="h6" sx={{
+                        mb: 1,
+                        fontWeight: 'bold',
+                        lineHeight: 1.3
+                      }}>
+                        {doc.title}
+                      </Typography>
+                      <Typography variant="body2" color="text.secondary" sx={{
+                        mb: 2,
+                        fontSize: '0.85rem'
+                      }}>
+                        {doc.description}
+                      </Typography>
+
+                      <Box sx={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between'
+                      }}>
+                        <Chip
+                          label={doc.type.toUpperCase()}
+                          size="small"
+                          sx={{
+                            background: 'rgba(101,87,255,0.1)',
+                            color: '#6557FF',
+                            fontWeight: 'bold',
+                            fontSize: '0.65rem',
+                            height: 20
+                          }}
+                        />
+                        {!doc.viewed && (
+                          <Box sx={{
+                            width: 8,
+                            height: 8,
+                            borderRadius: '50%',
+                            background: '#FF5252',
+                            ml: 1
+                          }} />
+                        )}
+                      </Box>
+                    </Box>
+
+                    <Box sx={{
+                      p: 2,
+                      display: 'flex',
+                      justifyContent: 'flex-end'
+                    }}>
+                      <GradientButton
+                        startIcon={<Download />}
+                        size="small"
+                        onClick={() => handleDownload(doc.id, doc.nom_fichier)}
+                      >
+                        Télécharger
+                      </GradientButton>
+                    </Box>
+                  </GlassPaper>
+                </motion.div>
+              </Grid>
+            ))}
+          </Grid>
+        )}
       </Box>
 
-      <Snackbar
-        open={snackbar.open}
-        autoHideDuration={4000}
-        onClose={() => setSnackbar({ ...snackbar, open: false })}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
-      >
-        <Alert
-          onClose={() => setSnackbar({ ...snackbar, open: false })}
-          severity={snackbar.severity}
-          sx={{ 
-            width: '100%',
-            boxShadow: 3,
-            borderRadius: '8px',
-            alignItems: 'center'
-          }}
-          variant="filled"
-        >
-          {snackbar.message}
-        </Alert>
-      </Snackbar>
+      {/* Mobile sidebar */}
+      <Slide direction="right" in={mobileOpen} mountOnEnter unmountOnExit>
+        <Paper sx={{
+          width: 280,
+          height: '100vh',
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          zIndex: 1200,
+          p: 3,
+          background: 'rgba(255,255,255,0.95)',
+          backdropFilter: 'blur(12px)'
+        }}>
+         <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 1 }}>
+            <IconButton onClick={handleDrawerToggle}>
+              <ChevronLeft />
+            </IconButton>
+          </Box>
+
+          <Box sx={{ mb: 3 }}>
+            <Typography variant="subtitle2" sx={{
+              mb: 2,
+              color: 'text.secondary',
+              fontWeight: 'medium',
+              letterSpacing: '0.5px',
+              fontSize: '0.75rem'
+            }}>
+              SEMESTRES
+            </Typography>
+            {availableSemesters.length > 0 ? (
+              <Box sx={{
+                display: 'flex',
+                gap: 1,
+                background: 'rgba(101,87,255,0.05)',
+                p: 1,
+                borderRadius: '14px'
+              }}>
+                {availableSemesters.map(sem => (
+                  <Button
+                    key={sem}
+                    fullWidth
+                    onClick={() => {
+                      setSelectedSemester(sem);
+                      setMobileOpen(false);
+                    }}
+                    sx={{
+                      borderRadius: '10px',
+                      py: 1.5,
+                      fontWeight: 'medium',
+                      fontSize: '0.875rem',
+                      background: selectedSemester === sem ?
+                        'linear-gradient(45deg, #6557FF 0%, #8B7AFF 100%)' : 'transparent',
+                      color: selectedSemester === sem ? '#fff' : 'text.primary',
+                      boxShadow: selectedSemester === sem ? '0 4px 12px rgba(101,87,255,0.3)' : 'none',
+                      '&:hover': {
+                        background: selectedSemester === sem ?
+                          'linear-gradient(45deg, #5949FF 0%, #7B6AFF 100%)' : 'rgba(101,87,255,0.08)'
+                      }
+                    }}
+                  >
+                    Semestre {sem}
+                  </Button>
+                ))}
+              </Box>
+            ) : (
+              <Typography variant="body2" color="text.secondary">
+                Aucun semestre disponible
+              </Typography>
+            )}
+          </Box>
+
+          {selectedSemester && (
+            <>
+              <Typography variant="subtitle2" sx={{
+                mb: 2,
+                color: 'text.secondary',
+                fontWeight: 'medium',
+                letterSpacing: '0.5px',
+                fontSize: '0.75rem'
+              }}>
+                MATIÈRES ({selectedSemester})
+              </Typography>
+              <List dense sx={{ maxHeight: '70vh', overflowY: 'auto', pr: 1 }}>
+                <SubjectButton
+                  selected={!selectedSubject}
+                  onClick={() => {
+                    setSelectedSubject(null);
+                    setMobileOpen(false);
+                  }}
+                  sx={{ mb: 1 }}
+                >
+                  <ListItemText
+                    primary="Toutes les matières"
+                    primaryTypographyProps={{
+                      fontWeight: 'medium',
+                      fontSize: '0.9rem'
+                    }}
+                  />
+                </SubjectButton>
+
+                {subjectsForSemester.map((matiere) => (
+                  <motion.div
+                    key={matiere}
+                    whileTap={{ scale: 0.98 }}
+                  >
+                    <SubjectButton
+                      selected={selectedSubject === matiere}
+                      onClick={() => {
+                        setSelectedSubject(matiere);
+                        setMobileOpen(false);
+                      }}
+                    >
+                      <Avatar sx={{
+                        width: 32,
+                        height: 32,
+                        mr: 2,
+                        bgcolor: selectedSubject === matiere ? '#6557FF' : 'rgba(101,87,255,0.1)',
+                        color: selectedSubject === matiere ? '#fff' : '#6557FF',
+                        fontSize: '0.9rem',
+                        fontWeight: 'bold'
+                      }}>
+                        {matiere.charAt(0)}
+                      </Avatar>
+                      <ListItemText
+                        primary={matiere}
+                        primaryTypographyProps={{
+                          fontWeight: selectedSubject === matiere ? 'bold' : 'medium',
+                          fontSize: '0.9rem'
+                        }}
+                      />
+                      {selectedSubject === matiere && (
+                        <Box sx={{
+                          width: 8,
+                          height: 8,
+                          borderRadius: '50%',
+                          background: '#6557FF',
+                          ml: 1
+                        }} />
+                      )}
+                    </SubjectButton>
+                  </motion.div>
+                ))}
+              </List>
+            </>
+          )}
+        </Paper>
+      </Slide>
     </Box>
-    
   );
-    }
+};
+
 export default StudentDoc;
