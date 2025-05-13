@@ -5,6 +5,7 @@ import bcrypt from "bcryptjs";
 import cookieParser from "cookie-parser";
 import jwt from 'jsonwebtoken';
 import bodyParser from 'body-parser';
+import axios from 'axios'; 
 
 const app = express();
 const router = express.Router();
@@ -63,17 +64,19 @@ const pool = mysql.createPool({
   queueLimit: 0,
 }).promise();
 
-const Filière = [
-  "Licence en Sciences Biologiques et Environnementales",
-  "Licence en Sciences de l'informatique : Génie logiciel et systèmes d'information",
-  "Licence en Sciences : Physique-Chimie",
-  "Licence en Sciences de Mathématique",
-  "Licence en Technologie de l'information et de la communication",
-  "Licence en Industries Agroalimentaires et Impacts Environnementaux",
-  "Master Recherche en Ecophysiologie et Adaptation Végétal",
-  "Master de Recherche Informatique décisionnelle",
-  "Master recherche Physique et Chimie des Matériaux de Hautes Performances",
-];
+// Utilisez une URL absolue en développement
+const API_URL = process.env.NODE_ENV === 'development' 
+  ? 'http://localhost:3000S/api' 
+  : '/api';
+
+// Exemple d'appel corrigé
+axios.get(`${API_URL}/filieres`)
+  .then(response => console.log(response.data))
+  .catch(error => {
+    if (error.code === 'ECONNREFUSED') {
+      console.error('Serveur inaccessible - Vérifiez que le backend est démarré');
+    }
+  });
 
 // Route pour la connexion admin
 app.post("/admin/login", async (req, res) => {
@@ -637,23 +640,253 @@ app.get("/api/enseignants", authenticateTeacher, async (req, res) => {
 
 
 
-// Configuration du stockage
+// Configuration du stockage pour les emplois du temps
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
-    cb(null, 'uploads/profiles/');
+    cb(null, path.join(__dirname, "uploads", "emplois"));
   },
   filename: (req, file, cb) => {
-    const token = req.headers.authorization?.split(' ')[1];
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    const ext = path.extname(file.originalname);
-    cb(null, `teacher_${decoded.cin}${ext}`);
+    const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
+    cb(null, `emploi-${uniqueSuffix}${path.extname(file.originalname)}`);
+  },
+});
+
+const upload = multer({
+  storage: storage,
+  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB
+  fileFilter: (req, file, cb) => {
+    const allowedTypes = ["application/pdf", "application/vnd.ms-excel", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"];
+    if (allowedTypes.includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error("Seuls les fichiers PDF et Excel sont autorisés"));
+    }
+  },
+});
+
+// Créer le répertoire de téléchargement s'il n'existe pas
+import fs from "fs";
+const uploadDir = path.join(__dirname, "uploads", "emplois");
+if (!fs.existsSync(uploadDir)) {
+  fs.mkdirSync(uploadDir, { recursive: true });
+}
+
+// Routes pour les emplois du temps
+
+// Ajouter un nouvel emploi du temps
+app.post("/api/emplois", upload.single("fichier"), async (req, res) => {
+  try {
+    const { filiere_id, classe_id, semestre_id, type } = req.body;
+    const fichier_path = req.file ? `/uploads/emplois/${req.file.filename}` : null;
+
+    // Validation des données
+    if (!filiere_id || !classe_id || !semestre_id || !type || !fichier_path) {
+      return res.status(400).json({
+        success: false,
+        message: "Tous les champs sont obligatoires",
+      });
+    }
+
+    // Insérer dans la base de données
+    const [result] = await pool.query(
+      "INSERT INTO emplois_du_temps (filiere_id, classe_id, semestre_id, type, fichier_path) VALUES (?, ?, ?, ?, ?)",
+      [filiere_id, classe_id, semestre_id, type, fichier_path]
+    );
+
+    res.status(201).json({
+      success: true,
+      data: {
+        id: result.insertId,
+        filiere_id,
+        classe_id,
+        semestre_id,
+        type,
+        fichier_path,
+      },
+    });
+  } catch (error) {
+    console.error("Erreur lors de l'ajout de l'emploi du temps:", error);
+    res.status(500).json({
+      success: false,
+      message: "Erreur serveur",
+    });
   }
 });
 
-const upload = multer({ 
-  storage: storage,
-  limits: { fileSize: 5 * 1024 * 1024 } // 5MB
+// Récupérer tous les emplois du temps
+app.get("/api/emplois/classe/:classeNom", async (req, res) => {
+  try {
+    const { classeNom } = req.params;
+    
+    const [emplois] = await pool.query(`
+      SELECT e.*, f.nom AS filiere_nom, c.nom AS classe_nom
+      FROM emplois_du_temps e
+      JOIN classes c ON e.classe_id = c.id
+      JOIN filieres f ON e.filiere_id = f.id
+      WHERE e.published = TRUE AND c.nom = ?
+      ORDER BY e.created_at DESC
+      LIMIT 1
+    `, [classeNom]);
+
+    if (emplois.length === 0) {
+      return res.json({ 
+        success: true,
+        data: [] 
+      });
+    }
+
+    res.json({
+      success: true,
+      data: emplois
+    });
+  } catch (error) {
+    console.error("Erreur:", error);
+    res.status(500).json({
+      success: false,
+      message: "Erreur serveur"
+    });
+  }
 });
+
+
+// Publier un emploi du temps
+// Publier un emploi du temps
+// Route PUT pour publier un emploi du temps
+app.put("/api/emplois/:id/publish", async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    // Seulement mettre à jour le statut published
+    const [result] = await pool.query(
+      "UPDATE emplois_du_temps SET published = TRUE WHERE id = ?",
+      [id]
+    );
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "Emploi du temps non trouvé"
+      });
+    }
+
+    res.json({
+      success: true,
+      message: "Emploi du temps publié avec succès"
+    });
+  } catch (error) {
+    console.error("Erreur lors de la publication:", error);
+    res.status(500).json({
+      success: false,
+      message: "Erreur serveur"
+    });
+  }
+});
+
+// Télécharger un emploi du temps
+app.get("/api/emplois/:id/download", async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const [emploi] = await pool.query(
+      "SELECT fichier_path FROM emplois_du_temps WHERE id = ?",
+      [id]
+    );
+
+    if (emploi.length === 0 || !emploi[0].fichier_path) {
+      return res.status(404).json({
+        success: false,
+        message: "Fichier non trouvé",
+      });
+    }
+
+    const filePath = path.join(__dirname, emploi[0].fichier_path);
+    if (!fs.existsSync(filePath)) {
+      return res.status(404).json({
+        success: false,
+        message: "Fichier non trouvé sur le serveur",
+      });
+    }
+
+    res.download(filePath);
+  } catch (error) {
+    console.error("Erreur lors du téléchargement:", error);
+    res.status(500).json({
+      success: false,
+      message: "Erreur serveur",
+    });
+  }
+});
+
+// Routes pour les données de référence
+app.get("/api/filieres", async (req, res) => {
+  try {
+    const [filieres] = await pool.query("SELECT * FROM filieres ORDER BY nom");
+    res.json({
+      success: true,
+      data: filieres,
+    });
+  } catch (error) {
+    console.error("Erreur:", error);
+    res.status(500).json({
+      success: false,
+      message: "Erreur serveur",
+    });
+  }
+});
+
+app.get("/api/classes", async (req, res) => {
+  try {
+    const [classes] = await pool.query("SELECT * FROM classes ORDER BY nom");
+    res.json({
+      success: true,
+      data: classes,
+    });
+  } catch (error) {
+    console.error("Erreur:", error);
+    res.status(500).json({
+      success: false,
+      message: "Erreur serveur",
+    });
+  }
+});
+
+app.get("/api/semestres", async (req, res) => {
+  try {
+    const [semestres] = await pool.query("SELECT * FROM semestres ORDER BY numero");
+    res.json({
+      success: true,
+      data: semestres,
+    });
+  } catch (error) {
+    console.error("Erreur:", error);
+    res.status(500).json({
+      success: false,
+      message: "Erreur serveur",
+    });
+  }
+});
+
+// Middleware pour servir les fichiers uploadés
+app.use("/uploads", express.static(uploadDir));
+
+// Middleware pour les erreurs
+app.use((err, req, res, next) => {
+  console.error(err.stack);
+
+  if (err instanceof multer.MulterError) {
+    return res.status(400).json({
+      success: false,
+      message: err.message,
+    });
+  }
+
+  res.status(500).json({
+    success: false,
+    message: "Erreur serveur",
+    error: process.env.NODE_ENV === "development" ? err.message : undefined,
+  });
+});
+
 
 // Route pour l'emploi du temps de l'étudiant
 app.get("/api/etudiant/:cin/emploi-du-temps", async (req, res) => {
@@ -994,22 +1227,14 @@ app.post('/api/classes', async (req, res) => {
 app.get('/api/classes', async (req, res) => {
   try {
     const [classes] = await pool.query(`
-      SELECT c.id, c.nom, f.nom AS filiere 
+      SELECT c.id, c.nom, f.nom as filiere_nom, f.id as filiere_id 
       FROM classes c
-      LEFT JOIN filieres f ON c.filiere_id = f.id
+      JOIN filieres f ON c.filiere_id = f.id
     `);
-    
-    res.json({ 
-      success: true,
-      data: classes 
-    });
-
-  } catch (error) {
-    console.error('Erreur:', error);
-    res.status(500).json({ 
-      success: false,
-      error: 'Erreur serveur' 
-    });
+    res.json(classes);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Erreur serveur' });
   }
 });
 
@@ -1083,6 +1308,22 @@ app.delete('/api/classes/:id', async (req, res) => {
 });
 
 
+// Récupérer les classes d'une filière spécifique
+app.get('/api/filieres/:filiereId/classes', async (req, res) => {
+  try {
+    const [classes] = await pool.query(
+      'SELECT * FROM classes WHERE filiere_id = ?',
+      [req.params.filiereId]
+    );
+    res.json(classes);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Erreur serveur' });
+  }
+});
+
+
+
 ///semestres
 // Route POST pour créer un semestre
 // Route POST pour créer un semestre
@@ -1144,28 +1385,37 @@ app.post('/api/semestres', async (req, res) => {
 });
 
 
-// Route GET pour récupérer tous les semestres
+// Récupérer tous les semestres avec leur classe
 app.get('/api/semestres', async (req, res) => {
   try {
     const [semestres] = await pool.query(`
-      SELECT s.id, s.numero, c.nom AS classe 
+      SELECT s.id, s.numero, c.nom as classe_nom, c.id as classe_id
       FROM semestres s
-      LEFT JOIN classes c ON s.classe_id = c.id
+      JOIN classes c ON s.classe_id = c.id
     `);
-    
-    res.json({
-      success: true,
-      data: semestres
-    });
-
-  } catch (error) {
-    console.error('Erreur:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Erreur serveur'
-    });
+    res.json(semestres);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Erreur serveur' });
   }
 });
+
+// Récupérer les semestres d'une classe spécifique
+app.get('/api/classes/:classeId/semestres', async (req, res) => {
+  try {
+    const [semestres] = await pool.query(
+      'SELECT * FROM semestres WHERE classe_id = ?',
+      [req.params.classeId]
+    );
+    res.json(semestres);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Erreur serveur' });
+  }
+});
+
+
+
 
 // Route DELETE pour supprimer un semestre
 // Route DELETE pour supprimer un semestre
@@ -1632,6 +1882,27 @@ function authenticateStudent(req, res, next) {
 }
 
 
+// Configuration du modèle Emploi
+const getEmplois = async () => {
+  try {
+    const [emplois] = await pool.query(`
+      SELECT e.*, 
+             f.nom AS filiere_nom,
+             c.nom AS classe_nom,
+             s.numero AS semestre_numero
+      FROM emplois_du_temps e
+      LEFT JOIN filieres f ON e.filiere_id = f.id
+      LEFT JOIN classes c ON e.classe_id = c.id
+      LEFT JOIN semestres s ON e.semestre_id = s.id
+    `);
+    return emplois;
+  } catch (err) {
+    console.error('Erreur récupération emplois:', err);
+    throw err;
+  }
+};
+
+
 // Route pour les documents par matière
 app.get('/api/documents-matiere', authenticateStudent, async (req, res) => {
   try {
@@ -1744,6 +2015,101 @@ app.get('/api/cours-etudiant', authenticateStudent, async (req, res) => {
     });
   }
 });
+
+
+// GET /api/filieres
+router.get('/filieres', async (req, res) => {
+  try {
+    const [filieres] = await connection.query('SELECT * FROM filieres');
+    res.json(filieres);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+// GET /api/classes
+router.get('/classes', async (req, res) => {$
+  try {
+    const [classes] = await connection.query('SELECT * FROM classes');
+    res.json(classes);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+// GET /api/semestres
+router.get('/semestres', async (req, res) => {
+  try {
+    const [semestres] = await connection.query('SELECT * FROM semestres');
+    res.json(semestres);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+
+app.get('/api/filieres', async (req, res) => {
+  try {
+    const result = await pool.query('SELECT * FROM filiere');
+    res.json(result.rows);
+  } catch (err) {
+    console.error(err);
+    res.status(500).send('Erreur serveur');
+  }
+});
+router.get('/filieres/:filiereId/classes', async (req, res) => {
+  try {
+    const classes = await db.query(
+      'SELECT * FROM classes WHERE filiere_id = $1', 
+      [req.params.filiereId]
+    );
+    res.json(classes.rows);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Exemple correct dans une route
+app.get('/api/test-filieres', async (req, res) => {
+  try {
+    const response = await axios.get('http://localhost:3001/api/filieres');
+    res.json(response.data);
+  } catch (error) {
+    console.error('Erreur Axios:', error);
+    res.status(500).send('Erreur serveur');
+  }
+});
+
+
+// Récupérer les emplois publiés pour une classe spécifique
+app.get("/api/emplois/classe/:classeNom", async (req, res) => {
+  try {
+    const { classeNom } = req.params;
+    
+    const [emplois] = await pool.query(`
+      SELECT e.*, 
+             f.nom AS filiere_nom,
+             c.nom AS classe_nom,
+             s.numero AS semestre_numero
+      FROM emplois_du_temps e
+      LEFT JOIN filieres f ON e.filiere_id = f.id
+      LEFT JOIN classes c ON e.classe_id = c.id
+      LEFT JOIN semestres s ON e.semestre_id = s.id
+      WHERE e.published = TRUE AND c.nom = ?
+      ORDER BY e.created_at DESC
+    `, [classeNom]);
+
+    res.json({
+      success: true,
+      data: emplois,
+    });
+  } catch (error) {
+    console.error("Erreur:", error);
+    res.status(500).json({
+      success: false,
+      message: "Erreur serveur",
+    });
+  }
+});
+
 
 // Protégez vos routes
 app.get("/api/protected-route", authenticateTeacher, (req, res) => {

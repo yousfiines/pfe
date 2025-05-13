@@ -3,13 +3,14 @@ import { useNavigate } from "react-router-dom";
 import axios from 'axios';
 import { 
   FaCalendarAlt, FaClock, FaTicketAlt, FaMapMarkerAlt, 
-  FaUser, FaClipboardList, FaSignOutAlt, FaBookOpen 
+  FaUser, FaClipboardList, FaSignOutAlt, FaBookOpen
 } from "react-icons/fa";
 import { MdLocationOn } from "react-icons/md";
 import { motion } from 'framer-motion';
 import styled, { keyframes } from 'styled-components';
-
-// Styles (conservés identiques)
+import Typography from '@mui/material/Typography';
+import Button from '@mui/material/Button';  
+import { MdGetApp } from "react-icons/md";
 const fadeIn = keyframes`
   from { opacity: 0; transform: translateY(20px); }
   to { opacity: 1; transform: translateY(0); }
@@ -441,7 +442,7 @@ const EtudiantProfil = () => {
   const [events, setEvents] = useState([]);
   const [filiereData, setFiliereData] = useState({});
   const [classeData, setClasseData] = useState({});
-
+  const [emploiDuTemps, setEmploiDuTemps] = useState([]);
   
 
   // Fonction pour charger les données des filières et classes
@@ -464,6 +465,30 @@ const EtudiantProfil = () => {
       console.error("Erreur chargement données référence:", error);
     }
   };
+
+
+  const fetchEmploiDuTemps = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await axios.get(
+        `http://localhost:3001/api/emplois/classe/${studentData.profile.classeNom}`,
+        { headers: { 'Authorization': `Bearer ${token}` } }
+      );
+      
+      if (response.data.success) {
+        // Filtrer seulement les emplois publiés
+        const publishedEmplois = response.data.data.filter(emploi => emploi.published);
+        setEmploiDuTemps(publishedEmplois);
+      }
+    } catch (error) {
+      console.error("Erreur chargement emploi du temps:", error);
+    }
+  };
+
+  
+  if (studentData?.profile?.classeNom) {
+    fetchEmploiDuTemps();
+  }
 
   useEffect(() => {
     const fetchData = async () => {
@@ -644,50 +669,37 @@ const EtudiantProfil = () => {
   </Section>
 )}
 
-        {activeSection === 'schedule' && (
-          <Section>
-            <SectionTitle>Votre emploi du temps</SectionTitle>
-            <ScheduleTable>
-              <thead>
-                <tr>
-                  <th>Jour</th>
-                  <th>08:30-10:00</th>
-                  <th>10:10-11:40</th>
-                  <th>13:30-15:00</th>
-                  <th>15:10-16:40</th>
-                  <th>16:50-18:20</th>
-                </tr>
-              </thead>
-              <tbody>
-                {['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi'].map((jour) => (
-                  <tr key={jour}>
-                    <td>{jour}</td>
-                    {['08:30-10:00', '10:10-11:40', '13:30-15:00', '15:10-16:40', '16:50-18:20'].map((horaire) => {
-                      const cours = studentData.schedule.find(
-                        (c) => c.jour === jour && c.heure === horaire
-                      );
-                      return (
-                        <td key={`${jour}-${horaire}`}>
-                          {cours ? (
-                            <div style={{ display: 'flex', flexDirection: 'column' }}>
-                              <span style={{ fontWeight: 'bold', marginBottom: '4px' }}>{cours.matiere}</span>
-                              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                                <span style={{ fontSize: '0.8rem', color: '#555' }}>{cours.professeur}</span>
-                                <span style={{ fontSize: '0.7rem', color: '#777', fontStyle: 'italic' }}>{cours.salle}</span>
-                              </div>
-                            </div>
-                          ) : (
-                            '-'
-                          )}
-                        </td>
-                      );
-                    })}
-                  </tr>
-                ))}
-              </tbody>
-            </ScheduleTable>
-          </Section>
-        )}
+{activeSection === 'schedule' && (
+  <Section>
+    <SectionTitle>Votre emploi du temps</SectionTitle>
+    {emploiDuTemps.length > 0 ? (
+      <div>
+        <Typography variant="body1" gutterBottom>
+          Filière: {emploiDuTemps[0].filiere_nom} - Classe: {emploiDuTemps[0].classe_nom}
+        </Typography>
+        <Button 
+          variant="contained" 
+          color="primary" 
+          startIcon={<MdGetApp />}
+          href={`http://localhost:3001${emploiDuTemps[0].fichier_path}`}
+          target="_blank"
+          style={{ marginBottom: '1rem' }}
+        >
+          Télécharger l'emploi du temps
+        </Button>
+        <iframe 
+          src={`http://localhost:3001${emploiDuTemps[0].fichier_path}`} 
+          width="100%" 
+          height="600px"
+          style={{ border: 'none' }}
+          title="Emploi du temps"
+        />
+      </div>
+    ) : (
+      <Typography variant="body1">Aucun emploi du temps publié pour votre classe.</Typography>
+    )}
+  </Section>
+)}
 
         {activeSection === 'exams' && (
           <Section>

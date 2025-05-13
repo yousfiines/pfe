@@ -24,7 +24,9 @@ import {
   AccountTree,
   Class as ClassIcon,          // Icône pour Classe
   DateRange as SemesterIcon,   // Icône pour Semestre
-  MenuBook as SubjectIcon
+  MenuBook as SubjectIcon,
+  CalendarToday as CalendarTodayIcon,
+  EventNote as EventNoteIcon
 } from '@mui/icons-material';
 
 const drawerWidth = 240;
@@ -44,8 +46,10 @@ const AdminLayout = ({ children }) => {
     { text: 'Semestre', icon: <SemesterIcon />, path: '/admin/semestre' },
     { text: 'Matière', icon: <SubjectIcon />, path: '/admin/matière' },
 
-  ];
-  
+  { text: 'Emploi', icon: <CalendarTodayIcon />, path: '/admin/schedules' },
+  { text: 'Calendrier ', icon: <EventNoteIcon />, path: '/admin/exam-calendar' },
+];
+
   const handleLogout = () => {
     // Implémentez la déconnexion
     navigate('/admin/login');
