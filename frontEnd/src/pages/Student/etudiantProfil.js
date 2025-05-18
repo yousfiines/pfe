@@ -284,55 +284,61 @@ const Spinner = styled.div`
 `;
 
 const EventsSection = styled.section`
-  padding: 2rem;
-  background: #fafafa;
-  border-radius: 12px;
+  padding: 3rem 2rem;
+  background: linear-gradient(to bottom, #f9fafb, #ffffff);
+  border-radius: 16px;
   margin-bottom: 2rem;
-`;
-
-const EventsTitle = styled.h2`
-  font-size: 2rem;
-  font-weight: 300;
-  color: #1e293b;
-  margin-bottom: 1.5rem;
-  text-align: center;
+  position: relative;
+  overflow: hidden;
   
-  span {
-    font-weight: 500;
-    background: linear-gradient(90deg, #7e22ce 0%, #a855f7 100%);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
+  &::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 8px;
+    background: linear-gradient(90deg, #7e22ce 0%, #a855f7 50%, #7e22ce 100%);
   }
 `;
-
-const EventsSubtitle = styled.p`
-  color: #64748b;
-  font-size: 1.2rem;
-  max-width: 700px;
-  margin: 0 auto 3rem;
+const EventsFilter = styled.div`
+  display: flex;
+  justify-content: center;
+  gap: 1rem;
+  margin-bottom: 2rem;
+  flex-wrap: wrap;
+`;
+const EventsHeader = styled.div`
   text-align: center;
-  line-height: 1.8;
-`;
-
-const EventsGrid = styled.div`
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
-  gap: 2rem;
-`;
-
-const EventCard = styled(motion.div)`
-  background: white;
-  border-radius: 20px;
-  overflow: hidden;
-  box-shadow: 0 25px 50px -12px rgba(0,0,0,0.03);
-  border: 1px solid rgba(226, 232, 240, 0.7);
-  transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
-`;
-
-const EventImage = styled.div`
-  height: 200px;
-  background: ${props => `linear-gradient(45deg, ${props.gradient})`};
+  margin-bottom: 3rem;
   position: relative;
+`;
+const EventsTitle = styled.h2`
+  font-size: 2.5rem;
+  font-weight: 700;
+  color: #111827;
+  margin-bottom: 1rem;
+  position: relative;
+  display: inline-block;
+  
+  &::after {
+    content: '';
+    position: absolute;
+    bottom: -10px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 80px;
+    height: 4px;
+    background: linear-gradient(90deg, #7e22ce, #a855f7);
+    border-radius: 2px;
+  }
+`;
+const EventsSubtitle = styled.p`
+  color: #6b7280;
+  font-size: 1.1rem;
+  max-width: 700px;
+  margin: 0 auto;
+  line-height: 1.8;
 `;
 
 const EventType = styled.div`
@@ -355,26 +361,12 @@ const EventName = styled.h3`
   text-shadow: 0 2px 4px rgba(0,0,0,0.2);
 `;
 
-const EventContent = styled.div`
-  padding: 1.5rem;
-`;
 
 const EventDateContainer = styled.div`
   display: flex;
   align-items: center;
   gap: 1rem;
   margin-bottom: 1rem;
-`;
-
-const EventDateBox = styled.div`
-  width: 60px;
-  height: 60px;
-  border-radius: 12px;
-  background-color: #f5f3ff;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
 `;
 
 const EventDay = styled.div`
@@ -408,15 +400,135 @@ const EventLocation = styled.div`
   margin-bottom: 1rem;
 `;
 
-const EventDescription = styled.p`
-  color: #64748b;
-  line-height: 1.7;
+
+
+
+const FilterButton = styled.button`
+  padding: 0.5rem 1.25rem;
+  background: ${({ $active }) => $active ? '#7e22ce' : '#f3f4f6'};
+  color: ${({ $active }) => $active ? 'white' : '#4b5563'};
+  border: none;
+  border-radius: 50px;
+  font-size: 0.9rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  
+  &:hover {
+    background: ${({ $active }) => $active ? '#6b21a8' : '#e5e7eb'};
+  }
+`;
+
+const EventsGrid = styled.div`
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(380px, 1fr));
+  gap: 2.5rem;
+  padding: 1rem;
+`;
+
+const EventCard = styled(motion.div)`
+  background: white;
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: 0 10px 25px -5px rgba(0,0,0,0.05);
+  border: 1px solid rgba(209, 213, 219, 0.5);
+  transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  
+  &:hover {
+    transform: translateY(-8px);
+    box-shadow: 0 20px 25px -5px rgba(126, 34, 206, 0.1), 0 10px 10px -5px rgba(126, 34, 206, 0.04);
+    border-color: rgba(167, 139, 250, 0.5);
+  }
+`;
+
+const EventImageContainer = styled.div`
+  height: 220px;
+  position: relative;
+  overflow: hidden;
+`;
+
+const EventImage = styled.div`
+  width: 100%;
+  height: 100%;
+  background: ${props => `linear-gradient(45deg, ${props.gradient})`};
+  background-size: cover;
+  background-position: center;
+  transition: transform 0.5s ease;
+  
+  ${EventCard}:hover & {
+    transform: scale(1.05);
+  }
+`;
+
+const EventBadge = styled.span`
+  position: absolute;
+  top: 1.5rem;
+  right: 1.5rem;
+  background: rgba(255, 255, 255, 0.9);
+  color: #7e22ce;
+  padding: 0.35rem 0.75rem;
+  border-radius: 50px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);
+  z-index: 2;
+`;
+
+const EventContent = styled.div`
+  padding: 1.75rem;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+`;
+
+const EventTitle = styled.h3`
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #111827;
+  margin: 0 0 1rem 0;
+  line-height: 1.3;
+`;
+
+const EventMeta = styled.div`
+  display: flex;
+  gap: 1rem;
   margin-bottom: 1.5rem;
+  flex-wrap: wrap;
+`;
+
+const MetaItem = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.9rem;
+  color: #6b7280;
+  
+  svg {
+    color: #7e22ce;
+    font-size: 1rem;
+  }
+`;
+
+const EventDescription = styled.p`
+  color: #6b7280;
+  line-height: 1.7;
+  margin-bottom: 1.75rem;
+  flex: 1;
+`;
+
+const EventActions = styled.div`
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: auto;
 `;
 
 const EventButton = styled.button`
   padding: 0.75rem 1.5rem;
-  background: #7e22ce;
+  background: linear-gradient(135deg, #7e22ce 0%, #a855f7 100%);
   color: white;
   border: none;
   border-radius: 8px;
@@ -427,11 +539,36 @@ const EventButton = styled.button`
   display: flex;
   align-items: center;
   gap: 0.5rem;
+  box-shadow: 0 4px 6px -1px rgba(126, 34, 206, 0.1), 0 2px 4px -1px rgba(126, 34, 206, 0.06);
   
   &:hover {
-    background: #6b21a8;
+    background: linear-gradient(135deg, #6b21a8 0%, #9333ea 100%);
+    box-shadow: 0 10px 15px -3px rgba(126, 34, 206, 0.1), 0 4px 6px -2px rgba(126, 34, 206, 0.05);
+    transform: translateY(-2px);
   }
 `;
+
+const EventDateBox = styled.div`
+  background: #f5f3ff;
+  padding: 0.75rem 1rem;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+`;
+
+const EventDateText = styled.div`
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: #7e22ce;
+  
+  span {
+    display: block;
+    font-size: 0.8rem;
+    color: #8b5cf6;
+  }
+`;
+
 
 const EtudiantProfil = () => {
   const navigate = useNavigate();
@@ -747,92 +884,88 @@ const EtudiantProfil = () => {
         )}
 
         {activeSection === 'events' && (
-          <EventsSection>
-            <EventsTitle>
-              <span>Notre Programme</span> Culturel
-            </EventsTitle>
-            <EventsSubtitle>
-              Des expériences immersives où l'art rencontre l'innovation
-            </EventsSubtitle>
+           <EventsSection>
+    <EventsHeader>
+      <EventsTitle>Événements à venir</EventsTitle>
+      <EventsSubtitle>
+        Découvrez notre programme culturel riche et varié, conçu pour enrichir votre expérience étudiante.
+      </EventsSubtitle>
+      
+      <EventsFilter>
+        <FilterButton active>Tous</FilterButton>
+        <FilterButton>Conférences</FilterButton>
+        <FilterButton>Ateliers</FilterButton>
+        <FilterButton>Expositions</FilterButton>
+        <FilterButton>Spectacles</FilterButton>
+      </EventsFilter>
+    </EventsHeader>
+    
+    <EventsGrid>
+      {events.map((event) => {
+        const eventDate = new Date(event.date);
+        const formattedDate = eventDate.toLocaleDateString('fr-FR', {
+          weekday: 'short',
+          day: 'numeric',
+          month: 'short'
+        });
+        const formattedTime = eventDate.toLocaleTimeString('fr-FR', {
+          hour: '2-digit',
+          minute: '2-digit'
+        });
+        
+        return (
+          <EventCard 
+            key={event.id}
+            whileHover={{ y: -5 }}
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.4 }}
+          >
+            <EventImageContainer>
+              <EventImage gradient={getArtGradient(event.type)} />
+              <EventBadge>{event.type}</EventBadge>
+            </EventImageContainer>
             
-            <EventsGrid>
-              {events.map((event) => (
-                <EventCard 
-                  key={event.id}
-                  whileHover={{ y: -10 }}
-                >
-                  <EventImage gradient={getArtGradient(event.type)}>
-                    <div style={{
-                      position: 'absolute',
-                      bottom: '2rem',
-                      left: '2rem',
-                      color: 'white',
-                      zIndex: 2
-                    }}>
-                      <EventType>{event.type.toUpperCase()}</EventType>
-                      <EventName>{event.titre}</EventName>
-                    </div>
-                    <div style={{
-                      position: 'absolute',
-                      inset: 0,
-                      background: 'linear-gradient(to top, rgba(0,0,0,0.3) 0%, rgba(0,0,0,0) 50%)'
-                    }}></div>
-                  </EventImage>
-
-                  <EventContent>
-                    <div style={{
-                      display: 'flex',
-                      justifyContent: 'space-between',
-                      marginBottom: '1.5rem'
-                    }}>
-                      <EventDateContainer>
-                        <EventDateBox>
-                          <EventDay>{new Date(event.date).getDate()}</EventDay>
-                          <EventMonth>
-                            {new Date(event.date).toLocaleString('fr-FR', { month: 'short' })}
-                          </EventMonth>
-                        </EventDateBox>
-                        <div>
-                          <div style={{
-                            fontSize: '0.9rem',
-                            color: '#64748b',
-                            marginBottom: '0.25rem'
-                          }}>
-                            {new Date(event.date).toLocaleString('fr-FR', { weekday: 'long' })}
-                          </div>
-                          <EventTime>
-                            {new Date(event.date).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
-                          </EventTime>
-                        </div>
-                      </EventDateContainer>
-                      <div style={{
-                        alignSelf: 'flex-end'
-                      }}>
-                        <EventLocation>
-                          <MdLocationOn size={16} />
-                          {event.lieu}
-                        </EventLocation>
-                      </div>
-                    </div>
-
-                    <EventDescription>
-                      {event.description.substring(0, 120)}...
-                    </EventDescription>
-
-                    <div style={{
-                      display: 'flex',
-                      justifyContent: 'space-between',
-                      alignItems: 'center'
-                    }}>
-                      <EventButton onClick={() => handleEventClick(event.titre)}>
-                        <FaTicketAlt /> Réserver
-                      </EventButton>
-                    </div>
-                  </EventContent>
-                </EventCard>
-              ))}
-            </EventsGrid>
-          </EventsSection>
+            <EventContent>
+              <EventTitle>{event.titre}</EventTitle>
+              
+              <EventMeta>
+                <MetaItem>
+                  <FaCalendarAlt />
+                  {formattedDate}
+                </MetaItem>
+                <MetaItem>
+                  <FaClock />
+                  {formattedTime}
+                </MetaItem>
+                <MetaItem>
+                  <MdLocationOn />
+                  {event.lieu}
+                </MetaItem>
+              </EventMeta>
+              
+              <EventDescription>
+                {event.description.substring(0, 150)}...
+              </EventDescription>
+              
+              <EventActions>
+                <EventDateBox>
+                  <FaCalendarAlt size={18} />
+                  <EventDateText>
+                    {eventDate.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}
+                    <span>{eventDate.toLocaleDateString('fr-FR', { year: 'numeric' })}</span>
+                  </EventDateText>
+                </EventDateBox>
+                
+                <EventButton onClick={() => handleEventClick(event.titre)}>
+                  <FaTicketAlt /> Participer
+                </EventButton>
+              </EventActions>
+            </EventContent>
+          </EventCard>
+        )})}
+    </EventsGrid>
+  </EventsSection>
         )}
       </MainContent>
     </Container>

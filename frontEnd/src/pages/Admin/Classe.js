@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
   Paper, Button, Dialog, DialogActions, DialogContent, DialogTitle,
@@ -36,31 +36,31 @@ const GestionClasses = () => {
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
   const [selectedToDelete, setSelectedToDelete] = useState(null);
 
-  // Chargement initial
-  useEffect(() => {
-    fetchClasses();
-    fetchFilieres();
-  }, []);
+ 
 
   // Récupérer les classes
-  const fetchClasses = async () => {
+  const fetchClasses = useCallback(async () => {
     try {
       const response = await axios.get('http://localhost:5000/api/classes');
       setClasses(response.data.data || response.data);
     } catch (error) {
       showError('Erreur lors du chargement des classes', error);
     }
-  };
+  }, []);
 
-  // Récupérer les filières
-  const fetchFilieres = async () => {
+  const fetchFilieres = useCallback(async () => {
     try {
       const response = await axios.get('http://localhost:5000/api/filieres');
-      setFilieres(response.data);
+      setFilieres(response.data.data || response.data);
     } catch (error) {
       showError('Erreur lors du chargement des filières', error);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    fetchClasses();
+    fetchFilieres();
+  }, [fetchClasses, fetchFilieres]);
 
   // Afficher les erreurs
   const showError = (message, error) => {

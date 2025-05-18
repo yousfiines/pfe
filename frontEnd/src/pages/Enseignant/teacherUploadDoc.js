@@ -3,104 +3,122 @@ import axios from 'axios';
 import {
   Button, Card, List, ListItem, ListItemText, TextField, Typography,
   Select, MenuItem, FormControl, InputLabel, IconButton, Dialog,
-  DialogTitle, DialogContent, DialogActions, Snackbar, Alert
+  DialogTitle, DialogContent, DialogActions, Snackbar, Alert,
+  Chip, Avatar, Divider, LinearProgress
 } from '@mui/material';
-import { Upload as UploadIcon, Description as DescriptionIcon, Edit, Delete } from '@mui/icons-material';
+import {
+  Upload as UploadIcon, Description as DescriptionIcon, 
+  Edit, Delete, School, Category, Today, Class, Subject
+} from '@mui/icons-material';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
+import styled from 'styled-components';
+import { CircularProgress } from '@mui/material';
+import logoFac from "./../../assets/logoFac.png";
+import { Download as DownloadIcon } from '@mui/icons-material';
+import { CheckCircleOutline, ErrorOutline } from '@mui/icons-material';
 
 const TeacherDocuments = () => {
   const [documents, setDocuments] = useState([]);
+  const [teachingData, setTeachingData] = useState({
+    filieres: [],
+    classes: [],
+    matieres: []
+  });
+  const [loading, setLoading] = useState(true);
+  
   const [newDoc, setNewDoc] = useState({
     title: '',
-    diffusionDate: new Date(),
-    filiere: '',
-    parcours: '',
-    classe: '',
-    matiere: '',
+    filiere_id: '',
+    classe_id: '',
+    matiere_id: '',
     file: null
   });
-  const [editingDoc, setEditingDoc] = useState(null);
-  const [openDialog, setOpenDialog] = useState(false);
-  const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
+  
+  const [snackbar, setSnackbar] = useState({ 
+    open: false, 
+    message: '', 
+    severity: 'success' 
+  });
 
-  // Options pour filières, parcours, classes et matières
-  const filieres = ['Informatique', 'Mathématiques', 'Physique', 'Chimie'];
-  const parcours = {
-    'Informatique': ['Développement', 'Réseaux', 'Data Science'],
-    'Mathématiques': ['Math Pure', 'Math Appliquée'],
-    'Physique': ['Physique Fondamentale', 'Physique Appliquée'],
-    'Chimie': ['Chimie Organique', 'Chimie Analytique']
-  };
-  const classes = ['L1', 'L2', 'L3', 'M1', 'M2'];
-  const matieres = {
-    'Informatique': {
-      'Développement': ['Programmation Web', 'Algorithmique', 'Base de données'],
-      'Réseaux': ['Réseaux Informatiques', 'Sécurité'],
-      'Data Science': ['Machine Learning', 'Big Data']
-    },
-    'Mathématiques': {
-      'Math Pure': ['Algèbre', 'Analyse'],
-      'Math Appliquée': ['Probabilités', 'Statistiques']
+const StyledCard = styled.div`
+  background-color: white;
+  padding: 1rem;
+  border-radius: 12px;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+`;
+  
+useEffect(() => {
+  const fetchData = async () => {
+    try {
+      const token = localStorage.getItem('teacherToken');
+      if (!token) {
+        console.warn("Aucun token trouvé - Mode consultation seule");
+        return;
+      }
+
+      // Charger les documents de l'enseignant
+      const docsResponse = await axios.get('http://localhost:5000/api/teacher-documents', {
+        headers: { 
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      setDocuments(docsResponse.data.data || []);
+
+      // Charger les données pédagogiques (filieres, classes, matieres)
+      const teachingResponse = await axios.get('http://localhost:5000/api/teaching-data');
+      setTeachingData(teachingResponse.data.data);
+
+    } catch (error) {
+      console.error("Erreur de chargement:", error);
+      if (error.response?.status === 401) {
+        console.warn("Session expirée - Mode consultation seule");
+      }
+    } finally {
+      setLoading(false);
     }
   };
 
-  useEffect(() => {
-    const fetchDocuments = async () => {
-      try {
-        const response = await axios.get('http://localhost:5000/api/documents', {
-          headers: {
-            'Authorization':` Bearer ${localStorage.getItem('teacherToken')}`
-          }
-        });
-        setDocuments(response.data);
-      } catch (error) {
-        console.error("Erreur de chargement des documents:", error);
-        showSnackbar('Erreur de chargement des documents', 'error');
-      }
-    };
-    fetchDocuments();
-  }, []);
+  fetchData();
+}, []);
 
   const handleFiliereChange = (e) => {
-    const filiere = e.target.value;
+    const filiere_id = e.target.value;
     setNewDoc({
       ...newDoc,
-      filiere,
-      parcours: '',
-      matiere: ''
+      filiere_id,
+      classe_id: '',
+      matiere_id: ''
     });
   };
 
-  const handleParcoursChange = (e) => {
-    const parcours = e.target.value;
+  const handleClasseChange = (e) => {
+    const classe_id = e.target.value;
     setNewDoc({
       ...newDoc,
-      parcours,
-      matiere: ''
+      classe_id,
+      matiere_id: ''
     });
   };
 
   const handleFileChange = (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      const updatedDoc = editingDoc ? { ...editingDoc } : { ...newDoc };
-      updatedDoc.file = file;
-      editingDoc ? setEditingDoc(updatedDoc) : setNewDoc(updatedDoc);
-    }
+    setNewDoc({
+      ...newDoc,
+      file: e.target.files[0]
+    });
   };
 
   const handleSubmit = async () => {
     try {
       const formData = new FormData();
       formData.append('title', newDoc.title);
+      formData.append('filiere_id', newDoc.filiere_id);
+      formData.append('classe_id', newDoc.classe_id);
+      formData.append('matiere_id', newDoc.matiere_id);
       formData.append('file', newDoc.file);
-      formData.append('filiere', newDoc.filiere);
-      formData.append('classe', newDoc.classe);
-      formData.append('parcours', newDoc.parcours);
-      formData.append('matiere', newDoc.matiere);
-      formData.append('diffusionDate', newDoc.diffusionDate.toISOString());
 
       const response = await axios.post('http://localhost:5000/api/documents', formData, {
         headers: {
@@ -109,7 +127,7 @@ const TeacherDocuments = () => {
         }
       });
 
-      setDocuments([response.data, ...documents]);
+      setDocuments([response.data.data, ...documents]);
       showSnackbar('Document publié avec succès', 'success');
       resetForm();
     } catch (error) {
@@ -118,33 +136,12 @@ const TeacherDocuments = () => {
     }
   };
 
-  const handleUpdate = async () => {
+  const downloadFile = async (file_path, file_name) => {
     try {
-      const formData = new FormData();
-      formData.append('id', editingDoc.id);
-      formData.append('title', editingDoc.title);
-      if (editingDoc.file instanceof File) {
-        formData.append('file', editingDoc.file);
-      }
-      formData.append('filiere', editingDoc.filiere);
-      formData.append('classe', editingDoc.classe);
-      formData.append('parcours', editingDoc.parcours);
-      formData.append('matiere', editingDoc.matiere);
-      formData.append('diffusionDate', editingDoc.diffusionDate.toISOString());
-
-      const response = await axios.put('http://localhost:5000/api/documents', formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-          'Authorization': `Bearer ${localStorage.getItem('teacherToken')}`
-        }
-      });
-
-      setDocuments(documents.map(doc => doc.id === editingDoc.id ? response.data : doc));
-      setOpenDialog(false);
-      showSnackbar('Document modifié avec succès', 'success');
+      window.open(`http://localhost:5000${file_path}`, '_blank');
     } catch (error) {
-      console.error("Erreur lors de la modification:", error);
-      showSnackbar("Erreur lors de la modification", 'error');
+      console.error("Erreur lors du téléchargement:", error);
+      showSnackbar("Erreur lors du téléchargement", 'error');
     }
   };
 
@@ -152,7 +149,7 @@ const TeacherDocuments = () => {
     try {
       await axios.delete(`http://localhost:5000/api/documents/${id}`, {
         headers: {
-          'Authorization':` Bearer ${localStorage.getItem('teacherToken')}`
+          'Authorization': `Bearer ${localStorage.getItem('teacherToken')}`
         }
       });
       setDocuments(documents.filter(doc => doc.id !== id));
@@ -166,11 +163,9 @@ const TeacherDocuments = () => {
   const resetForm = () => {
     setNewDoc({
       title: '',
-      diffusionDate: new Date(),
-      filiere: '',
-      parcours: '',
-      classe: '',
-      matiere: '',
+      filiere_id: '',
+      classe_id: '',
+      matiere_id: '',
       file: null
     });
   };
@@ -179,367 +174,290 @@ const TeacherDocuments = () => {
     setSnackbar({ open: true, message, severity });
   };
 
-  const downloadFile = async (id, fileName) => {
-    try {
-      const response = await axios.get(`http://localhost:5000/api/documents/${id}/download`, {
-        responseType: 'blob',
-        headers: {
-          'Authorization':` Bearer ${localStorage.getItem('teacherToken')}`
-        }
-      });
-      
-      const url = window.URL.createObjectURL(new Blob([response.data]));
-      const link = document.createElement('a');
-      link.href = url;
-      link.setAttribute('download', fileName);
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-    } catch (error) {
-      console.error("Erreur lors du téléchargement:", error);
-      showSnackbar("Erreur lors du téléchargement", 'error');
-    }
-  };
+// Filtrage des classes
+const getClassesByFiliere = (filiereId) => {
+  return teachingData.classes.filter(c => c.filiere_id == filiereId);
+}
 
-  const openEditDialog = (doc) => {
-    setEditingDoc({ 
-      ...doc,
-      diffusionDate: new Date(doc.diffusionDate),
-      file: null // Reset file to allow new upload
-    });
-    setOpenDialog(true);
-  };
+// Filtrage des matières
+const getMatieresByClasse = (classeId) => {
+  return teachingData.matieres.filter(m => m.classe.id == classeId);
+}
+
+  if (loading) {
+    return (
+      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
+        <LinearProgress style={{ width: '50%' }} />
+      </div>
+    );
+  }
+
+  
 
   return (
-    <LocalizationProvider dateAdapter={AdapterDateFns}>
-      <div style={{ padding: '20px', maxWidth: '1000px', margin: '0 auto' }}>
-        <Typography variant="h4" gutterBottom style={{ marginBottom: '30px' }}>
-          Gestion des Documents Pédagogiques
-        </Typography>
 
-        {/* Formulaire d'ajout */}
-        <Card style={{ padding: '20px', marginBottom: '30px', backgroundColor: '#f5f5f5' }}>
-          <Typography variant="h6" gutterBottom>
-            Publier un Nouveau Document
-          </Typography>
-          
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '20px' }}>
-            <TextField
-              label="Titre du document*"
-              fullWidth
-              value={newDoc.title}
-              onChange={(e) => setNewDoc({...newDoc, title: e.target.value})}
-            />
-            
-            <DatePicker
-              label="Date de diffusion*"
-              value={newDoc.diffusionDate}
-              onChange={(date) => setNewDoc({...newDoc, diffusionDate: date})}
-              renderInput={(params) => <TextField {...params} fullWidth />}
-            />
-            
-            <FormControl fullWidth>
-              <InputLabel>Filière*</InputLabel>
-              <Select
-                value={newDoc.filiere}
-                label="Filière*"
-                onChange={handleFiliereChange}
-              >
-                {filieres.map(filiere => (
-                  <MenuItem key={filiere} value={filiere}>{filiere}</MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-            
-            <FormControl fullWidth>
-              <InputLabel>Parcours*</InputLabel>
-              <Select
-                value={newDoc.parcours}
-                label="Parcours*"
-                onChange={handleParcoursChange}
-                disabled={!newDoc.filiere}
-              >
-                {newDoc.filiere && parcours[newDoc.filiere].map(p => (
-                  <MenuItem key={p} value={p}>{p}</MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-            
-            <FormControl fullWidth>
-              <InputLabel>Classe*</InputLabel>
-              <Select
-                value={newDoc.classe}
-                label="Classe*"
-                onChange={(e) => setNewDoc({...newDoc, classe: e.target.value})}
-              >
-                {classes.map(classe => (
-                  <MenuItem key={classe} value={classe}>{classe}</MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-            
-            <FormControl fullWidth>
-              <InputLabel>Matière*</InputLabel>
-              <Select
-                value={newDoc.matiere}
-                label="Matière*"
-                onChange={(e) => setNewDoc({...newDoc, matiere: e.target.value})}
-                disabled={!newDoc.parcours}
-              >
-                {newDoc.filiere && newDoc.parcours && matieres[newDoc.filiere]?.[newDoc.parcours]?.map(m => (
-                  <MenuItem key={m} value={m}>{m}</MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-          </div>
-          
-          <input
-            accept=".pdf,.doc,.docx,.ppt,.pptx,.txt,.xls,.xlsx"
-            style={{ display: 'none' }}
-            id="upload-file"
-            type="file"
-            onChange={handleFileChange}
+<div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
+      {/* Header */}
+      <header style={{
+        display: "flex",
+        alignItems: "center",
+        padding: "1rem 5%",
+        backgroundColor: "#fff",
+        borderBottom: "1px solid #e0e0e0",
+        boxShadow: "0 2px 12px rgba(0, 0, 0, 0.08)",
+        position: "sticky",
+        top: 0,
+        zIndex: 1000
+      }}>
+        <a href="/" style={{
+          display: "flex",
+          alignItems: "center",
+          textDecoration: "none"
+        }}>
+          <img
+            src={logoFac}
+            width="80"
+            height="80"
+            alt="Logo Faculté"
+            style={{
+              objectFit: "contain",
+              marginRight: "1rem",
+              filter: "drop-shadow(0 2px 4px rgba(0,0,0,0.1))"
+            }}
           />
-          <label htmlFor="upload-file">
-            <Button 
-              variant="contained" 
-              component="span"
-              startIcon={<UploadIcon />}
-              style={{ marginRight: '10px' }}
-            >
-              Sélectionner un Fichier
-            </Button>
-          </label>
-          
-          {newDoc.file && (
-            <Typography variant="body2" component="span">
-              Fichier sélectionné: {newDoc.file.name}
+          <div style={{
+            borderLeft: "2px solid #0056b3",
+            paddingLeft: "1rem",
+            height: "50px",
+            display: "flex",
+            flexDirection: "column",
+            justifyContent: "center"
+          }}>
+            <span style={{
+              fontSize: "1.2rem",
+              fontWeight: "bold",
+              color: "#0056b3"
+            }}>Faculté des Sciences et Techniques FSTSBZ</span>
+            <span style={{
+              fontSize: "0.9rem",
+              color: "#555"
+            }}>Université de Kairouan</span>
+          </div>
+        </a>
+
+      </header>
+
+<LocalizationProvider dateAdapter={AdapterDateFns}>
+        <div style={{ padding: '32px', maxWidth: '1280px', margin: '0 auto' }}>
+          <div style={{ display: 'flex', alignItems: 'center', marginBottom: '40px' }}>
+            <School sx={{ fontSize: 40, color: '#1A237E', mr: 2 }} />
+            <Typography variant="h4" style={{ fontWeight: 700, color: '#1A237E' }}>
+              Gestion des Ressources Pédagogiques
             </Typography>
-          )}
-          
-          <Button
-            variant="contained"
-            color="primary"
-            onClick={handleSubmit}
-            disabled={!newDoc.title || !newDoc.file || !newDoc.filiere || !newDoc.classe || !newDoc.parcours || !newDoc.matiere}
-            style={{ marginTop: '20px', float: 'right' }}
-          >
-            Publier le Document
-          </Button>
-        </Card>
+          </div>
 
-        {/* Liste des documents */}
-        <Typography variant="h5" style={{ margin: '20px 0 10px 0' }}>
-          Mes Documents Publiés ({documents.length})
-        </Typography>
-        
-        {documents.length === 0 ? (
-          <Typography style={{ textAlign: 'center', margin: '40px 0' }}>
-            Aucun document publié pour le moment
-          </Typography>
-        ) : (
-          <List>
-            {documents.map((doc) => (
-              <Card key={doc.id} style={{ marginBottom: '15px', padding: '10px' }}>
-                <ListItem>
-                  <DescriptionIcon style={{ marginRight: '15px', fontSize: '40px', color: '#3f51b5' }} />
-                  <ListItemText
-                    primary={
-                      <div style={{ display: 'flex', alignItems: 'center' }}>
-                        <span style={{ fontWeight: 'bold', marginRight: '10px' }}>{doc.title}</span>
-                        <span style={{ 
-                          backgroundColor: '#e3f2fd', 
-                          color: '#1976d2',
-                          padding: '2px 8px',
-                          borderRadius: '12px',
-                          fontSize: '0.75rem'
-                        }}>
-                          {doc.filiere} - {doc.parcours} - {doc.classe}
-                        </span>
-                      </div>
-                    }
-                    secondary={
-                      <>
-                        <Typography component="div" variant="body2" color="textSecondary">
-                          <div>Matière: {doc.matiere}</div>
-                          <div>Date de diffusion: {new Date(doc.diffusionDate).toLocaleDateString()}</div>
-                        </Typography>
-                        <Typography component="div" variant="caption" color="textSecondary">
-                          Publié le: {new Date(doc.createdAt).toLocaleDateString()} | 
-                          Taille: {(doc.fileSize / 1024).toFixed(2)} KB | 
-                          Type: {doc.fileType.split('/')[1].toUpperCase()}
-                        </Typography>
-                      </>
-                    }
-                  />
-                  <div>
-                    <IconButton onClick={() => openEditDialog(doc)} color="primary">
-                      <Edit />
-                    </IconButton>
-                    <IconButton onClick={() => handleDelete(doc.id)} color="error">
-                      <Delete />
-                    </IconButton>
-                    <Button
-                      variant="outlined"
-                      onClick={() => downloadFile(doc.id, doc.fileName)}
-                      style={{ marginLeft: '10px' }}
-                    >
-                      Télécharger
-                    </Button>
-                  </div>
-                </ListItem>
-              </Card>
-            ))}
-          </List>
-        )}
-
-        {/* Dialog de modification */}
-        <Dialog open={openDialog} onClose={() => setOpenDialog(false)} fullWidth maxWidth="md">
-          <DialogTitle>Modifier le Document</DialogTitle>
-          <DialogContent>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', margin: '20px 0' }}>
+          {/* Nouveau formulaire avec icônes */}
+          <StyledCard style={{ padding: '32px', marginBottom: '40px' }}>
+            <Typography variant="h6" gutterBottom style={{ fontWeight: 600, marginBottom: '32px' }}>
+              <Edit sx={{ mr: 1, color: '#2196F3' }} /> Publier une nouvelle ressource
+            </Typography>
+            
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '24px' }}>
               <TextField
-                label="Titre du document*"
+                label="Titre du document"
                 fullWidth
-                value={editingDoc?.title || ''}
-                onChange={(e) => setEditingDoc({...editingDoc, title: e.target.value})}
+                variant="outlined"
+                InputProps={{
+                  startAdornment: <DescriptionIcon sx={{ color: 'action.active', mr: 1 }} />
+                }}
+                value={newDoc.title}
+                onChange={(e) => setNewDoc({...newDoc, title: e.target.value})}
               />
               
               <DatePicker
-                label="Date de diffusion*"
-                value={editingDoc?.diffusionDate || new Date()}
-                onChange={(date) => setEditingDoc({...editingDoc, diffusionDate: date})}
-                renderInput={(params) => <TextField {...params} fullWidth />}
+                label="Date de diffusion"
+                value={newDoc.diffusionDate}
+                onChange={(date) => setNewDoc({...newDoc, diffusionDate: date})}
+                renderInput={(params) => (
+                  <TextField 
+                    {...params} 
+                    fullWidth 
+                    InputProps={{
+                      startAdornment: <Today sx={{ color: 'action.active', mr: 1 }} />
+                    }}
+                  />
+                )}
               />
               
               <FormControl fullWidth>
-                <InputLabel>Filière*</InputLabel>
-                <Select
-                  value={editingDoc?.filiere || ''}
-                  label="Filière*"
-                  onChange={(e) => {
-                    setEditingDoc({
-                      ...editingDoc,
-                      filiere: e.target.value,
-                      parcours: '',
-                      matiere: ''
-                    });
-                  }}
-                >
-                  {filieres.map(filiere => (
-                    <MenuItem key={filiere} value={filiere}>{filiere}</MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-              
-              <FormControl fullWidth>
-                <InputLabel>Parcours*</InputLabel>
-                <Select
-                  value={editingDoc?.parcours || ''}
-                  label="Parcours*"
-                  onChange={(e) => {
-                    setEditingDoc({
-                      ...editingDoc,
-                      parcours: e.target.value,
-                      matiere: ''
-                    });
-                  }}
-                  disabled={!editingDoc?.filiere}
-                >
-                  {editingDoc?.filiere && parcours[editingDoc.filiere].map(p => (
-                    <MenuItem key={p} value={p}>{p}</MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-              
-              <FormControl fullWidth>
-                <InputLabel>Classe*</InputLabel>
-                <Select
-                  value={editingDoc?.classe || ''}
-                  label="Classe*"
-                  onChange={(e) => setEditingDoc({...editingDoc, classe: e.target.value})}
-                >
-                  {classes.map(classe => (
-                    <MenuItem key={classe} value={classe}>{classe}</MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-              
-              <FormControl fullWidth>
-                <InputLabel>Matière*</InputLabel>
-                <Select
-                  value={editingDoc?.matiere || ''}
-                  label="Matière*"
-                  onChange={(e) => setEditingDoc({...editingDoc, matiere: e.target.value})}
-                  disabled={!editingDoc?.parcours}
-                >
-                  {editingDoc?.filiere && editingDoc?.parcours && matieres[editingDoc.filiere]?.[editingDoc.parcours]?.map(m => (
-                    <MenuItem key={m} value={m}>{m}</MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-            </div>
-            
-            <input
-              accept=".pdf,.doc,.docx,.ppt,.pptx,.txt,.xls,.xlsx"
-              style={{ display: 'none' }}
-              id="edit-upload-file"
-              type="file"
-              onChange={handleFileChange}
-            />
-            <label htmlFor="edit-upload-file">
-              <Button 
-                variant="outlined" 
-                component="span"
-                startIcon={<UploadIcon />}
-                style={{ marginRight: '10px' }}
-              >
-                Changer le Fichier
-              </Button>
-            </label>
-            
-            {editingDoc?.fileName && !editingDoc?.file && (
-              <Typography variant="body2" component="span">
-                Fichier actuel: {editingDoc.fileName}
-              </Typography>
-            )}
-            {editingDoc?.file && (
-              <Typography variant="body2" component="span">
-                Nouveau fichier sélectionné: {editingDoc.file.name}
-              </Typography>
-            )}
-          </DialogContent>
-          <DialogActions>
-            <Button onClick={() => setOpenDialog(false)}>Annuler</Button>
-            <Button 
-              onClick={handleUpdate}
-              disabled={!editingDoc?.title || (!editingDoc?.file && !editingDoc?.fileName) || 
-                       !editingDoc?.filiere || !editingDoc?.classe || !editingDoc?.parcours || !editingDoc?.matiere}
-              color="primary"
-            >
-              Enregistrer les modifications
-            </Button>
-          </DialogActions>
-        </Dialog>
+  <InputLabel>Filière</InputLabel>
+  <Select
+    value={newDoc.filiere_id}
+    label="Filière"
+    onChange={handleFiliereChange}
+  >
+    {teachingData.filieres.map(filiere => (
+      <MenuItem key={filiere.id} value={filiere.id}>
+        {filiere.nom}
+      </MenuItem>
+    ))}
+  </Select>
+</FormControl>
 
-        {/* Snackbar pour les notifications */}
-        <Snackbar
-          open={snackbar.open}
-          autoHideDuration={6000}
-          onClose={() => setSnackbar({...snackbar, open: false})}
-          anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
-        >
-          <Alert 
-            onClose={() => setSnackbar({...snackbar, open: false})} 
-            severity={snackbar.severity}
-            sx={{ width: '100%' }}
+{/* Sélecteur de Classe */}
+<FormControl fullWidth>
+  <InputLabel>Classe</InputLabel>
+  <Select
+    value={newDoc.classe_id}
+    label="Classe"
+    onChange={handleClasseChange}
+    disabled={!newDoc.filiere_id}
+  >
+    {getClassesByFiliere(newDoc.filiere_id).map(classe => (
+      <MenuItem key={classe.id} value={classe.id}>
+        {classe.nom} ({classe.filiere_nom})
+      </MenuItem>
+    ))}
+  </Select>
+</FormControl>
+
+{/* Sélecteur de Matière */}
+<FormControl fullWidth>
+  <InputLabel>Matière</InputLabel>
+  <Select
+    value={newDoc.matiere_id}
+    label="Matière"
+    onChange={(e) => setNewDoc({...newDoc, matiere_id: e.target.value})}
+    disabled={!newDoc.classe_id}
+  >
+    {getMatieresByClasse(newDoc.classe_id).map(matiere => (
+      <MenuItem key={matiere.id} value={matiere.id}>
+        {matiere.nom} (S{matiere.semestre_numero})
+      </MenuItem>
+    ))}
+  </Select>
+</FormControl>
+            </div>
+
+            <Divider sx={{ my: 3 }} />
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+              <input
+                accept=".pdf,.doc,.docx,.ppt,.pptx,.txt,.xls,.xlsx"
+                style={{ display: 'none' }}
+                id="upload-file"
+                type="file"
+                onChange={handleFileChange}
+              />
+              <label htmlFor="upload-file">
+                <Button
+                  variant="contained"
+                  component="span"
+                  startIcon={<UploadIcon />}
+                >
+                  Sélectionner un fichier
+                </Button>
+              </label>
+              
+              {newDoc.file && (
+                <Chip
+                  label={newDoc.file.name}
+                  onDelete={() => setNewDoc({...newDoc, file: null})}
+                  variant="outlined"
+                  color="primary"
+                />
+              )}
+            </div>
+
+           <Button
+  variant="contained"
+  color="primary"
+  onClick={handleSubmit}
+  disabled={
+    !newDoc.title || 
+    !newDoc.file || 
+    !newDoc.filiere_id || 
+    !newDoc.classe_id || 
+    !newDoc.matiere_id ||
+    teachingData.filieres.length === 0
+  }
+>
+  Publier la ressource
+</Button>
+          </StyledCard>
+
+          {/* Liste des documents */}
+          <Typography variant="h5" style={{ fontWeight: 600, margin: '40px 0 24px 0' }}>
+            Mes ressources publiées
+          </Typography>
+          
+          {documents.length === 0 ? (
+            <Typography variant="body1" color="textSecondary">
+              Aucun document publié pour le moment
+            </Typography>
+          ) : (
+            <List>
+              {documents.map((doc) => (
+                <Card key={doc.id} style={{ marginBottom: '16px' }}>
+                  <ListItem>
+                    <ListItemText
+                      primary={doc.title}
+                      secondary={
+                        <>
+                          <div>
+                            {doc.filiere_nom} - {doc.classe_nom} - {doc.matiere_nom}
+                          </div>
+                          <div>
+                            Publié le {new Date(doc.diffusion_date).toLocaleDateString()} | 
+                            {doc.file_type} ({Math.round(doc.file_size / 1024)} KB)
+                          </div>
+                        </>
+                      }
+                    />
+                    <Button
+                      startIcon={<DownloadIcon />}
+                      onClick={() => downloadFile(doc.file_path, doc.file_name)}
+                    >
+                      Télécharger
+                    </Button>
+                    <IconButton onClick={() => handleDelete(doc.id)}>
+                      <Delete color="error" />
+                    </IconButton>
+                  </ListItem>
+                </Card>
+              ))}
+            </List>
+          )}
+
+{loading && (
+  <div style={{ textAlign: 'center', margin: '20px 0' }}>
+    <CircularProgress />
+    <Typography variant="body2" color="textSecondary">
+      Chargement des données pédagogiques...
+    </Typography>
+  </div>
+)}
+
+{!loading && teachingData.filieres.length === 0 && (
+  <Alert severity="error" style={{ margin: '20px 0' }}>
+    Aucune donnée pédagogique disponible - Veuillez contacter l'administration
+  </Alert>
+)}
+          {/* Snackbar pour les notifications */}
+          <Snackbar
+            open={snackbar.open}
+            autoHideDuration={6000}
+            onClose={() => setSnackbar({...snackbar, open: false})}
           >
-            {snackbar.message}
-          </Alert>
-        </Snackbar>
-      </div>
-    </LocalizationProvider>
+            <Alert severity={snackbar.severity}>
+              {snackbar.message}
+            </Alert>
+          </Snackbar>
+        </div>
+      </LocalizationProvider>
+    </div>
   );
 };
+
 
 export default TeacherDocuments;

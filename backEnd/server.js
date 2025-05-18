@@ -1,4 +1,4 @@
-import express from "express";
+
 import cors from "cors";
 import mysql from "mysql2";
 import bcrypt from "bcryptjs";
@@ -6,13 +6,16 @@ import cookieParser from "cookie-parser";
 import jwt from 'jsonwebtoken';
 import bodyParser from 'body-parser';
 import axios from 'axios'; 
+import express from 'express';
+import authRoutes from './routes/auth.js';
+import connection from './db.js';
 
-const app = express();
-const router = express.Router();
 import dotenv from 'dotenv';
 dotenv.config();
 
-
+const app = express();
+const router = express.Router();
+//app.use('/api', router);
 import multer from 'multer';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -20,19 +23,19 @@ import { fileURLToPath } from 'url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+
 // Configuration JWT améliorée
+const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret-only';
+if (!process.env.JWT_SECRET && process.env.NODE_ENV === 'production') {
+  throw new Error('❌ Configuration critique: JWT_SECRET doit être défini en production');
+}
+
+// Configuration JWT
 const JWT_CONFIG = {
-  secret: process.env.JWT_SECRET,
-  expiresIn: '1h'
+  secret: process.env.JWT_SECRET || 'dev-secret-only',
+  expiresIn: '24h' // Durée de validité du token
 };
 
-if (!JWT_CONFIG.secret) {
-  if (process.env.NODE_ENV === 'production') {
-    throw new Error('❌ Configuration critique: JWT_SECRET doit être défini en production');
-  }
-  JWT_CONFIG.secret = 'dev-secret-only';
-  console.warn('⚠️ Mode développement: Utilisation d\'une clé JWT temporaire');
-}
 // Vérification de la configuration JWT
 if (!process.env.JWT_SECRET) {
   console.warn('⚠️ Avertissement: JWT_SECRET non défini dans .env - utilisation d\'une clé de développement');
@@ -47,11 +50,13 @@ app.use(cors({
   origin: 'http://localhost:3000',
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization' , 'X-Requested-With']
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
 }));
 app.use(express.json());
 app.options('*', cors());
 app.use(cookieParser());
+app.use('/api', authRoutes); // plus de /api
+
 
 // Configuration de la base de données
 const pool = mysql.createPool({
@@ -79,6 +84,7 @@ axios.get(`${API_URL}/filieres`)
   });
 
 // Route pour la connexion admin
+// Route pour la connexion admin
 app.post("/admin/login", async (req, res) => {
   const { email, password } = req.body;
 
@@ -95,10 +101,11 @@ app.post("/admin/login", async (req, res) => {
     }
 
     const token = jwt.sign(
-      { cin: admin[0].Cin, role: 'admin' }, // Utilisez admin[0].Cin
+      { email: admin[0].Email, role: 'admin' }, // Utilisez email plutôt que CIN
       JWT_CONFIG.secret,
       { expiresIn: JWT_CONFIG.expiresIn }
     );
+    
     res.json({ 
       success: true, 
       token,
@@ -113,6 +120,8 @@ app.post("/admin/login", async (req, res) => {
     res.status(500).json({ success: false, message: "Erreur serveur" });
   }
 });
+
+
 
 // Route pour la connexion des utilisateurs
 app.post("/connexion", async (req, res) => {
@@ -442,29 +451,7 @@ app.put("/api/utilisateurs/:cin", async (req, res) => {
 });
 
 
-router.post('/extend-session', (req, res) => {
-  const token = req.headers.authorization?.split(' ')[1];
-  
-  if (!token) {
-    return res.status(401).json({ error: 'Token manquant' });
-  }
 
-  try {
-    // Vérifie et décode le token
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    
-    // Crée un nouveau token avec 3 minutes supplémentaires
-    const newToken = jwt.sign(
-      { userId: decoded.userId },
-      process.env.JWT_SECRET,
-      { expiresIn: '4h' } // Nouvelle expiration
-    );
-
-    res.json({ token: newToken });
-  } catch (error) {
-    res.status(403).json({ error: 'Token invalide' });
-  }
-});
 
 
 // Route pour enregistrer un participant
@@ -535,57 +522,67 @@ app.post('/api/register', async (req, res) => {
 });
 
 // Middleware d'authentification amélioré
-const authenticateTeacher = async (req, res, next) => {
+// Middleware d'authentification générique
+const authenticate = (allowedRoles) => async (req, res, next) => {
+  const authHeader = req.headers.authorization;
+  
+  if (!authHeader?.startsWith('Bearer ')) {
+    return res.status(401).json({ success: false, message: "Token manquant" });
+  }
+
+  const token = authHeader.split(' ')[1];
+
   try {
-    // 1. Vérifier la présence du token
-    const authHeader = req.headers.authorization;
-    if (!authHeader?.startsWith('Bearer ')) {
-      return res.status(401).json({ 
+    const decoded = jwt.verify(token, JWT_SECRET);
+    
+    // Vérification du rôle
+    if (!allowedRoles.includes(decoded.role)) {
+      return res.status(403).json({ 
         success: false,
-        message: "Authorization header manquant ou invalide" 
+        message: "Accès non autorisé pour ce rôle" 
       });
     }
 
-    const token = authHeader.split(' ')[1];
-    
-    // 2. Vérifier et décoder le token
-    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'dev-secret-only');
-    
-    // 3. Vérification minimale dans la base de données
-    const [user] = await pool.query(
-      "SELECT Cin FROM enseignants WHERE Cin = ? LIMIT 1", 
-      [decoded.cin]
-    );
-    
-    if (!user.length) {
-      return res.status(401).json({ 
-        success: false,
-        message: "Utilisateur non autorisé" 
-      });
+    // Vérification en base de données
+    let user;
+    switch(decoded.role) {
+      case 'admin':
+        [user] = await pool.query('SELECT * FROM admin WHERE CIN = ?', [decoded.cin]);
+        break;
+      case 'enseignant':
+        [user] = await pool.query('SELECT * FROM enseignants WHERE CIN = ?', [decoded.cin]);
+        break;
+      case 'etudiant':
+        [user] = await pool.query('SELECT * FROM etudiant WHERE CIN = ?', [decoded.cin]);
+        break;
+      default:
+        throw new Error('Rôle invalide');
     }
+
+    if (!user.length) throw new Error('Utilisateur non trouvé');
     
-    // 4. Ajouter les infos utilisateur à la requête
-    req.user = { cin: decoded.cin };
+    req.user = { ...decoded, details: user[0] };
     next();
-
   } catch (error) {
-    console.error('Erreur authentification:', error);
-    
-    let message = "Erreur d'authentification";
-    if (error.name === 'TokenExpiredError') {
-      message = "Session expirée - Veuillez vous reconnecter";
-    } else if (error.name === 'JsonWebTokenError') {
-      message = "Token invalide";
-    }
-    
-    return res.status(401).json({ 
+    console.error(`Erreur d'authentification: ${error.message}`);
+    res.status(401).json({
       success: false,
-      message 
+      message: error.message.includes('jwt expired') 
+        ? 'Session expirée' 
+        : 'Authentification échouée'
     });
   }
 };
 
-app.get("/api/enseignants", authenticateTeacher, async (req, res) => {
+// Middlewares spécifiques par rôle
+const authenticateAdmin = authenticate(['admin']);
+const authenticateTeacher = authenticate(['enseignant']);
+const authenticateStudent = authenticate(['etudiant']);
+
+
+
+
+app.get("/api/enseignants", authenticate(['enseignant']), async (req, res) => {
   try {
     const { cin, email } = req.query;
     
@@ -643,25 +640,21 @@ app.get("/api/enseignants", authenticateTeacher, async (req, res) => {
 // Configuration du stockage pour les emplois du temps
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
-    cb(null, path.join(__dirname, "uploads", "emplois"));
+    cb(null, path.join(__dirname, 'uploads'));
   },
   filename: (req, file, cb) => {
-    const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
-    cb(null, `emploi-${uniqueSuffix}${path.extname(file.originalname)}`);
-  },
+    const ext = path.extname(file.originalname);
+    cb(null, `file-${Date.now()}${ext}`);
+  }
 });
 
 const upload = multer({
-  storage: storage,
-  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB
+  storage,
+  limits: { fileSize: 10 * 1024 * 1024 },
   fileFilter: (req, file, cb) => {
-    const allowedTypes = ["application/pdf", "application/vnd.ms-excel", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"];
-    if (allowedTypes.includes(file.mimetype)) {
-      cb(null, true);
-    } else {
-      cb(new Error("Seuls les fichiers PDF et Excel sont autorisés"));
-    }
-  },
+    const allowed = /application\/(pdf|vnd.ms-excel|vnd.openxmlformats-officedocument.spreadsheetml.sheet)/.test(file.mimetype);
+    cb(null, allowed);
+  }
 });
 
 // Créer le répertoire de téléchargement s'il n'existe pas
@@ -872,20 +865,14 @@ app.use("/uploads", express.static(uploadDir));
 // Middleware pour les erreurs
 app.use((err, req, res, next) => {
   console.error(err.stack);
-
-  if (err instanceof multer.MulterError) {
-    return res.status(400).json({
-      success: false,
-      message: err.message,
-    });
-  }
-
   res.status(500).json({
     success: false,
-    message: "Erreur serveur",
-    error: process.env.NODE_ENV === "development" ? err.message : undefined,
+    message: 'Erreur interne du serveur',
+    error: process.env.NODE_ENV === 'development' ? err.message : undefined
   });
 });
+
+
 
 
 // Route pour l'emploi du temps de l'étudiant
@@ -899,17 +886,8 @@ app.get("/api/etudiant/:cin/examens", async (req, res) => {
 });
 
 
-// Juste avant app.listen()
-app.use((err, req, res, next) => {
-  console.error('Erreur non gérée:', err.stack);
-  res.status(500).json({ 
-    success: false,
-    message: 'Erreur serveur interne',
-    error: process.env.NODE_ENV === 'development' ? err.message : undefined
-  });
-});
 
-app.get('/api/teachers/profile', authenticateTeacher, async (req, res) => {
+app.get('/api/teachers/profile',  authenticate(['enseignant']), async (req, res) => {
   try {
     const [results] = await pool.query(
       'SELECT CIN, Nom_et_prénom, Email, Numero_tel, Classement, Description, profile_image FROM enseignants WHERE CIN = ?',
@@ -1006,14 +984,6 @@ app.get("/api/etudiant/:cin", async (req, res) => {
 });
 
 
-// Middleware pour les erreurs
-app.use((err, req, res, next) => {
-  console.error(err.stack);
-  res.status(500).json({ 
-    success: false,
-    message: err.message 
-  });
-});
 
 
 
@@ -1056,6 +1026,24 @@ app.use(bodyParser.urlencoded({ extended: true })); // Pour parser les formulair
 
 
 ////////filière 
+// Gardez seulement cette version de la route
+// Route pour les filières (version unique)
+app.get('/api/filieres', async (req, res) => {
+  try {
+    const [filieres] = await pool.query('SELECT * FROM filieres ORDER BY nom');
+    res.json({
+      success: true,
+      data: filieres,
+    });
+  } catch (error) {
+    console.error("Erreur:", error);
+    res.status(500).json({
+      success: false,
+      message: "Erreur serveur",
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+});
 
 app.post('/api/filieres', async (req, res) => {
   try {
@@ -1099,35 +1087,9 @@ app.post('/api/filieres', async (req, res) => {
 });
 
 
-app.get('/api/filieres', async (req, res) => {
-  try {
-    const [filieres] = await pool.query('SELECT * FROM filieres');
-    res.json(filieres);
-  } catch (error) {
-    console.error('Erreur lors de la récupération des filières:', error);
-    res.status(500).json({ error: 'Erreur serveur' });
-  }
-});
 
 
-app.get('/api/filieres/:id', async (req, res) => {
-  try {
-    const { id } = req.params;
-    const [filiere] = await pool.execute(
-      'SELECT * FROM filieres WHERE id = ?',
-      [id]
-    );
-
-    if (filiere.length === 0) {
-      return res.status(404).json({ error: 'Filière non trouvée' });
-    }
-
-    res.json(filiere[0]);
-  } catch (error) {
-    console.error('Erreur lors de la récupération de la filière:', error);
-    res.status(500).json({ error: 'Erreur serveur' });
-  }
-});
+;
 
 
 app.put('/api/filieres/:id', async (req, res) => {
@@ -1222,6 +1184,19 @@ app.post('/api/classes', async (req, res) => {
     });
   }
 });
+
+
+
+// Testez la connexion au démarrage
+pool.getConnection((err, connection) => {
+  if (err) {
+    console.error('Erreur de connexion à la base de données:', err);
+  } else {
+    console.log('Connecté à la base de données MySQL');
+    connection.release();
+  }
+});
+
 
 // Récupérer toutes les classes
 app.get('/api/classes', async (req, res) => {
@@ -1772,17 +1747,6 @@ app.put('/api/evenements/:id', async (req, res) => {
 
 
 
-// Route pour obtenir toutes les filières
-app.get('/api/filieres', async (req, res) => {
-  try {
-    const [filieres] = await pool.query('SELECT * FROM filieres');
-    res.json(filieres || []); // Retourne un tableau vide si undefined
-  } catch (error) {
-    console.error('Erreur:', error);
-    res.status(500).json([]); // Retourne un tableau vide en cas d'erreur
-  }
-});
-
 // Dans votre fichier server.js
 app.get('/api/classes', async (req, res) => {
   try {
@@ -1863,23 +1827,7 @@ app.get('/api/student-documents', authenticateStudent, async (req, res) => {
 });
 
 // Middleware d'authentification étudiant
-function authenticateStudent(req, res, next) {
-  const token = req.headers.authorization?.split(' ')[1];
-  
-  if (!token) {
-    return res.status(401).json({ success: false, message: 'Token manquant' });
-  }
 
-  try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    if (decoded.role !== 'etudiant') {
-      return res.status(403).json({ success: false, message: 'Accès non autorisé' });
-    }
-    next();
-  } catch (error) {
-    res.status(401).json({ success: false, message: 'Token invalide' });
-  }
-}
 
 
 // Configuration du modèle Emploi
@@ -2046,15 +1994,7 @@ router.get('/semestres', async (req, res) => {
 });
 
 
-app.get('/api/filieres', async (req, res) => {
-  try {
-    const result = await pool.query('SELECT * FROM filiere');
-    res.json(result.rows);
-  } catch (err) {
-    console.error(err);
-    res.status(500).send('Erreur serveur');
-  }
-});
+
 router.get('/filieres/:filiereId/classes', async (req, res) => {
   try {
     const classes = await db.query(
@@ -2078,6 +2018,33 @@ app.get('/api/test-filieres', async (req, res) => {
   }
 });
 
+// Récupérer tous les emplois du temps
+app.get("/api/emplois", async (req, res) => {
+  try {
+    const [emplois] = await pool.query(`
+      SELECT e.*, 
+             f.nom AS filiere_nom,
+             c.nom AS classe_nom,
+             s.numero AS semestre_numero
+      FROM emplois_du_temps e
+      LEFT JOIN filieres f ON e.filiere_id = f.id
+      LEFT JOIN classes c ON e.classe_id = c.id
+      LEFT JOIN semestres s ON e.semestre_id = s.id
+      ORDER BY e.created_at DESC
+    `);
+
+    res.json({
+      success: true,
+      data: emplois
+    });
+  } catch (error) {
+    console.error("Erreur:", error);
+    res.status(500).json({
+      success: false,
+      message: "Erreur serveur"
+    });
+  }
+});
 
 // Récupérer les emplois publiés pour une classe spécifique
 app.get("/api/emplois/classe/:classeNom", async (req, res) => {
@@ -2111,8 +2078,268 @@ app.get("/api/emplois/classe/:classeNom", async (req, res) => {
 });
 
 
+// Route pour récupérer les filières, classes et matières
+app.get('/api/teaching-data', async (req, res) => {
+  try {
+    // 1. Récupération des données avec gestion des erreurs de requête
+    const [filieres] = await pool.query('SELECT id, nom FROM filieres ORDER BY nom');
+    const [classes] = await pool.query(`
+      SELECT 
+        c.id, 
+        c.nom, 
+        c.filiere_id,
+        f.nom AS filiere_nom 
+      FROM classes c
+      INNER JOIN filieres f ON c.filiere_id = f.id
+      ORDER BY c.nom
+    `);
+    const [matieres] = await pool.query(`
+      SELECT
+        m.id,
+        m.nom,
+        s.id AS semestre_id,
+        s.numero AS semestre_numero,
+        c.id AS classe_id,
+        c.nom AS classe_nom,
+        f.id AS filiere_id,
+        f.nom AS filiere_nom
+      FROM matieres m
+      INNER JOIN semestres s ON m.semestre_id = s.id
+      INNER JOIN classes c ON s.classe_id = c.id
+      INNER JOIN filieres f ON c.filiere_id = f.id
+      ORDER BY m.nom
+    `);
+
+    // 2. Structuration de la réponse
+    const response = {
+      success: true,
+      data: {
+        filieres: filieres.map(f => ({
+          id: f.id,
+          nom: f.nom
+        })),
+        classes: classes.map(c => ({
+          id: c.id,
+          nom: c.nom,
+          filiere_id: c.filiere_id,
+          filiere_nom: c.filiere_nom
+        })),
+        matieres: matieres.map(m => ({
+          id: m.id,
+          nom: m.nom,
+          semestre: {
+            id: m.semestre_id,
+            numero: m.semestre_numero
+          },
+          classe: {
+            id: m.classe_id,
+            nom: m.classe_nom
+          },
+          filiere: {
+            id: m.filiere_id,
+            nom: m.filiere_nom
+          }
+        }))
+      }
+    };
+
+    // 3. Journalisation contrôlée
+    if (process.env.NODE_ENV === 'development') {
+      console.log('Données pédagogiques chargées:', {
+        filieres: response.data.filieres,
+        classes: response.data.classes,
+        matieres: response.data.matieres
+      });
+    }
+
+    res.json(response);
+
+  } catch (error) {
+    // 4. Gestion d'erreur améliorée
+    console.error(`Erreur teaching-data: ${error.message}`);
+    
+    res.status(500).json({
+      success: false,
+      message: 'Erreur de chargement des données pédagogiques',
+      error: process.env.NODE_ENV === 'production' ? undefined : error.message
+    });
+  }
+});
+
+// Route pour uploader un document
+const documentStorage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, path.join(__dirname, 'uploads', 'documents'));
+  },
+  filename: (req, file, cb) => {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    cb(null, 'doc-' + uniqueSuffix + path.extname(file.originalname));
+  }
+});
+
+const uploadDocument = multer({ 
+  storage: documentStorage,
+  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB
+  fileFilter: (req, file, cb) => {
+    const allowedTypes = [
+      'application/pdf',
+      'application/msword',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'application/vnd.ms-powerpoint',
+      'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+      'text/plain',
+      'application/vnd.ms-excel',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    ];
+    
+    if (allowedTypes.includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error('Type de fichier non autorisé'), false);
+    }
+  }
+});
+
+app.post('/api/documents', uploadDocument.single('file'), async (req, res) => {
+  try {
+    const { title, filiere_id, classe_id, matiere_id } = req.body;
+    const file = req.file;
+    
+    // Validation
+    if (!title || !filiere_id || !classe_id || !matiere_id || !file) {
+      return res.status(400).json({
+        success: false,
+        message: 'Tous les champs sont obligatoires'
+      });
+    }
+    
+    // Vérifier que l'enseignant a le droit de publier pour cette matière
+    const token = req.headers.authorization?.split(' ')[1];
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    
+    const [matiere] = await pool.query(
+      'SELECT enseignant_id FROM matieres WHERE id = ?',
+      [matiere_id]
+    );
+    
+    if (matiere.length === 0 || matiere[0].enseignant_id !== decoded.cin) {
+      return res.status(403).json({
+        success: false,
+        message: 'Vous ne pouvez pas publier pour cette matière'
+      });
+    }
+    
+    // Enregistrer dans la base de données
+    const [result] = await pool.query(
+      `INSERT INTO documents 
+      (title, file_name, file_type, file_size, file_path, 
+       diffusion_date, filiere_id, classe_id, matiere_id, enseignant_id)
+      VALUES (?, ?, ?, ?, ?, NOW(), ?, ?, ?, ?)`,
+      [
+        title,
+        file.originalname,
+        file.mimetype,
+        file.size,
+        `/uploads/documents/${file.filename}`,
+        filiere_id,
+        classe_id,
+        matiere_id,
+        decoded.cin
+      ]
+    );
+    
+    res.status(201).json({
+      success: true,
+      data: {
+        id: result.insertId,
+        title,
+        file_name: file.originalname,
+        file_type: file.mimetype,
+        file_size: file.size,
+        file_path: `/uploads/documents/${file.filename}`,
+        filiere_id,
+        classe_id,
+        matiere_id
+      }
+    });
+  } catch (error) {
+    console.error('Erreur upload document:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Erreur serveur'
+    });
+  }
+});
+
+// Route pour récupérer les documents d'un enseignant
+app.get('/api/teacher-documents',  authenticate(['enseignant']), async (req, res) => {
+  try {
+    const [documents] = await pool.query(`
+      SELECT d.id, d.title, d.file_name, d.file_type, d.file_size, 
+             d.diffusion_date, d.file_path,
+             f.nom as filiere_nom, c.nom as classe_nom, m.nom as matiere_nom
+      FROM documents d
+      JOIN filieres f ON d.filiere_id = f.id
+      JOIN classes c ON d.classe_id = c.id
+      JOIN matieres m ON d.matiere_id = m.id
+      WHERE d.enseignant_id = ?
+      ORDER BY d.diffusion_date DESC
+    `, [req.user.cin]);
+    
+    res.json({
+      success: true,
+      data: documents
+    });
+  } catch (error) {
+    console.error('Erreur récupération documents:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Erreur serveur'
+    });
+  }
+});
+
+
+app.get('/api/filieres', async (req, res) => {
+  try {
+    const [filieres] = await pool.query("SELECT id, nom FROM filieres ORDER BY nom");
+    res.json({
+      success: true,
+      data: filieres // Assurez-vous de retourner un objet avec une propriété data
+    });
+  } catch (error) {
+    console.error("Erreur:", error);
+    res.status(500).json({
+      success: false,
+      message: "Erreur serveur"
+    });
+  }
+});
+
+// Et pour les classes :
+app.get('/api/classes', async (req, res) => {
+  try {
+    const [classes] = await pool.query(`
+      SELECT c.id, c.nom, f.nom as filiere_nom, f.id as filiere_id 
+      FROM classes c
+      JOIN filieres f ON c.filiere_id = f.id
+    `);
+    res.json({
+      success: true,
+      data: classes
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ 
+      success: false,
+      error: 'Erreur serveur' 
+    });
+  }
+});
+
+
 // Protégez vos routes
-app.get("/api/protected-route", authenticateTeacher, (req, res) => {
+app.get("/api/protected-route",  authenticate(['enseignant']), async (req, res) => {
   res.json({ message: "Accès autorisé" });
 });
 

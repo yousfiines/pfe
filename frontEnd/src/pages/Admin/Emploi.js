@@ -55,39 +55,43 @@ const Emploi = () => {
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(null);
 
-  const API_URL = process.env.REACT_APP_API_URL || "http://localhost:3001/api";
+ // Dans server.js, corrigez :
+const API_URL = process.env.NODE_ENV === 'development' 
+? 'http://localhost:5000/api'  // Port 5000 au lieu de 3000S
+: '/api';;
 
 
 
   
   // Récupérer les données initiales
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        setLoading(true);
-        const [emploisRes, filieresRes, classesRes, semestresRes] =
-          await Promise.all([
-            axios.get(`${API_URL}/emplois`),
-            axios.get(`${API_URL}/filieres`),
-            axios.get(`${API_URL}/classes`),
-            axios.get(`${API_URL}/semestres`),
-          ]);
+ // Modifiez le useEffect comme ceci :
+useEffect(() => {
+  const fetchData = async () => {
+    try {
+      setLoading(true);
+      
+      // Récupération des données initiales
+      const [filieresRes, classesRes, semestresRes, emploisRes] = await Promise.all([
+        axios.get(`${API_URL}/filieres`),
+        axios.get(`${API_URL}/classes`),
+        axios.get(`${API_URL}/semestres`),
+        axios.get(`${API_URL}/emplois`) // Nouvelle requête pour les emplois
+      ]);
 
-        setEmplois(emploisRes.data.data);
-        setFilieres(filieresRes.data.data);
-        setClasses(classesRes.data.data);
-        setSemestres(semestresRes.data.data);
-        setLoading(false);
-      } catch (err) {
-        console.error("Erreur:", err);
-        setError("Erreur lors du chargement des données");
-        setLoading(false);
-      }
-    };
-
-    fetchData();
-  }, [API_URL]);
-
+      setFilieres(filieresRes.data.data);
+      setClasses(classesRes.data.data);
+      setSemestres(semestresRes.data.data);
+      setEmplois(emploisRes.data.data); // Mise à jour des emplois
+      
+    } catch (err) {
+      console.error("Erreur:", err);
+      setError("Erreur lors du chargement des données");
+    } finally {
+      setLoading(false);
+    }
+  };
+  fetchData();
+}, [API_URL]);
  
   const handlePublish = async (id) => {
     try {

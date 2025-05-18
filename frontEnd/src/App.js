@@ -4,7 +4,7 @@ import Header from "./components/layout/Header/header.js";
 import Footer from "./components/layout/Footer/footer.js";
 import "./styles.css";
 import ProtectedRoute from './pages/Auth/ProtectedRoute.js';
-import Filieres from "./pages/config/filieres.js";
+//import Filieres from "./pages/config/filieres.js";
 // Routes Admin
 
 import AdminLayout from './pages/Admin/AdminLayout.js';
@@ -83,7 +83,7 @@ function AppContent() {
       <Routes>
         {/* Routes publiques */}
         <Route path="/useSessionTimeout" element={<useSessionTimeout/>} />
-        <Route path="/filieres" element={<Filieres />} />
+       
         <Route path="/" element={<Home />} />
         <Route path="/connexion" element={<Connexion />} />
         <Route path="/inscription" element={<Inscription />} />

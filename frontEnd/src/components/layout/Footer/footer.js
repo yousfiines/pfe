@@ -1,53 +1,57 @@
 import React from "react";
 import { FaFacebook, FaMapMarkerAlt } from "react-icons/fa";
+import "./Footer.css"; // on importe le CSS
 
 export default function Footer() {
   return (
-    <div>
-      {/* Pied de page */}
-      <footer className="footer">
-        <div className="footer-content">
-          <div className="footer-section">
-            <h3>Contactez-nous</h3>
-            <p>Email: fstsbz.contact@fstsbz.u-kairouan.tn</p>
-            <p>Téléphone: 76 636 260</p>
-          </div>
-          
-          <div className="footer-section">
-          
-            <div style={{ display: 'flex', gap: '20px' }}>
-              <a
-                href="https://www.facebook.com/profile.php?id=61554467716200"
-                target="_blank"
-                rel="noopener noreferrer"
-                style={{ color: "#fff", fontSize: "2rem" }}
-              >
-                <FaFacebook />
-              </a>
-              <a
-                href="https://www.google.com/maps?q=Campus+Universitaire+cité+agricole+Sidi+Bouzid+TUNISIE"
-                target="_blank"
-                rel="noopener noreferrer"
-                style={{ color: "#fff", fontSize: "2rem" }}
-              >
-                <FaMapMarkerAlt />
-              </a>
-            </div>
-          </div>
-          
-          <div className="footer-section">
-            <a href="/teacher">Enseignant</a>
-          </div>
-          
-          <div className="footer-section">
-            <a href="/eudiant">Étudiant</a>
+    <footer className="custom-footer">
+      <div className="footer-container">
+        <div className="footer-section">
+          <h3>Contactez-nous</h3>
+          <p>Email : fstsbz.contact@fstsbz.u-kairouan.tn</p>
+          <p>Téléphone : 76 636 260</p>
+        </div>
+
+        <div className="footer-section">
+          <h3>Suivez-nous</h3>
+          <div className="footer-icons">
+            <a
+              href="https://www.facebook.com/profile.php?id=61554467716200"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="footer-icon"
+            >
+              <FaFacebook />
+            </a>
+            <a
+              href="https://www.google.com/maps?q=Campus+Universitaire+cité+agricole+Sidi+Bouzid+TUNISIE"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="footer-icon"
+            >
+              <FaMapMarkerAlt />
+            </a>
           </div>
         </div>
-        
-        <p style={{ margin: '0' }}>
-          © {new Date().getFullYear()} Faculté des Sciences et Technologies - Tous droits réservés
-        </p>
-      </footer>
-    </div>
-  ); 
+
+        <div className="footer-section">
+          <h3>Accès rapide</h3>
+          <a href="/teacher">Espace Enseignant</a>
+          <br />
+          <a href="/eudiant">Espace Étudiant</a>
+        </div>
+
+        <div className="footer-section">
+          <h3>Adresse</h3>
+          <p>Campus Universitaire</p>
+          <p>Cité Agricole, Sidi Bouzid</p>
+          <p>TUNISIE</p>
+        </div>
+      </div>
+
+      <div className="footer-bottom">
+        © {new Date().getFullYear()} Faculté des Sciences et Technologies — Tous droits réservés.
+      </div>
+    </footer>
+  );
 }

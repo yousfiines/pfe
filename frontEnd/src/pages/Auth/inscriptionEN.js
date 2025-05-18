@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import inscriptionEnAnim from "../../assets/lotties/inscription.json";
 import Lottie from "lottie-react";
-
+import logoFac from "./../../assets/logoFac.png";
 const InscriptionEn = () => {
   const [formData, setFormData] = useState({
     Cin: "",
@@ -151,6 +151,68 @@ const InscriptionEn = () => {
   };
 
   return (
+<div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
+      {/* Header */}
+      <header style={{
+        display: "flex",
+        alignItems: "center",
+        padding: "1rem 5%",
+        backgroundColor: "#fff",
+        borderBottom: "1px solid #e0e0e0",
+        boxShadow: "0 2px 12px rgba(0, 0, 0, 0.08)",
+        position: "sticky",
+        top: 0,
+        zIndex: 1000
+      }}>
+        <a href="/" style={{
+          display: "flex",
+          alignItems: "center",
+          textDecoration: "none"
+        }}>
+          <img
+            src={logoFac}
+            width="80"
+            height="80"
+            alt="Logo Faculté"
+            style={{
+              objectFit: "contain",
+              marginRight: "1rem",
+              filter: "drop-shadow(0 2px 4px rgba(0,0,0,0.1))"
+            }}
+          />
+          <div style={{
+            borderLeft: "2px solid #0056b3",
+            paddingLeft: "1rem",
+            height: "50px",
+            display: "flex",
+            flexDirection: "column",
+            justifyContent: "center"
+          }}>
+            <span style={{
+              fontSize: "1.2rem",
+              fontWeight: "bold",
+              color: "#0056b3"
+            }}>Faculté des Sciences et Techniques FSTSBZ</span>
+            <span style={{
+              fontSize: "0.9rem",
+              color: "#555"
+            }}>Université de Kairouan</span>
+          </div>
+        </a>
+
+      </header>
+
+      {/* Contenu existant */}
+      <div style={{
+        flex: 1,
+        display: "flex",
+        justifyContent: "center",
+        alignItems: "center",
+        backgroundColor: "#f0f2f5",
+        padding: "20px",
+        paddingTop: "40px"
+      }}></div>
+
     <div style={styles.container}>
       <table style={styles.table}>
         <tbody>
@@ -349,6 +411,7 @@ const InscriptionEn = () => {
           </tr>
         </tbody>
       </table>
+    </div>
     </div>
   );
 };

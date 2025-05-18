@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import login from "../../assets/lotties/login.json";
 import Lottie from "lottie-react";
+import logoFac from "./../../assets/logoFac.png";
 
 const Connexion = () => {
   const [formData, setFormData] = useState({
@@ -41,27 +42,26 @@ const Connexion = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-  setIsSubmitting(true);
+    setIsSubmitting(true);
 
-  if (validateForm()) {
-    try {
-      const response = await fetch("http://localhost:5000/connexion", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(formData),
-      });
+    if (validateForm()) {
+      try {
+        const response = await fetch("http://localhost:5000/connexion", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(formData),
+        });
 
-      const data = await response.json();
-      
-      if (!response.ok) {
-        throw new Error(data.message || "Erreur serveur");
-      }
-  
-        // Stockage des informations de session
+        const data = await response.json();
+        
+        if (!response.ok) {
+          throw new Error(data.message || "Erreur serveur");
+        }
+
         localStorage.setItem('isAuthenticated', 'true');
-        localStorage.setItem('token', data.token); // Stockage du token JWT
+        localStorage.setItem('token', data.token);
         localStorage.setItem('userRole', data.role);
         
         if (data.role === "enseignant") {
@@ -78,69 +78,129 @@ const Connexion = () => {
       } finally {
         setIsSubmitting(false);
       }
-  
     } else {
       setIsSubmitting(false);
     }
   };
 
   return (
-    <div style={styles.container}>
-      <div style={styles.contentWrapper}>
-        <div style={styles.formContainer}>
-          <div style={styles.card}>
-            <h2 style={styles.title}>Connexion</h2>
-            <form onSubmit={handleSubmit} style={styles.form}>
-              <div style={styles.formGroup}>
-                <input
-                  type="email"
-                  name="email"
-                  value={formData.email}
-                  onChange={handleChange}
-                  style={styles.input}
-                  placeholder="Saisir votre email"
-                />
-                {errors.email && <span style={styles.error}>{errors.email}</span>}
+    <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
+      {/* Header */}
+      <header style={{
+        display: "flex",
+        alignItems: "center",
+        padding: "1rem 5%",
+        backgroundColor: "#fff",
+        borderBottom: "1px solid #e0e0e0",
+        boxShadow: "0 2px 12px rgba(0, 0, 0, 0.08)",
+        position: "sticky",
+        top: 0,
+        zIndex: 1000
+      }}>
+        <a href="/" style={{
+          display: "flex",
+          alignItems: "center",
+          textDecoration: "none"
+        }}>
+          <img
+            src={logoFac}
+            width="80"
+            height="80"
+            alt="Logo Faculté"
+            style={{
+              objectFit: "contain",
+              marginRight: "1rem",
+              filter: "drop-shadow(0 2px 4px rgba(0,0,0,0.1))"
+            }}
+          />
+          <div style={{
+            borderLeft: "2px solid #0056b3",
+            paddingLeft: "1rem",
+            height: "50px",
+            display: "flex",
+            flexDirection: "column",
+            justifyContent: "center"
+          }}>
+            <span style={{
+              fontSize: "1.2rem",
+              fontWeight: "bold",
+              color: "#0056b3"
+            }}>Faculté des Sciences et Techniques FSTSBZ</span>
+            <span style={{
+              fontSize: "0.9rem",
+              color: "#555"
+            }}>Université de Kairouan</span>
+          </div>
+        </a>
+
+      </header>
+
+      {/* Contenu principal */}
+      <div style={{
+        display: "flex",
+        justifyContent: "center",
+        alignItems: "center",
+        flex: 1,
+        backgroundColor: "#f0f2f5",
+        padding: "20px",
+        paddingTop: "40px"
+      }}>
+        <div style={styles.contentWrapper}>
+          <div style={styles.formContainer}>
+            <div style={styles.card}>
+              <h2 style={styles.title}>Connexion</h2>
+              <form onSubmit={handleSubmit} style={styles.form}>
+                <div style={styles.formGroup}>
+                  <input
+                    type="email"
+                    name="email"
+                    value={formData.email}
+                    onChange={handleChange}
+                    style={styles.input}
+                    placeholder="Saisir votre email"
+                  />
+                  {errors.email && <span style={styles.error}>{errors.email}</span>}
+                </div>
+
+                <div style={styles.formGroup}>
+                  <input
+                    type="password"
+                    name="password"
+                    value={formData.password}
+                    onChange={handleChange}
+                    style={styles.input}
+                    placeholder="Saisir votre mot de passe"
+                  />
+                  {errors.password && <span style={styles.error}>{errors.password}</span>}
+                </div>
+
+                <button type="submit" style={styles.button} disabled={isSubmitting}>
+                  {isSubmitting ? "En cours..." : "Se Connecter"}
+                </button>
+              </form>
+
+              <div style={styles.linksContainer}>
+                <p style={styles.signupLink}>
+                  Pas encore de compte ?{" "}
+                  <a href="/inscriptionEN" style={styles.link}>
+                    Enseignant
+                  </a>{" "}
+                  ou{" "}
+                  <a href="/inscription" style={styles.link}>
+                    Étudiant
+                  </a>
+                </p>
               </div>
-
-              <div style={styles.formGroup}>
-                <input
-                  type="password"
-                  name="password"
-                  value={formData.password}
-                  onChange={handleChange}
-                  style={styles.input}
-                  placeholder="Saisir votre mot de passe"
-                />
-                {errors.password && <span style={styles.error}>{errors.password}</span>}
-              </div>
-
-              <button type="submit" style={styles.button} disabled={isSubmitting}>
-                {isSubmitting ? "En cours..." : "Se Connecter"}
-              </button>
-            </form>
-
-            <div style={styles.linksContainer}>
-              <p style={styles.signupLink}>
-                Pas encore de compte ?{" "}
-                <a href="/inscriptionEN" style={styles.link}>
-                  Enseignant
-                </a>{" "}
-                ou{" "}
-                <a href="/inscription" style={styles.link}>
-                  Étudiant
-                </a>
-              </p>
             </div>
           </div>
-        </div>
 
-        <div style={styles.animationContainer}>
-          <Lottie
-            animationData={login}
-            loop={true}
-            style={styles.lottieAnimation}
-          />
+          <div style={styles.animationContainer}>
+            <Lottie
+              animationData={login}
+              loop={true}
+              style={styles.lottieAnimation}
+            />
+          </div>
         </div>
       </div>
     </div>
@@ -148,14 +208,6 @@ const Connexion = () => {
 };
 
 const styles = {
-  container: {
-    display: "flex",
-    justifyContent: "center",
-    alignItems: "center",
-    minHeight: "100vh",
-    backgroundColor: "#f0f2f5",
-    padding: "20px",
-  },
   contentWrapper: {
     display: "flex",
     flexDirection: "row",
@@ -175,7 +227,7 @@ const styles = {
     display: "flex",
     justifyContent: "center",
     alignItems: "center",
-    minHeight: "450px", // Ajustez selon la hauteur de votre formulaire
+    minHeight: "450px",
   },
   lottieAnimation: {
     width: "100%",
@@ -221,9 +273,6 @@ const styles = {
     cursor: "pointer",
     marginTop: "10px",
     transition: "background-color 0.3s",
-  },
-  buttonHover: {
-    backgroundColor: "#0056b3",
   },
   link: {
     color: "#007bff",
