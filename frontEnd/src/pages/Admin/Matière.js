@@ -9,8 +9,10 @@ import MuiAlert from "@mui/material/Alert";
 import axios from "axios";
 import DeleteIcon from '@mui/icons-material/Delete';
 import EditIcon from '@mui/icons-material/Edit';
-
+import { useNavigate } from 'react-router-dom';
+import { ArrowBack } from '@mui/icons-material';
 const GestionMatieres = () => {
+   const navigate = useNavigate();
   const [matieres, setMatieres] = useState([]);
   const [semestres, setSemestres] = useState([]);
   const [enseignants, setEnseignants] = useState([]);
@@ -51,13 +53,19 @@ const GestionMatieres = () => {
   };
 
   const fetchSemestres = async () => {
-    try {
-      const res = await axios.get("http://localhost:5000/api/semestres");
-      setSemestres(res.data.data);
-    } catch (error) {
-      console.error("Erreur chargement semestres :", error);
-    }
-  };
+  try {
+    const res = await axios.get("http://localhost:5000/api/semestres");
+    setSemestres(res.data.data);
+  } catch (error) {
+    console.error("Erreur chargement semestres :", error);
+    setSnackbar({
+      open: true,
+      message: "Erreur lors du chargement des semestres",
+      severity: "error"
+    });
+  }
+};
+
 
   const fetchEnseignants = async () => {
     try {
@@ -197,6 +205,13 @@ const GestionMatieres = () => {
 
   return (
     <div style={{ padding: "2rem" }}>
+      <Button 
+    startIcon={<ArrowBack />} 
+    onClick={() => navigate('/admin/dashboard')} 
+    sx={{ mb: 2 }}
+  >
+    Retour
+  </Button>
       <h2>Gestion des Matières</h2>
 
       <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
@@ -289,21 +304,21 @@ const GestionMatieres = () => {
             onChange={(e) => setForm({ ...form, credits: e.target.value })}
             sx={{ mb: 2 }}
           />
-          <FormControl fullWidth sx={{ mb: 2 }}>
-            <InputLabel id="semestre-select-label">Semestre</InputLabel>
-            <Select
-              labelId="semestre-select-label"
-              value={form.semestre_id}
-              label="Semestre"
-              onChange={(e) => setForm({ ...form, semestre_id: e.target.value })}
-            >
-              {semestres.map((semestre) => (
-                <MenuItem key={semestre.id} value={semestre.id}>
-                  Semestre {semestre.numero} - {semestre.classe}
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
+         <FormControl fullWidth sx={{ mb: 2 }}>
+  <InputLabel id="semestre-select-label">Semestre</InputLabel>
+  <Select
+    labelId="semestre-select-label"
+    value={form.semestre_id}
+    label="Semestre"
+    onChange={(e) => setForm({ ...form, semestre_id: e.target.value })}
+  >
+    {semestres.map((semestre) => (
+      <MenuItem key={semestre.id} value={semestre.id}>
+        {`Semestre ${semestre.numero} - ${semestre.classe_nom} (${semestre.filiere_nom})`}
+      </MenuItem>
+    ))}
+  </Select>
+</FormControl>
           <FormControl fullWidth>
             <InputLabel id="enseignant-select-label">Enseignant</InputLabel>
             <Select

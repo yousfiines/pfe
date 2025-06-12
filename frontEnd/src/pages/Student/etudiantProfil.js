@@ -1,71 +1,65 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import axios from 'axios';
 import { 
-  FaCalendarAlt, FaClock, FaTicketAlt, FaMapMarkerAlt, 
-  FaUser, FaClipboardList, FaSignOutAlt, FaBookOpen
+  FaUser, FaCalendarAlt, FaTicketAlt , FaClipboardList, FaSignOutAlt, 
+  FaBookOpen, FaBook, FaCamera, FaSyncAlt 
 } from "react-icons/fa";
-import { MdLocationOn } from "react-icons/md";
+import { MdLocationOn, MdGetApp } from "react-icons/md";
 import { motion } from 'framer-motion';
 import styled, { keyframes } from 'styled-components';
-import Typography from '@mui/material/Typography';
-import Button from '@mui/material/Button';  
-import { MdGetApp } from "react-icons/md";
+import { 
+  Chip, Box, CircularProgress, Button, Typography,
+  TableContainer, Paper, Table, TableHead, TableRow, 
+  TableCell, TableBody ,   IconButton,
+    Badge,
+    Popover,
+    ClickAwayListener,
+    List,
+    ListItem,
+    ListItemText,
+    Divider,
+} from '@mui/material';
+import { useAuth } from "../../hooks/useAuth";
+import logoFac from "./../../assets/logoFac.png";
+import { Notifications as NotificationsIcon, Close as CloseIcon } from '@mui/icons-material';
+import io from 'socket.io-client';
+const socket = io("http://localhost:5000");
+
+
+// Styles
 const fadeIn = keyframes`
   from { opacity: 0; transform: translateY(20px); }
   to { opacity: 1; transform: translateY(0); }
 `;
 
+const spin = keyframes`
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+`;
+
 const Container = styled.div`
   display: flex;
-  min-height: 100vh;
+  flex: 1;
   background-color: #f8f9fa;
   font-family: 'Poppins', sans-serif;
 `;
+
 const Sidebar = styled.div`
   width: 280px;
   background: linear-gradient(135deg, #2c3e50 0%, #3498db 100%);
   color: white;
   padding: 2rem 0;
   box-shadow: 4px 0 15px rgba(0, 0, 0, 0.1);
-`;
-
-const MainContent = styled.div`
-  flex: 1;
-  padding: 2rem;
-`;
-
-const Header = styled.header`
+  height: calc(100vh - 80px);
+  position: sticky;
+  top: 80px;
   display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 2rem;
-  animation: ${fadeIn} 0.5s ease-out;
-`;
+  flex-direction: column;
 
-const Title = styled.h1`
-  color: #2c3e50;
-  font-size: 1.8rem;
-  font-weight: 600;
-  margin: 0;
-`;
-
-const LogoutButton = styled.button`
-  background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%);
-  color: white;
-  border: none;
-  padding: 0.6rem 1.2rem;
-  border-radius: 30px;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  font-weight: 500;
-  transition: transform 0.3s, box-shadow 0.3s;
-  
-  &:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 4px 8px rgba(231, 76, 60, 0.3);
+  @media (max-width: 768px) {
+    width: 80px;
+    padding: 1rem 0;
   }
 `;
 
@@ -88,7 +82,28 @@ const NavItem = styled.div`
   
   &:hover {
     background: rgba(255, 255, 255, 0.1);
+    transform: translateX(5px);
   }
+
+  @media (max-width: 768px) {
+    padding: 1rem;
+    justify-content: center;
+    
+    span:not(.nav-icon) {
+      display: none;
+    }
+  }
+`;
+
+const NavIcon = styled.span`
+  width: 24px;
+  display: flex;
+  justify-content: center;
+`;
+
+const MainContent = styled.div`
+  flex: 1;
+  padding: 2rem;
 `;
 
 const Section = styled.section`
@@ -125,7 +140,9 @@ const ProfilePhoto = styled.div`
   overflow: hidden;
   border: 5px solid #ecf0f1;
   box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
-  
+  position: relative;
+  cursor: pointer;
+
   img {
     width: 100%;
     height: 100%;
@@ -145,7 +162,6 @@ const DetailItem = styled.div`
   padding: 1.2rem;
   border-radius: 8px;
   transition: transform 0.3s;
-  flex: 1;
   
   &:hover {
     transform: translateY(-3px);
@@ -167,97 +183,6 @@ const DetailValue = styled.div`
   font-weight: 500;
   word-break: break-all;
 `;
-const ScheduleTable = styled.table`
-  width: 100%;
-  border-collapse: separate;
-  border-spacing: 0;
-  margin-top: 1rem;
-  
-  th {
-    background: #2c3e50;
-    color: white;
-    padding: 1rem;
-    text-align: left;
-    font-weight: 500;
-  }
-  
-  td {
-    padding: 1rem;
-    border-bottom: 1px solid #eee;
-    color: #555;
-  }
-  
-  tr:hover td {
-    background: #f8f9fa;
-  }
-  
-  tr:last-child td {
-    border-bottom: none;
-  }
-`;
-
-const ExamsGrid = styled.div`
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-  gap: 1.5rem;
-  margin-top: 1.5rem;
-`;
-
-const ExamCard = styled.div`
-  background: white;
-  border-radius: 10px;
-  overflow: hidden;
-  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.05);
-  display: flex;
-  transition: all 0.3s;
-  
-  &:hover {
-    transform: translateY(-5px);
-    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
-  }
-`;
-
-const ExamDate = styled.div`
-  background: linear-gradient(135deg, #3498db 0%, #2c3e50 100%);
-  color: white;
-  padding: 1.2rem;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  min-width: 80px;
-`;
-
-const ExamDay = styled.div`
-  font-size: 1.8rem;
-  font-weight: 700;
-`;
-
-const ExamMonth = styled.div`
-  font-size: 0.9rem;
-  text-transform: uppercase;
-  letter-spacing: 1px;
-`;
-
-const ExamInfo = styled.div`
-  padding: 1.2rem;
-  flex: 1;
-`;
-
-const ExamTitle = styled.h3`
-  margin: 0 0 0.8rem 0;
-  color: #2c3e50;
-  font-size: 1.2rem;
-`;
-
-const ExamDetail = styled.p`
-  margin: 0.5rem 0;
-  color: #7f8c8d;
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  font-size: 0.9rem;
-`;
 
 const LoadingContainer = styled.div`
   display: flex;
@@ -266,11 +191,6 @@ const LoadingContainer = styled.div`
   justify-content: center;
   height: 100vh;
   background: #f8f9fa;
-`;
-
-const spin = keyframes`
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
 `;
 
 const Spinner = styled.div`
@@ -283,409 +203,214 @@ const Spinner = styled.div`
   margin-bottom: 1rem;
 `;
 
-const EventsSection = styled.section`
-  padding: 3rem 2rem;
-  background: linear-gradient(to bottom, #f9fafb, #ffffff);
-  border-radius: 16px;
-  margin-bottom: 2rem;
-  position: relative;
-  overflow: hidden;
-  
-  &::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    height: 8px;
-    background: linear-gradient(90deg, #7e22ce 0%, #a855f7 50%, #7e22ce 100%);
+const DownloadButton = styled(Button)`
+  && {
+    background: linear-gradient(45deg, #2196F3 30%, #21CBF3 90%);
+    color: white;
+    padding: 8px 20px;
+    border-radius: 8px;
+    text-transform: none;
+    font-weight: 500;
   }
 `;
-const EventsFilter = styled.div`
-  display: flex;
-  justify-content: center;
-  gap: 1rem;
-  margin-bottom: 2rem;
-  flex-wrap: wrap;
-`;
-const EventsHeader = styled.div`
-  text-align: center;
-  margin-bottom: 3rem;
-  position: relative;
-`;
-const EventsTitle = styled.h2`
-  font-size: 2.5rem;
-  font-weight: 700;
-  color: #111827;
-  margin-bottom: 1rem;
-  position: relative;
-  display: inline-block;
-  
-  &::after {
-    content: '';
-    position: absolute;
-    bottom: -10px;
-    left: 50%;
-    transform: translateX(-50%);
-    width: 80px;
-    height: 4px;
-    background: linear-gradient(90deg, #7e22ce, #a855f7);
-    border-radius: 2px;
-  }
-`;
-const EventsSubtitle = styled.p`
-  color: #6b7280;
-  font-size: 1.1rem;
-  max-width: 700px;
-  margin: 0 auto;
-  line-height: 1.8;
-`;
-
-const EventType = styled.div`
-  position: absolute;
-  bottom: '2rem';
-  left: '2rem';
-  color: 'white';
-  zIndex: 2;
-  font-size: 0.9rem;
-  font-weight: 500;
-  margin-bottom: 0.5rem;
-  text-shadow: 0 2px 4px rgba(0,0,0,0.2);
-`;
-
-const EventName = styled.h3`
-  font-size: 1.5rem;
-  font-weight: 600;
-  margin: 0;
-  line-height: 1.2;
-  text-shadow: 0 2px 4px rgba(0,0,0,0.2);
-`;
-
-
-const EventDateContainer = styled.div`
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-  margin-bottom: 1rem;
-`;
-
-const EventDay = styled.div`
-  font-size: 1.5rem;
-  font-weight: 700;
-  color: #7e22ce;
-`;
-
-const EventMonth = styled.div`
-  font-size: 0.7rem;
-  color: #7e22ce;
-  text-transform: uppercase;
-`;
-
-const EventTime = styled.div`
-  font-size: 1rem;
-  font-weight: 500;
-  color: #1e293b;
-`;
-
-const EventLocation = styled.div`
-  background-color: #f5f3ff;
-  color: #7e22ce;
-  padding: 0.5rem 1rem;
-  border-radius: 50px;
-  font-size: 0.8rem;
-  font-weight: 600;
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  margin-bottom: 1rem;
-`;
-
-
-
-
-const FilterButton = styled.button`
-  padding: 0.5rem 1.25rem;
-  background: ${({ $active }) => $active ? '#7e22ce' : '#f3f4f6'};
-  color: ${({ $active }) => $active ? 'white' : '#4b5563'};
-  border: none;
-  border-radius: 50px;
-  font-size: 0.9rem;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  
-  &:hover {
-    background: ${({ $active }) => $active ? '#6b21a8' : '#e5e7eb'};
-  }
-`;
-
-const EventsGrid = styled.div`
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(380px, 1fr));
-  gap: 2.5rem;
-  padding: 1rem;
-`;
-
-const EventCard = styled(motion.div)`
-  background: white;
-  border-radius: 16px;
-  overflow: hidden;
-  box-shadow: 0 10px 25px -5px rgba(0,0,0,0.05);
-  border: 1px solid rgba(209, 213, 219, 0.5);
-  transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-  
-  &:hover {
-    transform: translateY(-8px);
-    box-shadow: 0 20px 25px -5px rgba(126, 34, 206, 0.1), 0 10px 10px -5px rgba(126, 34, 206, 0.04);
-    border-color: rgba(167, 139, 250, 0.5);
-  }
-`;
-
-const EventImageContainer = styled.div`
-  height: 220px;
-  position: relative;
-  overflow: hidden;
-`;
-
-const EventImage = styled.div`
-  width: 100%;
-  height: 100%;
-  background: ${props => `linear-gradient(45deg, ${props.gradient})`};
-  background-size: cover;
-  background-position: center;
-  transition: transform 0.5s ease;
-  
-  ${EventCard}:hover & {
-    transform: scale(1.05);
-  }
-`;
-
-const EventBadge = styled.span`
-  position: absolute;
-  top: 1.5rem;
-  right: 1.5rem;
-  background: rgba(255, 255, 255, 0.9);
-  color: #7e22ce;
-  padding: 0.35rem 0.75rem;
-  border-radius: 50px;
-  font-size: 0.75rem;
-  font-weight: 600;
-  box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);
-  z-index: 2;
-`;
-
-const EventContent = styled.div`
-  padding: 1.75rem;
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-`;
-
-const EventTitle = styled.h3`
-  font-size: 1.5rem;
-  font-weight: 700;
-  color: #111827;
-  margin: 0 0 1rem 0;
-  line-height: 1.3;
-`;
-
-const EventMeta = styled.div`
-  display: flex;
-  gap: 1rem;
-  margin-bottom: 1.5rem;
-  flex-wrap: wrap;
-`;
-
-const MetaItem = styled.div`
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  font-size: 0.9rem;
-  color: #6b7280;
-  
-  svg {
-    color: #7e22ce;
-    font-size: 1rem;
-  }
-`;
-
-const EventDescription = styled.p`
-  color: #6b7280;
-  line-height: 1.7;
-  margin-bottom: 1.75rem;
-  flex: 1;
-`;
-
-const EventActions = styled.div`
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-top: auto;
-`;
-
-const EventButton = styled.button`
-  padding: 0.75rem 1.5rem;
-  background: linear-gradient(135deg, #7e22ce 0%, #a855f7 100%);
-  color: white;
-  border: none;
-  border-radius: 8px;
-  font-size: 0.95rem;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  box-shadow: 0 4px 6px -1px rgba(126, 34, 206, 0.1), 0 2px 4px -1px rgba(126, 34, 206, 0.06);
-  
-  &:hover {
-    background: linear-gradient(135deg, #6b21a8 0%, #9333ea 100%);
-    box-shadow: 0 10px 15px -3px rgba(126, 34, 206, 0.1), 0 4px 6px -2px rgba(126, 34, 206, 0.05);
-    transform: translateY(-2px);
-  }
-`;
-
-const EventDateBox = styled.div`
-  background: #f5f3ff;
-  padding: 0.75rem 1rem;
-  border-radius: 8px;
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-`;
-
-const EventDateText = styled.div`
-  font-size: 0.9rem;
-  font-weight: 500;
-  color: #7e22ce;
-  
-  span {
-    display: block;
-    font-size: 0.8rem;
-    color: #8b5cf6;
-  }
-`;
-
 
 const EtudiantProfil = () => {
   const navigate = useNavigate();
+  const [notifications, setNotifications] = useState([]);
+  const [open, setOpen] = useState(false);
+  const [hasNewNotification, setHasNewNotification] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const anchorEl = useRef(null);
   const [activeSection, setActiveSection] = useState('profile');
   const [studentData, setStudentData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [loadingExams, setLoadingExams] = useState(false);
+  const [loadingEmploi, setLoadingEmploi] = useState(true);
   const [error, setError] = useState(null);
   const [events, setEvents] = useState([]);
   const [filiereData, setFiliereData] = useState({});
   const [classeData, setClasseData] = useState({});
-  const [emploiDuTemps, setEmploiDuTemps] = useState([]);
-  
+  const [emploiDuTemps, setEmploiDuTemps] = useState(null);
+  const [parsedSchedule, setParsedSchedule] = useState(null);
+  const [errorEmploi, setErrorEmploi] = useState(null);
+  const fileInputRef = useRef();
+  const [enCoursUpload, setEnCoursUpload] = useState(false);
+  const [apercu, setApercu] = useState(null);
+  const [exams, setExams] = useState([]);
+  const { token, role, cin } = useAuth('etudiant');
+// Charger les notifications
+const loadNotifications = async () => {
+  try {
+    const { data } = await axios.get(`enseignant/notifications`, {
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+    setNotifications(data.data);
+    setUnreadCount(data.data.filter((n) => !n.read_status).length);
+  } catch (error) {
+    console.error("Erreur lors du chargement des notifications:", error);
+  }
+};
 
-  // Fonction pour charger les données des filières et classes
-  const loadReferenceData = async () => {
+// Gérer l'ouverture/fermeture du popover
+const handleToggleNotifications = () => {
+  setOpen(!open);
+  if (hasNewNotification) {
+    setHasNewNotification(false);
+  }
+};
+
+const handleCloseNotifications = () => {
+  setOpen(false);
+};
+
+// Marquer une notification comme lue
+const markAsRead = async (id) => {
+  try {
+    await axios.patch(`enseignant/notifications/${id}/read`, {}, {
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+    setNotifications(notifications.map(n => 
+      n.id === id ? {...n, read_status: true} : n
+    ));
+    setUnreadCount(unreadCount - 1);
+  } catch (error) {
+    console.error("Erreur lors du marquage comme lu:", error);
+  }
+};
+
+// Dans useEffect, ajoutez la gestion des sockets
+useEffect(() => {
+  socket.emit("registerAsTeacher", { cin });
+  socket.on("newNotification", (data) => {
+    setNotifications((prev) => [data, ...prev]);
+    setHasNewNotification(true);
+    setUnreadCount(prev => prev + 1);
+  });
+
+  return () => {
+    socket.off("newNotification");
+  };
+}, [cin]);
+
+// Charger les notifications au montage et toutes les 30 secondes
+useEffect(() => {
+  loadNotifications();
+  const interval = setInterval(loadNotifications, 30000);
+  return () => clearInterval(interval);
+}, []);
+  const loadReferenceData = useCallback(async () => {
     try {
       const [filieresRes, classesRes] = await Promise.all([
         axios.get('http://localhost:5000/api/filieres'),
         axios.get('http://localhost:5000/api/classes')
       ]);
-  
+
       const filieresMap = {};
-      filieresRes.data.forEach(f => filieresMap[f.id] = f.nom);
-      
+      filieresRes.data.data.forEach(f => filieresMap[f.id] = f.nom);
       const classesMap = {};
       classesRes.data.forEach(c => classesMap[c.id] = c.nom);
-  
+
       setFiliereData(filieresMap);
       setClasseData(classesMap);
     } catch (error) {
       console.error("Erreur chargement données référence:", error);
     }
-  };
+  }, []);
 
-
-  const fetchEmploiDuTemps = async () => {
+  const fetchEmploiDuTemps = useCallback(async () => {
     try {
+      setLoadingEmploi(true);
       const token = localStorage.getItem('token');
+      if (!token || !studentData?.profile?.classeNom) return;
+
       const response = await axios.get(
-        `http://localhost:3001/api/emplois/classe/${studentData.profile.classeNom}`,
+        `http://localhost:5000/api/emplois/classe/${studentData.profile.classeNom}?type=etudiant`,
         { headers: { 'Authorization': `Bearer ${token}` } }
       );
       
-      if (response.data.success) {
-        // Filtrer seulement les emplois publiés
-        const publishedEmplois = response.data.data.filter(emploi => emploi.published);
-        setEmploiDuTemps(publishedEmplois);
+      if (response.data.success && response.data.data.length > 0) {
+        setEmploiDuTemps(response.data.data[0]);
+        
+        const parseRes = await axios.get(
+          `http://localhost:5000/api/emplois/${response.data.data[0].id}/parsed`,
+          { headers: { 'Authorization': `Bearer ${token}` } }
+        );
+        
+        setParsedSchedule(parseRes.data.data);
       }
     } catch (error) {
       console.error("Erreur chargement emploi du temps:", error);
+      setErrorEmploi("Impossible de charger l'emploi du temps");
+    } finally {
+      setLoadingEmploi(false);
     }
-  };
-
-  
-  if (studentData?.profile?.classeNom) {
-    fetchEmploiDuTemps();
-  }
+  }, [studentData?.profile?.classeNom]);
 
   useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const token = localStorage.getItem('token');
-        const cin = localStorage.getItem('studentCin');
-        
-        if (!token || !cin) {
-          navigate('/connexion');
-          return;
-        }
-  
-        // Charge d'abord les données de référence
-        await loadReferenceData();
-  
-        const response = await axios.get(`http://localhost:5000/api/etudiant/${cin}`, {
-          headers: { 'Authorization': `Bearer ${token}` }
+    if (studentData?.profile?.classeNom) {
+      fetchEmploiDuTemps();
+    }
+  }, [studentData?.profile?.classeNom, fetchEmploiDuTemps]);
+
+  const fetchData = useCallback(async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const cin = localStorage.getItem('studentCin');
+      
+      const response = await axios.get(`http://localhost:5000/api/etudiant/${cin}`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+
+      if (response.data.success) {
+        setStudentData({
+          profile: {
+            ...response.data.data,
+            email: response.data.data.email,
+            filiereNom: filiereData[response.data.data.Filière] || response.data.data.Filière,
+            classeNom: classeData[response.data.data.Classe] || response.data.data.Classe,
+            ProfileImage: response.data.data.ProfileImage || null
+          }
         });
-  
-        console.log('Données reçues:', response.data); // Ajoutez ce log pour vérification
-  
-        if (response.data.success) {
-          setStudentData({
-            profile: {
-              ...response.data.data,
-              email: response.data.data.email, // Assurez-vous d'utiliser le bon nom de champ
-              filiereNom: filiereData[response.data.data.Filière] || response.data.data.Filière,
-              classeNom: classeData[response.data.data.Classe] || response.data.data.Classe,
-              photo: 'https://randomuser.me/api/portraits/men/32.jpg'
-            },
-            schedule: [
-              { id: 1, jour: 'Lundi', matiere: 'Algorithmique avancée', heure: '08:30-10:00', salle: 'B201', professeur: 'Prof. Martin' },
-              { id: 2, jour: 'Lundi', matiere: 'Programmation C++', heure: '10:10-11:40', salle: 'B202', professeur: 'Prof. Dupont' },
-              { id: 3, jour: 'Mardi', matiere: 'Base de données', heure: '08:30-10:00', salle: 'A101', professeur: 'Prof. Leroy' },
-              { id: 4, jour: 'Mardi', matiere: 'Mathématiques discrètes', heure: '10:10-11:40', salle: 'C301', professeur: 'Prof. Bernard' },
-              { id: 5, jour: 'Mercredi', matiere: 'Systèmes d\'exploitation', heure: '13:30-15:00', salle: 'B205', professeur: 'Prof. Moreau' }
-            ],
-            exams: [
-              { id: 1, matiere: 'Algorithmique avancée', date: '2023-06-15', heure: '08:30-10:30', salle: 'Amphi A', coefficient: 2 },
-              { id: 2, matiere: 'Base de données NoSQL', date: '2023-06-18', heure: '10:00-12:00', salle: 'Amphi B', coefficient: 1.5 },
-              { id: 3, matiere: 'Réseaux et sécurité', date: '2023-06-20', heure: '14:00-16:00', salle: 'Salle C12', coefficient: 1.5 },
-              { id: 4, matiere: 'Développement Web React', date: '2023-06-22', heure: '09:00-11:00', salle: 'Salle D08', coefficient: 2 }
-            ]
-          });
-        }  
-        const eventsRes = await axios.get("http://localhost:5000/api/evenements");
+
+        const examsResponse = await axios.get(`http://localhost:5000/api/examens/etudiant/${cin}`, {
+  headers: { 'Authorization': `Bearer ${token}` }
+});
+
+if (examsResponse.data.success) {
+  setExams(examsResponse.data.data);
+}
+      }
+
+      const eventsRes = await axios.get("http://localhost:5000/api/evenements");
       setEvents(eventsRes.data.data || []);
     } catch (err) {
       setError(err.response?.data?.message || "Erreur serveur");
     } finally {
       setLoading(false);
     }
-  };
+  }, [filiereData, classeData]);
 
-  fetchData();
-}, [navigate, filiereData, classeData]);
+  useEffect(() => {
+    const fetchAllData = async () => {
+      try {
+        setLoading(true);
+        await loadReferenceData();
+        await fetchData();
+        await fetchEmploiDuTemps();
+      } catch (error) {
+        setError(error.message);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchAllData();
+  }, [loadReferenceData, fetchData, fetchEmploiDuTemps]);
 
   const handleLogout = () => {
     localStorage.removeItem('token');
     localStorage.removeItem('studentCin');
+    localStorage.removeItem('role');
     navigate('/connexion');
   };
 
@@ -699,23 +424,59 @@ const EtudiantProfil = () => {
       navigate('/studentDoc');
     }
   };
+
   const handleEventClick = (eventName) => {
     navigate('/eventForm', { state: { selectedEvent: eventName } });
   };
 
+  const handleImageChange = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
 
-  const getArtGradient = (type) => {
-    const gradients = {
-      'Conférence': '#8b5cf6, #7c3aed',
-      'Atelier': '#ec4899, #db2777',
-      'Exposition': '#f59e0b, #d97706',
-      'Performance': '#10b981, #059669'
-    };
-    return gradients[type] || '#6d28d9, #4c1d95';
+    if (!file.type.startsWith('image/')) {
+      alert("Veuillez sélectionner une image (JPEG/PNG).");
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = () => setApercu(reader.result);
+    reader.readAsDataURL(file);
+
+    try {
+      setEnCoursUpload(true);
+
+      const formData = new FormData();
+      formData.append('profile', file);
+
+      const token = localStorage.getItem('token');
+      const response = await axios.post(
+        'http://localhost:5000/api/etudiant/upload-profile',
+        formData,
+        {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'multipart/form-data'
+          }
+        }
+      );
+
+      if (response.data.success) {
+        setStudentData(prev => ({
+          ...prev,
+          profile: {
+            ...prev.profile,
+            ProfileImage: response.data.imageUrl
+          }
+        }));
+        alert("Photo mise à jour avec succès !");
+      }
+    } catch (error) {
+      console.error("Erreur upload:", error);
+      alert(`Échec : ${error.response?.data?.message || "Erreur réseau"}`);
+    } finally {
+      setEnCoursUpload(false);
+    }
   };
-
-  
- 
 
   if (loading) {
     return (
@@ -736,239 +497,612 @@ const EtudiantProfil = () => {
   }
 
   return (
-    <Container>
-      <Sidebar>
-        <NavItem active={activeSection === 'profile'} onClick={() => setActiveSection('profile')}>
-          <FaUser /> Profil
-        </NavItem>
-        <NavItem active={activeSection === 'schedule'} onClick={() => setActiveSection('schedule')}>
-          <FaCalendarAlt /> Emploi du temps
-        </NavItem>
-        <NavItem active={activeSection === 'exams'} onClick={() => setActiveSection('exams')}>
-          <FaClipboardList /> Examens
-        </NavItem>
-        <NavItem active={activeSection === 'events'} onClick={() => setActiveSection('events')}>
-          <FaCalendarAlt /> Événements
-        </NavItem>
-        <NavItem onClick={navigateToDocuments}>
-          <FaBookOpen /> Consulter cours
-        </NavItem>
-      </Sidebar>
+    <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
+      {/* Navbar standard */}
+      <header style={{
+        display: "flex",
+        alignItems: "center",
+        padding: "1rem 5%",
+        backgroundColor: "#fff",
+        borderBottom: "1px solid #e0e0e0",
+        boxShadow: "0 2px 12px rgba(0, 0, 0, 0.08)",
+        position: "sticky",
+        top: 0,
+        zIndex: 1000
+      }}>
+        <a href="/" style={{ display: "flex", alignItems: "center", textDecoration: "none" }}>
+          <img
+            src={logoFac}
+            width="80"
+            height="80"
+            alt="Logo Faculté"
+            style={{ objectFit: "contain", marginRight: "1rem" }}
+          />
+          <div style={{ borderLeft: "2px solid #0056b3", paddingLeft: "1rem" }}>
+            <Typography variant="h6" style={{ color: "#0056b3", fontWeight: "bold" }}>
+              Faculté des Sciences et Techniques FSTSBZ
+            </Typography>
+            <Typography variant="subtitle2" style={{ color: "#555" }}>
+              Université de Kairouan
+            </Typography>
+          </div>
+        </a>
 
-      <MainContent>
-        <Header>
-          <Title>Bienvenue, {studentData?.profile?.Nom_et_prénom}</Title>
-          <LogoutButton onClick={() => {
-            localStorage.removeItem('token');
-            localStorage.removeItem('studentCin');
-            navigate('/connexion');
-          }}>
-            <FaSignOutAlt /> Déconnexion
-          </LogoutButton>
-        </Header>
-
-        {activeSection === 'profile' && studentData && (
-  <Section>
-    <SectionTitle>Informations personnelles</SectionTitle>
-    <ProfileContainer>
-      <ProfilePhoto>
-        <img src={studentData.profile.photo} alt="Profil étudiant" />
-      </ProfilePhoto>
-      <ProfileDetails>
-        <DetailItem>
-          <DetailLabel>Nom complet</DetailLabel>
-          <DetailValue>{studentData.profile.Nom_et_prénom}</DetailValue>
-        </DetailItem>
-        <DetailItem>
-          <DetailLabel>CIN</DetailLabel>
-          <DetailValue>{studentData.profile.CIN}</DetailValue>
-        </DetailItem>
-        <DetailItem>
-  <DetailLabel>Email</DetailLabel>
-  <DetailValue>
-    {studentData.profile.Email || 'Non renseigné'}
-  </DetailValue>
-</DetailItem>
-        <DetailItem>
-          <DetailLabel>Téléphone</DetailLabel>
-          <DetailValue>{studentData.profile.Téléphone}</DetailValue>
-        </DetailItem>
-        <DetailItem>
-          <DetailLabel>FILIÈRE</DetailLabel>
-          <DetailValue>{studentData.profile.filiereNom}</DetailValue>
-        </DetailItem>
-        <DetailItem>
-          <DetailLabel>CLASSE</DetailLabel>
-          <DetailValue>{studentData.profile.classeNom}</DetailValue>
-        </DetailItem>
-      </ProfileDetails>
-    </ProfileContainer>
-  </Section>
-)}
-
-{activeSection === 'schedule' && (
-  <Section>
-    <SectionTitle>Votre emploi du temps</SectionTitle>
-    {emploiDuTemps.length > 0 ? (
-      <div>
-        <Typography variant="body1" gutterBottom>
-          Filière: {emploiDuTemps[0].filiere_nom} - Classe: {emploiDuTemps[0].classe_nom}
-        </Typography>
-        <Button 
-          variant="contained" 
-          color="primary" 
-          startIcon={<MdGetApp />}
-          href={`http://localhost:3001${emploiDuTemps[0].fichier_path}`}
-          target="_blank"
-          style={{ marginBottom: '1rem' }}
-        >
-          Télécharger l'emploi du temps
-        </Button>
-        <iframe 
-          src={`http://localhost:3001${emploiDuTemps[0].fichier_path}`} 
-          width="100%" 
-          height="600px"
-          style={{ border: 'none' }}
-          title="Emploi du temps"
-        />
-      </div>
-    ) : (
-      <Typography variant="body1">Aucun emploi du temps publié pour votre classe.</Typography>
-    )}
-  </Section>
-)}
-
-        {activeSection === 'exams' && (
-          <Section>
-            <SectionTitle>Vos prochains examens</SectionTitle>
-            <ScheduleTable>
-              <thead>
-                <tr>
-                  <th>Date</th>
-                  <th>Matière</th>
-                  <th>Heure</th>
-                  <th>Salle</th>
-                  <th>Coefficient</th>
-                </tr>
-              </thead>
-              <tbody>
-                {studentData.exams.map((exam) => (
-                  <tr key={exam.id}>
-                    <td>
-                      <div style={{ fontWeight: 'bold' }}>
-                        {new Date(exam.date).toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short' })}
-                      </div>
-                      <div style={{ fontSize: '0.8rem', color: '#555' }}>
-                        {new Date(exam.date).toLocaleDateString('fr-FR', { year: 'numeric' })}
-                      </div>
-                    </td>
-                    <td style={{ fontWeight: '500' }}>{exam.matiere}</td>
-                    <td>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                        <FaClock style={{ color: '#555' }} />
-                        {exam.heure}
-                      </div>
-                    </td>
-                    <td>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                        <FaMapMarkerAlt style={{ color: '#555' }} />
-                        {exam.salle}
-                      </div>
-                    </td>
-                    <td>{exam.coefficient}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </ScheduleTable>
-          </Section>
-        )}
-
-        {activeSection === 'events' && (
-           <EventsSection>
-    <EventsHeader>
-      <EventsTitle>Événements à venir</EventsTitle>
-      <EventsSubtitle>
-        Découvrez notre programme culturel riche et varié, conçu pour enrichir votre expérience étudiante.
-      </EventsSubtitle>
-      
-      <EventsFilter>
-        <FilterButton active>Tous</FilterButton>
-        <FilterButton>Conférences</FilterButton>
-        <FilterButton>Ateliers</FilterButton>
-        <FilterButton>Expositions</FilterButton>
-        <FilterButton>Spectacles</FilterButton>
-      </EventsFilter>
-    </EventsHeader>
-    
-    <EventsGrid>
-      {events.map((event) => {
-        const eventDate = new Date(event.date);
-        const formattedDate = eventDate.toLocaleDateString('fr-FR', {
-          weekday: 'short',
-          day: 'numeric',
-          month: 'short'
-        });
-        const formattedTime = eventDate.toLocaleTimeString('fr-FR', {
-          hour: '2-digit',
-          minute: '2-digit'
-        });
+        <div style={{ flexGrow: 1 }} />
         
-        return (
-          <EventCard 
-            key={event.id}
-            whileHover={{ y: -5 }}
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.4 }}
+        
+
+
+        <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
+          <IconButton
+            ref={anchorEl}
+            onClick={handleToggleNotifications}
+            style={{
+              position: 'relative',
+              color: '#0056b3',
+              '&:hover': {
+                backgroundColor: 'rgba(0, 86, 179, 0.1)'
+              }
+            }}
           >
-            <EventImageContainer>
-              <EventImage gradient={getArtGradient(event.type)} />
-              <EventBadge>{event.type}</EventBadge>
-            </EventImageContainer>
-            
-            <EventContent>
-              <EventTitle>{event.titre}</EventTitle>
+            <Badge
+              badgeContent={unreadCount}
+              color="error"
+              invisible={unreadCount === 0}
+            >
+              <NotificationsIcon />
+            </Badge>
+          </IconButton>
+
+          <Popover
+            open={open}
+            anchorEl={anchorEl.current}
+            onClose={handleCloseNotifications}
+            anchorOrigin={{
+              vertical: 'bottom',
+              horizontal: 'right',
+            }}
+            transformOrigin={{
+              vertical: 'top',
+              horizontal: 'right',
+            }}
+            PaperProps={{
+              style: {
+                width: 400,
+                maxHeight: '70vh',
+                overflow: 'auto',
+                padding: '1rem',
+                borderRadius: '10px',
+                boxShadow: '0 4px 20px 0 rgba(0,0,0,0.15)'
+              }
+            }}
+          >
+            <ClickAwayListener onClickAway={handleCloseNotifications}>
+              <Box>
+                <Box style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  marginBottom: '1rem'
+                }}>
+                  <Typography variant="h6" style={{ color: '#0056b3' }}>
+                    Notifications
+                  </Typography>
+                  <IconButton onClick={handleCloseNotifications} size="small">
+                    <CloseIcon fontSize="small" />
+                  </IconButton>
+                </Box>
+
+                <Divider style={{ marginBottom: '1rem' }} />
+
+                {notifications.length === 0 ? (
+                  <Typography variant="body2" style={{ color: '#666', textAlign: 'center', padding: '1rem' }}>
+                    Aucune notification pour le moment
+                  </Typography>
+                ) : (
+                  <List dense>
+                    {notifications.map((notification, index) => (
+                      <React.Fragment key={notification.id || index}>
+                        <ListItem
+                          style={{
+                            backgroundColor: notification.read_status ? 'inherit' : 'rgba(0, 86, 179, 0.05)',
+                            borderRadius: '8px',
+                            marginBottom: '0.5rem',
+                            cursor: 'pointer',
+                            '&:hover': {
+                              backgroundColor: 'rgba(0, 86, 179, 0.1)'
+                            }
+                          }}
+                          onClick={() => markAsRead(notification.id)}
+                        >
+                          <ListItemText
+                            primary={
+                              <Typography variant="subtitle2" style={{ color: '#0056b3' }}>
+                                {notification.title || "Notification"}
+                              </Typography>
+                            }
+                            secondary={
+                              <Typography variant="body2" style={{ color: '#666' }}>
+                                {notification.message}
+                              </Typography>
+                            }
+                            secondaryTypographyProps={{
+                              style: {
+                                whiteSpace: 'nowrap',
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis'
+                              }
+                            }}
+                          />
+                        </ListItem>
+                        {index < notifications.length - 1 && <Divider />}
+                      </React.Fragment>
+                    ))}
+                  </List>
+                )}
+              </Box>
+            </ClickAwayListener>
+          </Popover>
+        </div>
+
+
+
+
+
+
+
+
+
+
+      </header>
+
+      {/* Contenu principal */}
+      <Container>
+        <Sidebar>
+          <div style={{ padding: '0 1.5rem', marginBottom: '2rem' }}>
+            <Typography variant="h6" style={{ color: 'white', fontWeight: 'bold' }}>
+              Menu Étudiant
+            </Typography>
+          </div>
+          
+          <NavItem 
+            active={activeSection === 'profile'} 
+            onClick={() => setActiveSection('profile')}
+          >
+            <NavIcon><FaUser /></NavIcon>
+            <span>Profil</span>
+          </NavItem>
+          
+          <NavItem 
+            active={activeSection === 'schedule'} 
+            onClick={() => setActiveSection('schedule')}
+          >
+            <NavIcon><FaCalendarAlt /></NavIcon>
+            <span>Emploi du temps</span>
+          </NavItem>
+          
+          <NavItem 
+            active={activeSection === 'exams'} 
+            onClick={() => setActiveSection('exams')}
+          >
+            <NavIcon><FaClipboardList /></NavIcon>
+            <span>Examens</span>
+          </NavItem>
+          
+          <NavItem 
+            active={activeSection === 'events'} 
+            onClick={() => setActiveSection('events')}
+          >
+            <NavIcon><FaCalendarAlt /></NavIcon>
+            <span>Événements</span>
+          </NavItem>
+          
+          <NavItem onClick={navigateToDocuments}>
+            <NavIcon><FaBookOpen /></NavIcon>
+            <span>Documents de cours</span>
+          </NavItem>
+          
+          <div style={{ marginTop: 'auto', padding: '1.5rem' }}>
+            <NavItem 
+              onClick={handleLogout}
+              style={{ 
+                backgroundColor: 'rgba(255, 99, 71, 0.1)',
+                borderLeft: '4px solid tomato'
+              }}
+            >
+              <NavIcon><FaSignOutAlt style={{ color: 'tomato' }} /></NavIcon>
+              <span style={{ color: 'tomato', fontWeight: 'bold' }}>Déconnexion</span>
+            </NavItem>
+          </div>
+        </Sidebar>
+
+        <MainContent>
+          {activeSection === 'profile' && studentData && (
+            <Section>
+              <SectionTitle>Informations personnelles</SectionTitle>
+              <ProfileContainer>
+                <ProfilePhoto>
+                  <input
+                    type="file"
+                    ref={fileInputRef}
+                    onChange={handleImageChange}
+                    accept="image/*"
+                    style={{ display: 'none' }}
+                  />
+                  {enCoursUpload ? (
+                    <div style={{ 
+                      display: 'flex', 
+                      justifyContent: 'center', 
+                      alignItems: 'center', 
+                      height: '100%',
+                      backgroundColor: '#f0f0f0'
+                    }}>
+                      <CircularProgress />
+                    </div>
+                  ) : studentData?.profile?.ProfileImage ? (
+                    <img
+                      src={`http://localhost:5000${studentData.profile.ProfileImage}`}
+                      alt="Photo de profil"
+                      onClick={() => fileInputRef.current.click()}
+                      style={{ 
+                        width: '100%', 
+                        height: '100%', 
+                        objectFit: 'cover', 
+                        cursor: 'pointer' 
+                      }}
+                    />
+                  ) : (
+                    <div
+                      onClick={() => fileInputRef.current.click()}
+                      style={{
+                        width: '100%',
+                        height: '100%',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        backgroundColor: '#f0f0f0',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      <FaCamera size={40} color="#666" />
+                      <span style={{ marginTop: 10, color: '#666' }}>Ajouter une photo</span>
+                    </div>
+                  )}
+                </ProfilePhoto>
+
+                <ProfileDetails>
+                  <DetailItem>
+                    <DetailLabel>Nom complet</DetailLabel>
+                    <DetailValue>{studentData.profile.Nom_et_prénom}</DetailValue>
+                  </DetailItem>
+                  <DetailItem>
+                    <DetailLabel>CIN</DetailLabel>
+                    <DetailValue>{studentData.profile.CIN}</DetailValue>
+                  </DetailItem>
+                  <DetailItem>
+                    <DetailLabel>Email</DetailLabel>
+                    <DetailValue>
+                      {studentData.profile.Email || 'Non renseigné'}
+                    </DetailValue>
+                  </DetailItem>
+                  <DetailItem>
+                    <DetailLabel>Téléphone</DetailLabel>
+                    <DetailValue>{studentData.profile.Téléphone}</DetailValue>
+                  </DetailItem>
+                  <DetailItem>
+                    <DetailLabel>FILIÈRE</DetailLabel>
+                    <DetailValue>{studentData.profile.filiereNom}</DetailValue>
+                  </DetailItem>
+                  <DetailItem>
+                    <DetailLabel>CLASSE</DetailLabel>
+                    <DetailValue>{studentData.profile.classeNom}</DetailValue>
+                  </DetailItem>
+                </ProfileDetails>
+              </ProfileContainer>
+            </Section>
+          )}
+
+          {activeSection === 'schedule' && (
+            <Section>
+              <SectionTitle>Votre emploi du temps</SectionTitle>
+              {loadingEmploi ? (
+                <div style={{ display: 'flex', justifyContent: 'center', padding: '2rem' }}>
+                  <CircularProgress />
+                </div>
+              ) : emploiDuTemps && parsedSchedule ? (
+                <div>
+                  <div style={{ 
+                    display: 'flex', 
+                    justifyContent: 'space-between', 
+                    alignItems: 'center', 
+                    marginBottom: '1.5rem' 
+                  }}>
+                    <Typography variant="body1" gutterBottom>
+                      {emploiDuTemps.filiere_nom} - {emploiDuTemps.classe_nom} - Semestre {emploiDuTemps.semestre_numero}
+                    </Typography>
+                    <DownloadButton 
+                      variant="contained" 
+                      startIcon={<MdGetApp />}
+                      href={`http://localhost:5000${emploiDuTemps.fichier_path}`}
+                      target="_blank"
+                    >
+                      Télécharger
+                    </DownloadButton>
+                  </div>
+
+                  <TableContainer component={Paper} sx={{ 
+                    margin: '2rem 0',
+                    borderRadius: '8px',
+                    overflow: 'hidden',
+                    boxShadow: '0 2px 10px rgba(0,0,0,0.1)'
+                  }}>
+                    <Table>
+                      <TableHead>
+                        <TableRow>
+                          {parsedSchedule.headers.map((header, index) => (
+                            <TableCell 
+                              key={index} 
+                              align="center" 
+                              sx={{ 
+                                backgroundColor: '#2c3e50',
+                                color: 'white',
+                                fontWeight: '600',
+                                fontSize: '0.9rem'
+                              }}
+                            >
+                              {header}
+                            </TableCell>
+                          ))}
+                        </TableRow>
+                      </TableHead>
+                      <TableBody>
+                        {parsedSchedule.rows.map((row, rowIndex) => (
+                          <TableRow 
+                            key={rowIndex}
+                            sx={{
+                              '&:nth-of-type(even)': {
+                                backgroundColor: '#f9f9f9'
+                              },
+                              '&:hover': {
+                                backgroundColor: '#f0f7ff'
+                              }
+                            }}
+                          >
+                            {parsedSchedule.headers.map((header, colIndex) => (
+                              <TableCell 
+                                key={`${rowIndex}-${colIndex}`} 
+                                align="center"
+                                sx={{
+                                  padding: '12px',
+                                  borderBottom: '1px solid #f0f0f0',
+                                  fontSize: '0.9rem'
+                                }}
+                              >
+                                {row[header] || '-'}
+                              </TableCell>
+                            ))}
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </TableContainer>
+
+                  <Typography variant="body2" color="textSecondary" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <FaCalendarAlt />
+                    Dernière mise à jour : {new Date(emploiDuTemps.published_at).toLocaleDateString('fr-FR', {
+                      day: 'numeric',
+                      month: 'long',
+                      year: 'numeric',
+                      hour: '2-digit',
+                      minute: '2-digit'
+                    })}
+                  </Typography>
+                </div>
+              ) : (
+                <Typography variant="body1" color="textSecondary">
+                  Aucun emploi du temps disponible pour le moment
+                </Typography>
+              )}
+            </Section>
+          )}
+
+          {activeSection === 'exams' && (
+            <Section>
+              <SectionTitle>Vos examens à venir</SectionTitle>
               
-              <EventMeta>
-                <MetaItem>
-                  <FaCalendarAlt />
-                  {formattedDate}
-                </MetaItem>
-                <MetaItem>
-                  <FaClock />
-                  {formattedTime}
-                </MetaItem>
-                <MetaItem>
-                  <MdLocationOn />
-                  {event.lieu}
-                </MetaItem>
-              </EventMeta>
+              {loadingExams ? (
+                <div style={{ display: 'flex', justifyContent: 'center', padding: '2rem' }}>
+                  <CircularProgress />
+                </div>
+              ) : exams.length === 0 ? (
+                <Typography variant="body1" color="textSecondary">
+                  Aucun examen à venir pour le moment
+                </Typography>
+              ) : (
+                exams.map((exam, index) => (
+                  <div 
+                    key={index} 
+                    style={{
+                      padding: "1rem",
+                      marginBottom: "0.5rem",
+                      backgroundColor: "#f5f5f5",
+                      borderRadius: "6px",
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center"
+                    }}
+                  >
+                    <div>
+                      <Typography variant="subtitle1" style={{ color: "#0056b3" }}>
+                        {exam.matiere_nom}
+                      </Typography>
+                      <Typography variant="body2" style={{ color: "#666" }}>
+                        {new Date(exam.date).toLocaleDateString('fr-FR', { 
+                          weekday: 'long', 
+                          year: 'numeric', 
+                          month: 'long', 
+                          day: 'numeric' 
+                        })}
+                        {" • " + exam.heure_debut} - {exam.heure_fin}
+                      </Typography>
+                      <Typography variant="body2" style={{ color: "#555" }}>
+                        {exam.filiere_nom} - {exam.classe_nom} (Semestre {exam.semestre_numero})
+                      </Typography>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                      <FaBook /> 
+                      <Typography variant="body2" style={{ marginRight: '0.5rem' }}>
+                        {exam.salle}
+                      </Typography>
+                      <Chip
+                        label={exam.type}
+                        color={exam.type === 'Examen' ? 'error' : 'primary'}
+                        size="small"
+                      />
+                    </div>
+                  </div>
+                ))
+              )}
+            </Section>
+          )}
+
+          {activeSection === 'events' && (
+            <Section>
+              <SectionTitle>Événements Universitaires</SectionTitle>
               
-              <EventDescription>
-                {event.description.substring(0, 150)}...
-              </EventDescription>
-              
-              <EventActions>
-                <EventDateBox>
-                  <FaCalendarAlt size={18} />
-                  <EventDateText>
-                    {eventDate.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}
-                    <span>{eventDate.toLocaleDateString('fr-FR', { year: 'numeric' })}</span>
-                  </EventDateText>
-                </EventDateBox>
-                
-                <EventButton onClick={() => handleEventClick(event.titre)}>
-                  <FaTicketAlt /> Participer
-                </EventButton>
-              </EventActions>
-            </EventContent>
-          </EventCard>
-        )})}
-    </EventsGrid>
-  </EventsSection>
-        )}
-      </MainContent>
-    </Container>
+              {events.length === 0 ? (
+                <Typography variant="body1" color="textSecondary">
+                  Aucun événement à venir pour le moment
+                </Typography>
+              ) : (
+                <div style={{ 
+                  display: 'grid', 
+                  gridTemplateColumns: 'repeat(auto-fill, minmax(350px, 1fr))',
+                  gap: '1.5rem'
+                }}>
+                  {events.map((event) => {
+                    const eventDate = new Date(event.date);
+                    const formattedDate = eventDate.toLocaleDateString('fr-FR', {
+                      weekday: 'short',
+                      day: 'numeric',
+                      month: 'short',
+                      year: 'numeric'
+                    });
+                    const formattedTime = eventDate.toLocaleTimeString('fr-FR', {
+                      hour: '2-digit',
+                      minute: '2-digit'
+                    });
+                    
+                    return (
+                      <motion.div 
+                        key={event.id}
+                        whileHover={{ y: -5 }}
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.3 }}
+                        style={{
+                          background: 'white',
+                          borderRadius: '12px',
+                          overflow: 'hidden',
+                          boxShadow: '0 4px 12px rgba(0, 0, 0, 0.05)',
+                          border: '1px solid #e5e7eb'
+                        }}
+                      >
+                        <div style={{ 
+                          height: '180px',
+                          position: 'relative',
+                          overflow: 'hidden',
+                          background: 'linear-gradient(135deg, #6366f1, #8b5cf6)'
+                        }}>
+                          <div style={{
+                            position: 'absolute',
+                            top: '1rem',
+                            right: '1rem',
+                            background: 'rgba(255, 255, 255, 0.9)',
+                            color: '#6366f1',
+                            padding: '0.25rem 0.75rem',
+                            borderRadius: '50px',
+                            fontSize: '0.75rem',
+                            fontWeight: '600',
+                            boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+                          }}>
+                            {event.type}
+                          </div>
+                        </div>
+                        
+                        <div style={{ padding: '1.5rem' }}>
+                          <h3 style={{ 
+                            fontSize: '1.25rem',
+                            fontWeight: '600',
+                            color: '#111827',
+                            margin: '0 0 1rem 0'
+                          }}>
+                            {event.titre}
+                          </h3>
+                          
+                          <div style={{ 
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: '0.5rem',
+                            marginBottom: '1.25rem'
+                          }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                              <FaCalendarAlt color="#6366f1" />
+                              <span style={{ fontSize: '0.875rem', color: '#6b7280' }}>
+                                {formattedDate} à {formattedTime}
+                              </span>
+                            </div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                              <MdLocationOn color="#6366f1" />
+                              <span style={{ fontSize: '0.875rem', color: '#6b7280' }}>
+                                {event.lieu}
+                              </span>
+                            </div>
+                          </div>
+                          
+                          <p style={{ 
+                            color: '#6b7280',
+                            fontSize: '0.9375rem',
+                            lineHeight: '1.6',
+                            marginBottom: '1.5rem'
+                          }}>
+                            {event.description.length > 150 
+                              ? `${event.description.substring(0, 150)}...` 
+                              : event.description}
+                          </p>
+                          
+                          <button 
+                            onClick={() => handleEventClick(event.titre)}
+                            style={{
+                              width: '100%',
+                              padding: '0.75rem',
+                              background: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)',
+                              color: 'white',
+                              border: 'none',
+                              borderRadius: '8px',
+                              fontSize: '0.9375rem',
+                              fontWeight: '500',
+                              cursor: 'pointer',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              gap: '0.5rem'
+                            }}
+                          >
+                            <FaTicketAlt /> S'inscrire
+                          </button>
+                        </div>
+                      </motion.div>
+                    );
+                  })}
+                </div>
+              )}
+            </Section>
+          )}
+        </MainContent>
+      </Container>
+    </div>
   );
 };
 

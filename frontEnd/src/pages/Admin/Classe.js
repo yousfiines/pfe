@@ -11,8 +11,10 @@ import axios from 'axios';
 import DeleteIcon from '@mui/icons-material/Delete';
 import EditIcon from '@mui/icons-material/Edit';
 import AddIcon from '@mui/icons-material/Add';
-
+import { useNavigate } from 'react-router-dom';
+import { ArrowBack } from '@mui/icons-material';
 const GestionClasses = () => {
+  const navigate = useNavigate();
   // États
   const [classes, setClasses] = useState([]);
   const [filieres, setFilieres] = useState([]);
@@ -204,6 +206,13 @@ const GestionClasses = () => {
 
   return (
     <Box sx={{ padding: 3 }}>
+       <Button 
+    startIcon={<ArrowBack />} 
+    onClick={() => navigate('/admin/dashboard')} 
+    sx={{ mb: 2 }}
+  >
+    Retour
+  </Button>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
         <Typography variant="h4">Gestion des Classes</Typography>
         <Button

@@ -9,8 +9,11 @@ import MuiAlert from "@mui/material/Alert";
 import axios from "axios";
 import DeleteIcon from '@mui/icons-material/Delete';
 import EditIcon from '@mui/icons-material/Edit';
+import { useNavigate } from 'react-router-dom';
+import { ArrowBack } from '@mui/icons-material';
 
 const GestionFilieres = () => {
+  const navigate = useNavigate();
   const [filieres, setFilieres] = useState([]);
   const [open, setOpen] = useState(false);
   const [snackbar, setSnackbar] = useState({ open: false, message: "", severity: "success" });
@@ -103,6 +106,13 @@ const GestionFilieres = () => {
 
   return (
     <div style={{ padding: "2rem" }}>
+       <Button 
+    startIcon={<ArrowBack />} 
+    onClick={() => navigate('/admin/dashboard')} 
+    sx={{ mb: 2 }}
+  >
+    Retour
+  </Button>
       <h2>Gestion des Filières</h2>
 
       <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>

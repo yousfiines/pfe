@@ -3,13 +3,16 @@ import { BrowserRouter as Router, Routes, Route, useLocation, Navigate } from "r
 import Header from "./components/layout/Header/header.js";
 import Footer from "./components/layout/Footer/footer.js";
 import "./styles.css";
+//import { AuthProvider} from "./hooks/useAuth.js";
 import ProtectedRoute from './pages/Auth/ProtectedRoute.js';
-//import Filieres from "./pages/config/filieres.js";
+import AgentDashboard from "./pages/Admin/AgentDashboard.jsx";
 // Routes Admin
-
 import AdminLayout from './pages/Admin/AdminLayout.js';
 import AdminDashboard from './pages/Admin/Dashboard.jsx';
 import AdminLogin from './pages/Auth/Login.jsx';
+import AdminAgents from "./pages/Admin/AdminAgents.jsx";
+import AgentLogin from "./pages/Auth/AgentLogin.jsx";
+import AgentLayout from "./pages/Admin/AgentLayout.jsx";
 import GestionUtilisateurs from './pages/Admin/GestionUtilisateurs.jsx';
 import GestionDocuments from './pages/Admin/GestionDocuments.jsx';
 import GestionCours from './pages/Admin/GestionCours.jsx';
@@ -19,13 +22,13 @@ import GestionClasses from './pages/Admin/Classe.js';
 import GestionMatieres from './pages/Admin/Matière.js';
 import GestionSemestres from './pages/Admin/Semestre.js';
 import Parametres from './pages/Admin/Parametres.jsx';
-import Statistiques from './pages/Admin/Statistiques.jsx'
+import Statistiques from './pages/Admin/Statistiques.jsx';
 import StudentDoc from "./pages/Student/studentDoc.js";
 import TeacherUploadDocument from "./pages/Enseignant/teacherUploadDoc.js";
-import Schedules from "./pages/Admin/Emploi.js"
-import Calender from "./pages/Admin/Calendrier.js"
+import Emploi from "./pages/Admin/Emploi.js";
+import AdminExams from "./pages/Admin/AdminExam.js";
 import "./pages/Student/studentDoc.css";
-import { useSessionTimeout } from './hooks/useSessionTimeout.js'; // Import corrigé
+import { useSessionTimeout } from './hooks/useSessionTimeout.js';
 // Routes publiques
 import Connexion from "./pages/Auth/connexion.js";
 import Inscription from "./pages/Auth/inscription.js";
@@ -37,13 +40,15 @@ import Teacher from "./pages/Enseignant/teacher.js";
 import Etudiant from "./pages/Student/etudiant.js";
 import TeacherProfil from "./pages/Enseignant/teacherProfil.js";
 import EtudiantProfil from "./pages/Student/etudiantProfil.js";
-//import { Schedule } from "@mui/icons-material";
+import { AuthProvider } from "./hooks/AuthContext.js";
 
 
 function App() {
   return (
     <Router>
-      <AppWrapper />
+      <AuthProvider>
+        <AppWrapper />
+      </AuthProvider>
     </Router>
   );
 }
@@ -63,7 +68,6 @@ function AppWrapper() {
   );
 }
 
-
 function AppContent() {
   const location = useLocation();
 
@@ -82,8 +86,6 @@ function AppContent() {
 
       <Routes>
         {/* Routes publiques */}
-        <Route path="/useSessionTimeout" element={<useSessionTimeout/>} />
-       
         <Route path="/" element={<Home />} />
         <Route path="/connexion" element={<Connexion />} />
         <Route path="/inscription" element={<Inscription />} />
@@ -96,19 +98,20 @@ function AppContent() {
         <Route path="/teacherProfil" element={<TeacherProfil />} />
         <Route path="/etudiantProfil" element={<EtudiantProfil />} />
         <Route path="/teacheruploaddoc" element={<TeacherUploadDocument />} />
-        <Route path="/teacher" element={
-          <ProtectedRoute>
-            <TeacherProfil />
-          </ProtectedRoute>
-        } />
         
         {/* Route login admin (hors layout) */}
         <Route path="/admin/login" element={<AdminLogin />} />
+        
+        {/* Route login agent (hors layout admin) */}
+        <Route path="/agent/login" element={<AgentLogin />} />
+        <Route path="/agent/dashboard" element={<AgentDashboard />} />
+  <Route path="/agent" element={<AgentLayout />}></Route>
 
         {/* Routes admin imbriquées */}
         <Route path="/admin" element={<AdminRoute><AdminLayout /></AdminRoute>}>
           <Route index element={<AdminDashboard />} />
           <Route path="dashboard" element={<AdminDashboard />} />
+          <Route path="agents" element={<AdminAgents />} />
           <Route path="utilisateurs" element={<GestionUtilisateurs />} />
           <Route path="documents" element={<GestionDocuments />} />
           <Route path="statistiques" element={<Statistiques />} />
@@ -119,9 +122,19 @@ function AppContent() {
           <Route path="semestre" element={<GestionSemestres />} />
           <Route path="evenements" element={<GestionEvenements />} />
           <Route path="parametres" element={<Parametres />} />
-          <Route path="schedules" element={<Schedules />} />
-          <Route path="calender" element={<Calender/>} />
+          <Route path="schedules" element={<Emploi />} />
+          <Route path="examens" element={<AdminExams />} />
         </Route>
+
+        {/* Routes agent */}
+        <Route 
+          path="/agent" 
+          element={
+            <ProtectedRoute allowedRoles={['Agent', 'Superviseur', 'Administrateur']}>
+              <AgentLayout />
+            </ProtectedRoute>
+          }
+        />
       </Routes>
 
       {shouldShowFooter && <Footer />}

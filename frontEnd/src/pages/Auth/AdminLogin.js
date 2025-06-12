@@ -1,12 +1,6 @@
 import React, { useState } from 'react';
 import {
-  Container,
-  Typography,
-  TextField,
-  Button,
-  Snackbar,
-  Paper,
-  Box
+  Container, Typography, TextField, Button, Snackbar, Paper, Box
 } from '@mui/material';
 import MuiAlert from '@mui/material/Alert';
 import { useNavigate } from 'react-router-dom';
@@ -27,21 +21,32 @@ const AdminLogin = () => {
     e.preventDefault();
 
     try {
-      const response = await axios.post('http://localhost:5000/admin/login', {
+      const response = await axios.post('http://localhost:5000/auth/login', {
         email,
         password
       });
 
       if (response.data.success) {
-        // Authentification réussie, redirection
-        navigate('/admin/dashboard');
+        const { token, user } = response.data;
+        const { role } = user;
+
+        localStorage.setItem("token", token);
+        localStorage.setItem("role", role);
+
+        if (role === "admin") {
+          localStorage.setItem("isAdmin", "true");
+        } else {
+          localStorage.setItem("agentInfo", JSON.stringify(user));
+        }
+
+        navigate("/admin/dashboard");
       } else {
-        // Échec
-        setErrorMessage('Email ou mot de passe incorrect.');
+        setErrorMessage("Identifiants incorrects");
         setOpenSnackbar(true);
       }
     } catch (error) {
-      setErrorMessage('Une erreur est survenue. Veuillez réessayer.');
+      console.error("Erreur login:", error);
+      setErrorMessage("Erreur de connexion.");
       setOpenSnackbar(true);
     }
   };
@@ -54,7 +59,7 @@ const AdminLogin = () => {
     <Container maxWidth="sm" sx={{ mt: 10 }}>
       <Paper elevation={3} sx={{ p: 4, borderRadius: 3 }}>
         <Typography variant="h4" align="center" gutterBottom>
-          Connexion Admin
+          Connexion à la plateforme
         </Typography>
         <Box component="form" onSubmit={handleLogin}>
           <TextField

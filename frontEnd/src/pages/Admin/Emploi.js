@@ -22,67 +22,82 @@ import {
   Alert,
   CircularProgress,
 } from "@mui/material";
-import {
-  Add as AddIcon,
-  Publish as PublishIcon,
-  GetApp as DownloadIcon,
-  Delete as DeleteIcon,
-} from "@mui/icons-material";
+import InsightsIcon from '@mui/icons-material/Insights';
+import { Grid } from '@mui/material';
+import { Add as AddIcon, Publish as PublishIcon, GetApp as DownloadIcon, Delete as DeleteIcon } from "@mui/icons-material";
 import axios from "axios";
-import AdminLayout from "./AdminLayout";
-
+import { useNavigate } from 'react-router-dom';
+import { ArrowBack } from '@mui/icons-material';
 const Emploi = () => {
+  const navigate = useNavigate();
+  const API_URL = 'http://localhost:5000/api';
   const [emplois, setEmplois] = useState([]);
-  const [openDialog, setOpenDialog] = useState(false);
-  const [currentEmploi, setCurrentEmploi] = useState(null);
-  const [filters, setFilters] = useState({
-    filiere: "",
-    classe: "",
-    semestre: "",
-    type: "",
-  });
   const [filieres, setFilieres] = useState([]);
   const [classes, setClasses] = useState([]);
   const [semestres, setSemestres] = useState([]);
-  const [formData, setFormData] = useState({
-    filiere_id: "",
-    classe_id: "",
-    semestre_id: "",
-    type: "etudiant",
-    fichier: null,
-  });
+  const [enseignants, setEnseignants] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(null);
+  const [openDialog, setOpenDialog] = useState(false);
+  const [formData, setFormData] = useState({
+    type: "etudiant",
+    filiere_id: "",
+    classe_id: "",
+    semestre_id: "",
+    enseignant_id: "",
+    fichier: null
+  });
 
- // Dans server.js, corrigez :
-const API_URL = process.env.NODE_ENV === 'development' 
-? 'http://localhost:5000/api'  // Port 5000 au lieu de 3000S
-: '/api';;
+  // Formatage de la date de diffusion
+  const formatDateDiffusion = (dateString) => {
+    if (!dateString) return <span style={{ fontStyle: 'italic', color: '#666' }}>Non publié</span>;
+    
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffHours = Math.abs(now - date) / 36e5;
 
+    // Formatage différent selon l'ancienneté
+    if (diffHours < 24) {
+      return `Aujourd'hui à ${date.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}`;
+    } else if (diffHours < 48) {
+      return `Hier à ${date.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}`;
+    } else {
+      return date.toLocaleString('fr-FR', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+    }
+  };
 
-
-  
-  // Récupérer les données initiales
- // Modifiez le useEffect comme ceci :
-useEffect(() => {
+  // Chargement des données initiales
+  useEffect(() => {
   const fetchData = async () => {
     try {
       setLoading(true);
-      
-      // Récupération des données initiales
-      const [filieresRes, classesRes, semestresRes, emploisRes] = await Promise.all([
+      const [emploisRes, filieresRes, classesRes, semestresRes, enseignantsRes] = await Promise.all([
+        axios.get(`${API_URL}/emplois`),
         axios.get(`${API_URL}/filieres`),
         axios.get(`${API_URL}/classes`),
         axios.get(`${API_URL}/semestres`),
-        axios.get(`${API_URL}/emplois`) // Nouvelle requête pour les emplois
+        axios.get(`${API_URL}/enseignants/list`)
       ]);
 
-      setFilieres(filieresRes.data.data);
-      setClasses(classesRes.data.data);
-      setSemestres(semestresRes.data.data);
-      setEmplois(emploisRes.data.data); // Mise à jour des emplois
-      
+      // Validation des données
+      const validatedSemestres = (semestresRes.data.data || []).map(s => ({
+        ...s,
+        classe_id: s.classe_id ? s.classe_id : null
+      }));
+
+      setEmplois(emploisRes.data.data || []);
+      setFilieres(filieresRes.data.data || []);
+      setClasses(classesRes.data.data || []);
+      setSemestres(validatedSemestres);
+      setEnseignants(enseignantsRes.data.data || []);
+
     } catch (err) {
       console.error("Erreur:", err);
       setError("Erreur lors du chargement des données");
@@ -90,509 +105,368 @@ useEffect(() => {
       setLoading(false);
     }
   };
+
   fetchData();
-}, [API_URL]);
- 
-  const handlePublish = async (id) => {
-    try {
-      setLoading(true);
-      const response = await axios.put(`${API_URL}/emplois/${id}/publish`);
-      
-      if (response.data.success) {
-        setEmplois(emplois.map(emploi => 
-          emploi.id === id ? { ...emploi, published: true } : emploi
-        ));
-        setSuccess("Emploi du temps publié avec succès");
-        
-        // Recharger les données après publication
-        const updated = await axios.get(`${API_URL}/emplois`);
-        setEmplois(updated.data.data);
+}, []);
+   
+
+// Add useEffect to load semesters when class changes
+useEffect(() => {
+  const fetchSemesters = async () => {
+    if (formData.classe_id) {
+      try {
+        const response = await axios.get(`${API_URL}/semestres?classe_id=${formData.classe_id}`);
+        setSemestres(response.data.data);
+      } catch (err) {
+        console.error("Erreur chargement semestres:", err);
       }
-    } catch (err) {
-      console.error("Erreur:", err);
-      setError(err.response?.data?.message || "Erreur lors de la publication");
-    } finally {
-      setLoading(false);
     }
   };
+  
+  fetchSemesters();
+}, [formData.classe_id]);
 
-  const handleDelete = async (id) => {
-    try {
-      await axios.delete(`${API_URL}/emplois/${id}`);
-      setEmplois(emplois.filter((emploi) => emploi.id !== id));
-      setSuccess("Emploi du temps supprimé avec succès");
-    } catch (err) {
-      console.error("Erreur:", err);
-      setError("Erreur lors de la suppression");
-    }
-  };
-
-  const handleFilterChange = (e) => {
-    setFilters({ ...filters, [e.target.name]: e.target.value });
+  // Gestion du formulaire
+  const handleInputChange = (e) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({
+      ...prev,
+      [name]: value,
+      ...(name === "filiere_id" && { classe_id: "", semestre_id: "" }),
+      ...(name === "classe_id" && { semestre_id: "" })
+    }));
   };
 
   const handleFileChange = (e) => {
     setFormData({ ...formData, fichier: e.target.files[0] });
   };
 
-  const handleFormChange = (e) => {
-    const { name, value } = e.target;
-    setFormData({ ...formData, [name]: value });
-
-    // Réinitialiser les dépendances si la filière change
-    if (name === "filiere_id") {
-      setFormData((prev) => ({
-        ...prev,
-        classe_id: "",
-        semestre_id: "",
-      }));
-    }
-
-    // Réinitialiser semestre si la classe change
-    if (name === "classe_id") {
-      setFormData((prev) => ({
-        ...prev,
-        semestre_id: "",
-      }));
-    }
-  };
-
   const handleSubmit = async () => {
     try {
       setLoading(true);
-      const data = new FormData();
-      data.append("filiere_id", formData.filiere_id);
-      data.append("classe_id", formData.classe_id);
-      data.append("semestre_id", formData.semestre_id);
-      data.append("type", formData.type);
-      data.append("fichier", formData.fichier);
-
-      let response;
-      if (currentEmploi) {
-        response = await axios.put(
-          `${API_URL}/emplois/${currentEmploi.id}`,
-          data,
-          {
-            headers: {
-              "Content-Type": "multipart/form-data",
-            },
-          }
-        );
-      } else {
-        response = await axios.post(`${API_URL}/emplois`, data, {
-          headers: {
-            "Content-Type": "multipart/form-data",
-          },
-        });
+      
+      // Validation
+      if (!formData.fichier) {
+        setError("Veuillez sélectionner un fichier");
+        return;
       }
 
-      // Mettre à jour la liste des emplois
-      const updatedEmplois = await axios.get(`${API_URL}/emplois`);
-      setEmplois(updatedEmplois.data.data);
+      const formDataToSend = new FormData();
+      formDataToSend.append('type', formData.type);
+      formDataToSend.append('fichier', formData.fichier);
 
+      if (formData.type === 'etudiant') {
+        if (!formData.filiere_id || !formData.classe_id || !formData.semestre_id) {
+          setError("Veuillez remplir tous les champs pour un emploi étudiant");
+          return;
+        }
+        formDataToSend.append('filiere_id', formData.filiere_id);
+        formDataToSend.append('classe_id', formData.classe_id);
+        formDataToSend.append('semestre_id', formData.semestre_id);
+      } else {
+        if (!formData.enseignant_id) {
+          setError("Veuillez sélectionner un enseignant");
+          return;
+        }
+        formDataToSend.append('enseignant_id', formData.enseignant_id);
+      }
+
+      await axios.post(`${API_URL}/emplois`, formDataToSend, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
+
+      setSuccess("Emploi du temps ajouté avec succès");
       setOpenDialog(false);
-      resetFormData();
-      setSuccess(
-        currentEmploi
-          ? "Emploi du temps mis à jour avec succès"
-          : "Emploi du temps ajouté avec succès"
-      );
+      setFormData({
+        type: "etudiant",
+        filiere_id: "",
+        classe_id: "",
+        semestre_id: "",
+        enseignant_id: "",
+        fichier: null
+      });
+
+      // Rafraîchir la liste
+      const response = await axios.get(`${API_URL}/emplois`);
+      setEmplois(response.data.data || []);
+
     } catch (err) {
       console.error("Erreur:", err);
-      setError(
-        err.response?.data?.message ||
-          "Erreur lors de l'enregistrement de l'emploi du temps"
-      );
+      setError(err.response?.data?.message || "Erreur lors de l'ajout");
     } finally {
       setLoading(false);
     }
   };
 
-  const resetFormData = () => {
-    setFormData({
-      filiere_id: "",
-      classe_id: "",
-      semestre_id: "",
-      type: "etudiant",
-      fichier: null,
-    });
-    setCurrentEmploi(null);
+  // Fonctions utilitaires
+  const getNom = (id, collection) => {
+    const item = collection.find(item => item.id == id);
+    return item ? item.nom : "-";
   };
-
-  const getClassesByFiliere = (filiereId) => {
-    if (!filiereId) return [];
-    return classes.filter((classe) => classe.filiere_id == filiereId);
-  };
-
-  const getSemestresByClasse = (classeId) => {
-    if (!classeId) return [];
-    return semestres.filter((semestre) => semestre.classe_id == classeId);
-  };
-
-  const getFiliereName = (id) => {
-    const filiere = filieres.find((f) => f.id == id);
-    return filiere ? filiere.nom : "-";
-  };
-
-  const getClasseName = (id) => {
-    const classe = classes.find((c) => c.id == id);
-    return classe ? classe.nom : "-";
-  };
-
-  const getSemestreInfo = (id) => {
-    const semestre = semestres.find((s) => s.id == id);
-    return semestre ? `S${semestre.numero}` : "-";
-  };
-
-  const getTypeName = (type) => {
-    return type === "etudiant" ? "Étudiants" : "Enseignants";
-  };
-
-  const filteredEmplois = emplois.filter((emploi) => {
-    return (
-      (filters.filiere === "" || emploi.filiere_id == filters.filiere) &&
-      (filters.classe === "" || emploi.classe_id == filters.classe) &&
-      (filters.semestre === "" || emploi.semestre_id == filters.semestre) &&
-      (filters.type === "" || emploi.type == filters.type)
-    );
-  });
 
   const handleDownload = (id) => {
     window.open(`${API_URL}/emplois/${id}/download`, "_blank");
   };
 
-  const handleEdit = (emploi) => {
-    setCurrentEmploi(emploi);
-    setFormData({
-      filiere_id: emploi.filiere_id,
-      classe_id: emploi.classe_id,
-      semestre_id: emploi.semestre_id,
-      type: emploi.type,
-      fichier: null,
-    });
-    setOpenDialog(true);
+  const handleDelete = async (id) => {
+    try {
+      await axios.delete(`${API_URL}/emplois/${id}`);
+      setEmplois(emplois.filter(emploi => emploi.id !== id));
+      setSuccess("Emploi supprimé avec succès");
+    } catch (err) {
+      console.error("Erreur:", err);
+      setError("Erreur lors de la suppression");
+    }
   };
 
-  const handleCloseSnackbar = () => {
-    setError(null);
-    setSuccess(null);
+  const handlePublish = async (id) => {
+    try {
+      await axios.put(`${API_URL}/emplois/${id}/publish`);
+      setEmplois(emplois.map(emploi => 
+        emploi.id === id ? { ...emploi, published: true, published_at: new Date().toISOString() } : emploi
+      ));
+      setSuccess("Emploi publié avec succès");
+    } catch (err) {
+      console.error("Erreur:", err);
+      setError("Erreur lors de la publication");
+    }
   };
 
   return (
-    <AdminLayout>
-      <Box sx={{ p: 3 }}>
-        <Typography variant="h4" gutterBottom>
-          Gestion des emplois du temps
-        </Typography>
+    <Box sx={{ p: 3 }}>
+      <Button 
+    startIcon={<ArrowBack />} 
+    onClick={() => navigate('/admin/dashboard')} 
+    sx={{ mb: 2 }}
+  >
+    Retour
+  </Button>
+      <Typography variant="h4" gutterBottom>
+        Gestion des emplois du temps
+      </Typography>
 
-        {loading && <CircularProgress sx={{ display: "block", mx: "auto" }} />}
+      <Button
+        variant="contained"
+        startIcon={<AddIcon />}
+        onClick={() => setOpenDialog(true)}
+        sx={{ mb: 3 }}
+      >
+        Ajouter un emploi
+      </Button>
 
-        <Box sx={{ display: "flex", gap: 2, mb: 3, flexWrap: "wrap" }}>
-          <FormControl sx={{ minWidth: 120 }} size="small">
-            <InputLabel>Type</InputLabel>
-            <Select
-              name="type"
-              value={filters.type}
-              onChange={handleFilterChange}
-              label="Type"
-            >
-              <MenuItem value="">Tous</MenuItem>
-              <MenuItem value="etudiant">Étudiants</MenuItem>
-              <MenuItem value="enseignant">Enseignants</MenuItem>
-            </Select>
-          </FormControl>
+      {loading && <CircularProgress sx={{ display: "block", mx: "auto" }} />}
 
-          <FormControl sx={{ minWidth: 120 }} size="small">
-            <InputLabel>Filière</InputLabel>
-            <Select
-              name="filiere"
-              value={filters.filiere}
-              onChange={handleFilterChange}
-              label="Filière"
-            >
-              <MenuItem value="">Toutes</MenuItem>
-              {filieres.map((filiere) => (
-                <MenuItem key={filiere.id} value={filiere.id}>
-                  {filiere.nom}
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
+      {error && (
+        <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>
+          {error}
+        </Alert>
+      )}
 
-          <FormControl sx={{ minWidth: 120 }} size="small">
-            <InputLabel>Classe</InputLabel>
-            <Select
-              name="classe"
-              value={filters.classe}
-              onChange={handleFilterChange}
-              label="Classe"
-            >
-              <MenuItem value="">Toutes</MenuItem>
-              {classes.map((classe) => (
-                <MenuItem key={classe.id} value={classe.id}>
-                  {classe.nom}
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
+      {success && (
+        <Alert severity="success" sx={{ mb: 2 }} onClose={() => setSuccess(null)}>
+          {success}
+        </Alert>
+      )}
 
-          <FormControl sx={{ minWidth: 120 }} size="small">
-            <InputLabel>Semestre</InputLabel>
-            <Select
-              name="semestre"
-              value={filters.semestre}
-              onChange={handleFilterChange}
-              label="Semestre"
-            >
-              <MenuItem value="">Tous</MenuItem>
-              {semestres.map((semestre) => (
-                <MenuItem key={semestre.id} value={semestre.id}>
-                  S{semestre.numero} - {getClasseName(semestre.classe_id)}
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
-
-          <Button
-            variant="contained"
-            startIcon={<AddIcon />}
-            onClick={() => {
-              setCurrentEmploi(null);
-              setOpenDialog(true);
-            }}
-            sx={{ ml: "auto" }}
-          >
-            Nouvel emploi du temps
-          </Button>
-        </Box>
-
-        <TableContainer component={Paper}>
-          <Table>
-            <TableHead>
-              <TableRow>
-                <TableCell>Type</TableCell>
-                <TableCell>Filière</TableCell>
-                <TableCell>Classe</TableCell>
-                <TableCell>Semestre</TableCell>
-                <TableCell>Date création</TableCell>
-                <TableCell>Statut</TableCell>
-                <TableCell>Actions</TableCell>
+      <TableContainer component={Paper}>
+        <Table>
+          <TableHead>
+            <TableRow>
+              <TableCell>Type</TableCell>
+              <TableCell>Filière</TableCell>
+              <TableCell>Classe</TableCell>
+              <TableCell>Semestre</TableCell>
+              <TableCell>Statut</TableCell>
+              <TableCell sx={{ minWidth: 180 }}>Date de diffusion</TableCell>
+              <TableCell>Actions</TableCell>
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {emplois.map(emploi => (
+              <TableRow key={emploi.id} hover>
+                <TableCell>{emploi.type === 'etudiant' ? 'Étudiants' : 'Enseignant'}</TableCell>
+                <TableCell>{emploi.filiere_id ? getNom(emploi.filiere_id, filieres) : '-'}</TableCell>
+                <TableCell>{emploi.classe_id ? getNom(emploi.classe_id, classes) : '-'}</TableCell>
+                <TableCell>
+                  {emploi.semestre_id ? `S${semestres.find(s => s.id == emploi.semestre_id)?.numero || '?'}` : '-'}
+                </TableCell>
+                <TableCell>
+                  {emploi.published ? (
+                    <span style={{ color: 'green' }}>Publié</span>
+                  ) : (
+                    <span style={{ color: 'orange' }}>Brouillon</span>
+                  )}
+                </TableCell>
+                <TableCell>
+                  {formatDateDiffusion(emploi.published_at)}
+                </TableCell>
+                <TableCell>
+                  <Button 
+                    startIcon={<DownloadIcon />}
+                    onClick={() => handleDownload(emploi.id)}
+                    size="small"
+                    sx={{ mr: 1 }}
+                  >
+                    Télécharger
+                  </Button>
+                  {!emploi.published && (
+                    <>
+                      <Button
+                        startIcon={<PublishIcon />}
+                        onClick={() => handlePublish(emploi.id)}
+                        size="small"
+                        sx={{ mr: 1 }}
+                      >
+                        Publier
+                      </Button>
+                      <Button
+                        startIcon={<DeleteIcon />}
+                        onClick={() => handleDelete(emploi.id)}
+                        size="small"
+                        color="error"
+                      >
+                        Supprimer
+                      </Button>
+                    </>
+                  )}
+                </TableCell>
               </TableRow>
-            </TableHead>
-            <TableBody>
-              {filteredEmplois.map((emploi) => (
-                <TableRow key={emploi.id}>
-                  <TableCell>{getTypeName(emploi.type)}</TableCell>
-                  <TableCell>{getFiliereName(emploi.filiere_id)}</TableCell>
-                  <TableCell>{getClasseName(emploi.classe_id)}</TableCell>
-                  <TableCell>{getSemestreInfo(emploi.semestre_id)}</TableCell>
-                  <TableCell>
-                    {new Date(emploi.created_at).toLocaleDateString()}
-                  </TableCell>
-                  <TableCell>
-                    {emploi.published ? (
-                      <span style={{ color: "green" }}>Publié</span>
-                    ) : (
-                      <span style={{ color: "orange" }}>Brouillon</span>
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    <Button
-                      size="small"
-                      startIcon={<DownloadIcon />}
-                      onClick={() => handleDownload(emploi.id)}
-                    >
-                      Télécharger
-                    </Button>
-                    <Button
-                      size="small"
-                      startIcon={<PublishIcon />}
-                      onClick={() => handlePublish(emploi.id)}
-                      disabled={emploi.published}
-                    >
-                      Publier
-                    </Button>
-                    <Button
-                      size="small"
-                      color="error"
-                      startIcon={<DeleteIcon />}
-                      onClick={() => handleDelete(emploi.id)}
-                    >
-                      Supprimer
-                    </Button>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </TableContainer>
+            ))}
+          </TableBody>
+        </Table>
+      </TableContainer>
 
-        <Dialog
-          open={openDialog}
-          onClose={() => {
-            setOpenDialog(false);
-            resetFormData();
-          }}
-          maxWidth="md"
-          fullWidth
-        >
-          <DialogTitle>
-            {currentEmploi
-              ? "Modifier emploi du temps"
-              : "Nouvel emploi du temps"}
-          </DialogTitle>
-          <DialogContent>
-            <Box sx={{ mt: 2, display: "flex", flexDirection: "column", gap: 3 }}>
-              <FormControl fullWidth>
-                <InputLabel>Type d'emploi</InputLabel>
-                <Select
-                  name="type"
-                  value={formData.type}
-                  onChange={handleFormChange}
-                  label="Type d'emploi"
-                >
-                  <MenuItem value="etudiant">Emploi des étudiants</MenuItem>
-                  <MenuItem value="enseignant">Emploi des enseignants</MenuItem>
-                </Select>
-              </FormControl>
-
-              <FormControl fullWidth>
-                <InputLabel>Filière</InputLabel>
-                <Select
-                  name="filiere_id"
-                  value={formData.filiere_id}
-                  onChange={handleFormChange}
-                  label="Filière"
-                >
-                  <MenuItem value="">Sélectionnez une filière</MenuItem>
-                  {filieres.map((filiere) => (
-                    <MenuItem key={filiere.id} value={filiere.id}>
-                      {filiere.nom}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-
-              <FormControl fullWidth>
-                <InputLabel>Classe</InputLabel>
-                <Select
-                  name="classe_id"
-                  value={formData.classe_id}
-                  onChange={handleFormChange}
-                  label="Classe"
-                  disabled={!formData.filiere_id}
-                >
-                  <MenuItem value="">Sélectionnez une classe</MenuItem>
-                  {getClassesByFiliere(formData.filiere_id).map((classe) => (
-                    <MenuItem key={classe.id} value={classe.id}>
-                      {classe.nom}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-
-              <FormControl fullWidth>
-                <InputLabel>Semestre</InputLabel>
-                <Select
-                  name="semestre_id"
-                  value={formData.semestre_id}
-                  onChange={handleFormChange}
-                  label="Semestre"
-                  disabled={!formData.classe_id}
-                >
-                  <MenuItem value="">Sélectionnez un semestre</MenuItem>
-                  {getSemestresByClasse(formData.classe_id).map((semestre) => (
-                    <MenuItem key={semestre.id} value={semestre.id}>
-                      S{semestre.numero} - {getClasseName(semestre.classe_id)}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-
-              <Button
-                variant="contained"
-                component="label"
-                startIcon={<PublishIcon />}
+      {/* Formulaire d'ajout */}
+      <Dialog open={openDialog} onClose={() => setOpenDialog(false)} maxWidth="md" fullWidth>
+        <DialogTitle>Ajouter un nouvel emploi du temps</DialogTitle>
+        <DialogContent>
+          <Box sx={{ mt: 2, display: "flex", flexDirection: "column", gap: 3 }}>
+            <FormControl fullWidth>
+              <InputLabel>Type d'emploi</InputLabel>
+              <Select
+                name="type"
+                value={formData.type}
+                onChange={handleInputChange}
+                label="Type d'emploi"
               >
-                Télécharger le fichier
-                <input
-                  type="file"
-                  hidden
-                  onChange={handleFileChange}
-                  accept=".pdf,.xlsx,.xls"
-                />
-              </Button>
-              {formData.fichier && (
-                <Typography variant="body2">
-                  Fichier sélectionné: {formData.fichier.name}
-                </Typography>
-              )}
-              {currentEmploi?.fichier_path && !formData.fichier && (
-                <Typography variant="body2">
-                  Fichier actuel: {currentEmploi.fichier_path.split("/").pop()}
-                </Typography>
-              )}
-            </Box>
-          </DialogContent>
-          <DialogActions>
-            <Button
-              onClick={() => {
-                setOpenDialog(false);
-                resetFormData();
-              }}
-            >
-              Annuler
-            </Button>
-            <Button
-              variant="contained"
-              onClick={handleSubmit}
-              disabled={
-                !formData.filiere_id ||
-                !formData.classe_id ||
-                !formData.semestre_id ||
-                (!formData.fichier && !currentEmploi)
-              }
-            >
-              {loading ? (
-                <CircularProgress size={24} color="inherit" />
-              ) : currentEmploi ? (
-                "Modifier"
-              ) : (
-                "Ajouter"
-              )}
-            </Button>
-          </DialogActions>
-        </Dialog>
+                <MenuItem value="etudiant">Emploi étudiant</MenuItem>
+                <MenuItem value="enseignant">Emploi enseignant</MenuItem>
+              </Select>
+            </FormControl>
 
-        <Snackbar
-          open={!!error}
-          autoHideDuration={6000}
-          onClose={handleCloseSnackbar}
-        >
-          <Alert
-            onClose={handleCloseSnackbar}
-            severity="error"
-            sx={{ width: "100%" }}
-          >
-            {error}
-          </Alert>
-        </Snackbar>
+            {formData.type === 'enseignant' ? (
+              <FormControl fullWidth>
+                <InputLabel>Enseignant</InputLabel>
+                <Select
+                  name="enseignant_id"
+                  value={formData.enseignant_id}
+                  onChange={handleInputChange}
+                  label="Enseignant"
+                  required
+                >
+                  <MenuItem value="">Sélectionnez un enseignant</MenuItem>
+                  {enseignants.map(enseignant => (
+                    <MenuItem key={enseignant.CIN} value={enseignant.CIN}>
+                      {enseignant.Nom_et_prénom}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            ) : (
+              <>
+                <FormControl fullWidth>
+                  <InputLabel>Filière</InputLabel>
+                  <Select
+                    name="filiere_id"
+                    value={formData.filiere_id}
+                    onChange={handleInputChange}
+                    label="Filière"
+                    required
+                  >
+                    <MenuItem value="">Sélectionnez une filière</MenuItem>
+                    {filieres.map(filiere => (
+                      <MenuItem key={filiere.id} value={filiere.id}>
+                        {filiere.nom}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
 
-        <Snackbar
-          open={!!success}
-          autoHideDuration={6000}
-          onClose={handleCloseSnackbar}
-        >
-          <Alert
-            onClose={handleCloseSnackbar}
-            severity="success"
-            sx={{ width: "100%" }}
+                <FormControl fullWidth disabled={!formData.filiere_id}>
+                  <InputLabel>Classe</InputLabel>
+                  <Select
+                    name="classe_id"
+                    value={formData.classe_id}
+                    onChange={handleInputChange}
+                    label="Classe"
+                    required
+                  >
+                    <MenuItem value="">Sélectionnez une classe</MenuItem>
+                    {classes
+                      .filter(classe => classe.filiere_id == formData.filiere_id)
+                      .map(classe => (
+                        <MenuItem key={classe.id} value={classe.id}>
+                          {classe.nom}
+                        </MenuItem>
+                      ))}
+                  </Select>
+                </FormControl>
+
+<FormControl fullWidth>
+  <InputLabel id="semestre-label">Semestre</InputLabel>
+  <Select
+    labelId="semestre-label"
+    name="semestre_id"
+    value={formData.semestre_id}
+    onChange={handleInputChange}
+    label="Semestre"
+    disabled={!formData.classe_id}
+  >
+    <MenuItem value="" disabled>
+      {formData.classe_id 
+        ? semestres.filter(s => s.classe_id == formData.classe_id).length === 0
+          ? "Aucun semestre disponible"
+          : "Sélectionnez un semestre"
+        : "Sélectionnez d'abord une classe"}
+    </MenuItem>
+
+    {semestres
+      .filter(semestre => semestre.classe_id == formData.classe_id)
+      .map(semestre => (
+        <MenuItem key={semestre.id} value={semestre.id}>
+          Semestre {semestre.numero}
+        </MenuItem>
+      ))}
+  </Select>
+</FormControl>
+
+              </>
+            )}
+
+            <Button variant="contained" component="label" startIcon={<PublishIcon />}>
+              Sélectionner le fichier
+              <input type="file" hidden onChange={handleFileChange} accept=".pdf,.xlsx,.xls" />
+            </Button>
+            {formData.fichier && (
+              <Typography variant="body2">Fichier sélectionné: {formData.fichier.name}</Typography>
+            )}
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setOpenDialog(false)}>Annuler</Button>
+          <Button 
+            variant="contained" 
+            onClick={handleSubmit}
+            disabled={loading || !formData.fichier || 
+              (formData.type === 'etudiant' && (!formData.filiere_id || !formData.classe_id || !formData.semestre_id)) ||
+              (formData.type === 'enseignant' && !formData.enseignant_id)
+            }
           >
-            {success}
-          </Alert>
-        </Snackbar>
-      </Box>
-    </AdminLayout>
+            {loading ? <CircularProgress size={24} /> : "Ajouter"}
+          </Button>
+        </DialogActions>
+      </Dialog>
+    </Box>
   );
 };
 

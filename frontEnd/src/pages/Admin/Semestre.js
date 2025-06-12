@@ -10,8 +10,10 @@ import axios from "axios";
 import DeleteIcon from '@mui/icons-material/Delete';
 import EditIcon from '@mui/icons-material/Edit';
 import { Box } from '@mui/material';
-
+import { useNavigate } from 'react-router-dom';
+import { ArrowBack } from '@mui/icons-material';
 const GestionSemestres = () => {
+   const navigate = useNavigate();
   const [semestres, setSemestres] = useState([]);
   const [classes, setClasses] = useState([]);
   const [open, setOpen] = useState(false);
@@ -162,6 +164,13 @@ const GestionSemestres = () => {
 
   return (
     <div style={{ padding: "2rem" }}>
+      <Button 
+    startIcon={<ArrowBack />} 
+    onClick={() => navigate('/admin/dashboard')} 
+    sx={{ mb: 2 }}
+  >
+    Retour
+  </Button>
       <h2>Gestion des Semestres</h2>
 
       <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>

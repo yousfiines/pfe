@@ -23,12 +23,14 @@ router.post("/login", async (req, res) => {
     }
 
     // 3. Générer un token JWT
-    const token = jwt.sign(
-      { email: admin[0].Email }, 
-      'votre_cle_secrete', // À remplacer par une vraie clé
-      { expiresIn: '1h' }
-    );
-
+   const token = jwt.sign(
+  { 
+    email: admin[0].Email,
+    role: 'admin' // ⚠️ Doit correspondre à ce que vérifie authenticateAdmin
+  }, 
+  process.env.JWT_SECRET,
+  { expiresIn: '7d' }
+);
     res.json({ 
       success: true, 
       token,

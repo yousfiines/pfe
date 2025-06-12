@@ -41,47 +41,47 @@ const Connexion = () => {
   };
 
   const handleSubmit = async (e) => {
-    e.preventDefault();
-    setIsSubmitting(true);
+  e.preventDefault();
+  setIsSubmitting(true);
 
-    if (validateForm()) {
-      try {
-        const response = await fetch("http://localhost:5000/connexion", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify(formData),
-        });
+  if (validateForm()) {
+    try {
+      const response = await fetch("http://localhost:5000/connexion", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(formData),
+      });
 
-        const data = await response.json();
-        
-        if (!response.ok) {
-          throw new Error(data.message || "Erreur serveur");
-        }
-
-        localStorage.setItem('isAuthenticated', 'true');
-        localStorage.setItem('token', data.token);
-        localStorage.setItem('userRole', data.role);
-        
-        if (data.role === "enseignant") {
-          localStorage.setItem('teacherCin', data.cin);
-          localStorage.setItem('teacherEmail', data.email);
-          navigate("/teacherProfil");
-        } else if (data.role === "etudiant") {
-          localStorage.setItem('studentCin', data.cin);
-          navigate("/etudiantProfil");
-        } 
-      } catch (error) {
-        console.error("Erreur détaillée:", error);
-        alert(`Erreur: ${error.message}\n\nVeuillez réessayer plus tard.`);
-      } finally {
-        setIsSubmitting(false);
+      const data = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(data.message || "Erreur serveur");
       }
-    } else {
+
+      // Stockage des informations dans localStorage
+      localStorage.setItem('token', data.token);
+      localStorage.setItem('userRole', data.role);
+      
+      if (data.role === "enseignant") {
+  localStorage.setItem('teacherCin', data.cin);
+  localStorage.setItem('teacherEmail', data.email);
+  navigate("/");  // Changé de "/teacherProfil" à "/"
+} else if (data.role === "etudiant") {
+  localStorage.setItem('studentCin', data.cin);
+  navigate("/");  // Changé de "/etudiantProfil" à "/"
+} 
+    } catch (error) {
+      console.error("Erreur détaillée:", error);
+      alert(`Erreur: ${error.message}\n\nVeuillez réessayer plus tard.`);
+    } finally {
       setIsSubmitting(false);
     }
-  };
+  } else {
+    setIsSubmitting(false);
+  }
+};
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>

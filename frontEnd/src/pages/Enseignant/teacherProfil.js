@@ -1,187 +1,333 @@
-import React, { useRef, useState, useEffect } from "react";
+import React, { useRef, useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
+import { Tag } from 'antd';
 import logoFac from "./../../assets/logoFac.png";
 import Lottie from "lottie-react";
 import home from "../../assets/lotties/home.json";
-import { FaChalkboardTeacher, FaCalendarAlt, FaClock, FaBook, FaGraduationCap, FaTicketAlt, FaStar , FaArrowRight , FaUniversity } from "react-icons/fa";
-import { MdEmail, MdPhone, MdLocationOn } from "react-icons/md";
-import FullCalendar from "@fullcalendar/react";
-import dayGridPlugin from "@fullcalendar/daygrid";
-import timeGridPlugin from "@fullcalendar/timegrid";
-import interactionPlugin from "@fullcalendar/interaction";
 import axios from 'axios';
-import { Chip } from '@mui/material';
-import { motion } from 'framer-motion';
+import { useAuth } from "./../../hooks/useAuth";
+import {
+  FaChalkboardTeacher,
+  FaClock,
+  FaBook,
+  FaTicketAlt,
+  FaUniversity,
+  FaCalendarAlt,
+  FaSyncAlt
+} from "react-icons/fa";
+import { MdEmail, MdPhone, MdLocationOn } from "react-icons/md";
+import { Download as DownloadIcon } from '@mui/icons-material';
+import {
+  Typography,
+  Button,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  Paper,
+  CircularProgress,
+  Box,
+  IconButton,
+  Badge,
+  Popover,
+  ClickAwayListener,
+  List,
+  ListItem,
+  ListItemText,
+  Divider,
 
+} from '@mui/material';
+import { motion } from 'framer-motion';
+import { Notifications as NotificationsIcon, Close as CloseIcon } from '@mui/icons-material';
+import io from 'socket.io-client';
+
+const socket = io("http://localhost:5000");
 const TeacherProfil = () => {
   const navigate = useNavigate();
-  const newsSectionRef = useRef(null);
+  const [notifications, setNotifications] = useState([]);
+  const [open, setOpen] = useState(false);
+  const [hasNewNotification, setHasNewNotification] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const anchorEl = useRef(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [isAdmin, setIsAdmin] = useState(false);
-  const [profileImage, setProfileImage] = useState(null);
- // Données de l'enseignant
- const [teacherData, setTeacherData] = useState(null);
+  const [teacherData, setTeacherData] = useState(null);
+  const [previewImage, setPreviewImage] = useState(null);
+  const [events, setEvents] = useState([]);
+  const [teacherExams, setTeacherExams] = useState([]);
+  const fileInputRef = useRef(null);
+  const [emploiDuTemps, setEmploiDuTemps] = useState(null);
+  const [parsedSchedule, setParsedSchedule] = useState(null);
+  const [error, setError] = useState(null);
+  const { token, role, cin } = useAuth('enseignant');
+  const [success, setSuccess] = useState(null);
+  const [loadingEmploi, setLoadingEmploi] = useState(true);
+  const API_URL = process.env.NODE_ENV === 'development'
+    ? 'http://localhost:5000/api'
+    : '/api';
 
- const [previewImage, setPreviewImage] = useState(null);
 
-const fileInputRef = useRef(null);
-
-const [events, setEvents] = useState([]);
-useEffect(() => {
-  const fetchEvents = async () => {
-    try {
-      const response = await axios.get("http://localhost:5000/api/evenements");
-      setEvents(response.data.data);
-    } catch (error) {
-      console.error("Erreur chargement événements:", error);
+  // Charger les notifications
+const loadNotifications = async () => {
+  try {
+    const { data } = await axios.get(`${API_URL}/api/notifications`, {
+      params: { audience: 'enseignants' },
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+    
+    if (data.success) {
+      // Adaptez la structure des données si nécessaire
+      const formattedNotifications = data.notifications.map(notif => ({
+        id: notif.id,
+        title: notif.title || "Notification",
+        message: notif.message,
+        read_status: notif.read_status || false,
+        created_at: notif.created_at
+      }));
+      
+      setNotifications(formattedNotifications);
+      setUnreadCount(formattedNotifications.filter(n => !n.read_status).length);
+    } else {
+      setError(data.message);
+    }
+  } catch (error) {
+    console.error("Erreur lors du chargement des notifications:", error);
+    setError("Erreur lors de la récupération des notifications");
+  }
+};
+  // Gérer l'ouverture/fermeture du popover
+  const handleToggleNotifications = () => {
+    setOpen(!open);
+    if (hasNewNotification) {
+      setHasNewNotification(false);
     }
   };
-  fetchEvents();
-}, []);
 
-
-  const handleEventClick = (eventName) => {
-    navigate('/eventForm', { state: { selectedEvent: eventName } });
+  const handleCloseNotifications = () => {
+    setOpen(false);
   };
 
- 
-
-  // Emploi du temps et examens (peuvent être récupérés depuis l'API si nécessaire)
-  const [schedule] = useState([
-    { day: "Lundi", time: "08:00 - 10:00", course: "Algorithmique", room: "A101", type: "Cours" },
-    { day: "Lundi", time: "14:00 - 16:00", course: "Base de données", room: "B205", type: "TD" },
-    { day: "Mardi", time: "10:00 - 12:00", course: "IA", room: "A301", type: "Cours" },
-    { day: "Mercredi", time: "09:00 - 11:00", course: "Réseaux", room: "C102", type: "TP" },
-    { day: "Jeudi", time: "08:00 - 10:00", course: "Sécurité", room: "B107", type: "Cours" },
-  ]);
-
-  const [exams] = useState([
-    { title: "Examen Algorithmique", date: "2023-12-15", time: "08:00 - 11:00", room: "Amphi A" },
-    { title: "Examen Base de données", date: "2023-12-18", time: "09:00 - 12:00", room: "Salle B205" },
-    { title: "Examen IA", date: "2023-12-20", time: "10:00 - 13:00", room: "Amphi B" },
-  ]);
-
-  // Simplifiez fetchTeacherData
-useEffect(() => {
-  const fetchTeacherData = async () => {
-    setIsLoading(true);
+  // Marquer une notification comme lue
+  const markAsRead = async (id) => {
     try {
-      const teacherCin = localStorage.getItem('teacherCin');
-      const token = localStorage.getItem('token');
+      await axios.patch(`${API_URL}/enseignant/notifications`, {}, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      setNotifications(notifications.map(n =>
+        n.id === id ? { ...n, read_status: true } : n
+      ));
+      setUnreadCount(unreadCount - 1);
+    } catch (error) {
+      console.error("Erreur lors du marquage comme lu:", error);
+    }
+  };
 
-      if (!token || !teacherCin) {
+  // Dans useEffect, ajoutez la gestion des sockets
+  useEffect(() => {
+    socket.emit("registerAsTeacher", { cin });
+    socket.on("newNotification", (data) => {
+      setNotifications((prev) => [data, ...prev]);
+      setHasNewNotification(true);
+      setUnreadCount(prev => prev + 1);
+    });
+
+    return () => {
+      socket.off("newNotification");
+    };
+  }, [cin]);
+
+  // Charger les notifications au montage et toutes les 30 secondes
+  useEffect(() => {
+    loadNotifications();
+    const interval = setInterval(loadNotifications, 30000);
+    return () => clearInterval(interval);
+  }, []);
+  // Styles réutilisables
+  const styles = {
+    container: {
+      fontFamily: "'Georgia', 'Times New Roman', serif",
+      backgroundColor: "#f8f9fa",
+      minHeight: "100vh"
+    },
+    header: {
+      display: "flex",
+      alignItems: "center",
+      padding: "1rem 5%",
+      backgroundColor: "#fff",
+      borderBottom: "1px solid #e0e0e0",
+      boxShadow: "0 2px 12px rgba(0, 0, 0, 0.08)",
+      position: "sticky",
+      top: 0,
+      zIndex: 1000
+    },
+    profileCard: {
+      flex: "0 0 300px",
+      backgroundColor: "#fff",
+      borderRadius: "10px",
+      boxShadow: "0 4px 12px rgba(0, 0, 0, 0.1)",
+      padding: "2rem",
+      height: "fit-content"
+    },
+    contentCard: {
+      backgroundColor: "#fff",
+      borderRadius: "10px",
+      boxShadow: "0 4px 12px rgba(0, 0, 0, 0.1)",
+      padding: "2rem"
+    }
+  };
+
+  const fetchData = useCallback(async () => {
+    setIsLoading(true);
+    setError(null);
+    setSuccess(null);
+    try {
+      const token = localStorage.getItem('token');
+      const teacherCin = localStorage.getItem('teacherCin');
+
+      if (!token || !teacherCin || isNaN(teacherCin)) {
+        throw new Error('Données d\'authentification invalides');
+      }
+
+      const [teacherRes, examsRes, emploiRes] = await Promise.all([
+        axios.get(`${API_URL}/enseignants?cin=${teacherCin}`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        }),
+        axios.get(`${API_URL}/examens/enseignant/${teacherCin}`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        }),
+        axios.get(`${API_URL}/emplois/enseignant/${teacherCin}`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        })
+      ]);
+
+      if (!teacherRes.data.success || !teacherRes.data.data) {
+        throw new Error('Données enseignant non valides');
+      }
+
+      setTeacherData(teacherRes.data.data);
+      setPreviewImage(teacherRes.data.data.ProfileImage || null);
+
+      if (examsRes.data.success) {
+        setTeacherExams(examsRes.data.data);
+      }
+
+      // Ajoutez cette partie pour stocker l'emploi du temps
+      if (emploiRes.data.success && emploiRes.data.data.length > 0) {
+        const emploiData = emploiRes.data.data[0]; // Prenez le premier emploi du temps
+        setEmploiDuTemps(emploiData); // Stockez les données de l'emploi du temps
+
+        const emploiId = emploiData.id;
+        if (!emploiId) {
+          console.warn('ID emploi du temps manquant');
+          return;
+        }
+
+        const parseRes = await axios.get(
+          `${API_URL}/emplois/${emploiId}/parsed`,
+          { headers: { 'Authorization': `Bearer ${token}` } }
+        );
+        setParsedSchedule(parseRes.data.data);
+      }
+
+    } catch (error) {
+      console.error('Erreur complète:', error);
+      if (error.response?.status === 401) {
+        localStorage.removeItem('token');
+        localStorage.removeItem('teacherCin');
         navigate('/connexion');
         return;
       }
-
-      const response = await fetch(`http://localhost:5000/api/enseignants?cin=${teacherCin}`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
-      });
-
-      if (!response.ok) throw new Error(`Erreur HTTP: ${response.status}`);
-
-      const data = await response.json();
-      
-      if (data.success) {
-        setTeacherData(data.data);
-        // Utilisez toujours ProfileImage (même nom que dans la BDD)
-        if (data.data.ProfileImage) {
-          setPreviewImage(data.data.ProfileImage);
-        }
-      }
-    } catch (error) {
-      console.error('Erreur:', error);
-      localStorage.removeItem('token');
-      localStorage.removeItem('teacherCin');
-      navigate('/connexion');
+      setError('Erreur de chargement des données. Veuillez réessayer.');
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [API_URL, navigate]);
 
-  fetchTeacherData();
-}, [navigate]);
+  useEffect(() => {
+    const token = localStorage.getItem('token');
+    const teacherCin = localStorage.getItem('teacherCin');
 
-// handleImageChange optimisé
-const handleImageChange = async (e) => {
-  const file = e.target.files[0];
-  if (!file) return;
-
-  // Prévisualisation instantanée
-  const reader = new FileReader();
-  reader.onload = (e) => setPreviewImage(e.target.result);
-  reader.readAsDataURL(file);
-
-  try {
-    const formData = new FormData();
-    formData.append('profileImage', file);
-
-    const response = await fetch('http://localhost:5000/api/upload-profile-image', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${localStorage.getItem('token')}`
-      },
-      body: formData
-    });
-
-    const result = await response.json();
-    
-    if (!response.ok) throw new Error(result.message || "Échec de l'envoi");
-    
-    // Mise à jour avec l'URL permanente
-    setPreviewImage(result.imageUrl);
-  } catch (error) {
-    console.error("Erreur upload:", error);
-    setPreviewImage(null);
-    if (fileInputRef.current) fileInputRef.current.value = '';
-  }
-};
-
-  const handleAdminClick = () => {
-    if (isAdmin) {
-      navigate('/admin/dashboard');
-    } else {
-      navigate('/admin/login');
+    if (!token || !teacherCin) {
+      navigate('/connexion');
+      return;
     }
-  };
 
-  if (isLoading) {
-    return (
-      <div style={{
-        display: 'flex',
-        justifyContent: 'center',
-        alignItems: 'center',
-        height: '100vh'
-      }}>
-        <div>Chargement de votre profil...</div>
-      </div>
-    );
-  }
+    // Récupération des événements séparément car pas besoin d'authentification
+    const fetchEvents = async () => {
+      try {
+        const response = await axios.get(`${API_URL}/evenements`);
+        if (response.data && Array.isArray(response.data.data)) {
+          setEvents(response.data.data);
+        }
+      } catch (error) {
+        console.error("Erreur chargement événements:", error);
+      }
+    };
+    fetchEvents();
+    fetchData();
+  }, [fetchData, API_URL]);
 
-  if (!teacherData) {
-    return (
-      <div style={{
-        display: 'flex',
-        justifyContent: 'center',
-        alignItems: 'center',
-        height: '100vh',
-        backgroundColor: '#f8f9fa'
-      }}>
-        <div>Erreur de chargement des données. Veuillez vous reconnecter.</div>
-      </div>
-    );
-  }
+  // Débouncez les interactions utilisateur complexes
+  const handleDownloadEmploi = useCallback(async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const teacherCin = localStorage.getItem('teacherCin');
 
-  // Préparation des données pour l'affichage
-  const teacherProfile = {
-    name: teacherData?.Nom_et_prénom || "Nom non spécifié",
-    title: teacherData?.Classement || "Enseignant",
-    email: teacherData?.Email || "Email non spécifié",
-    phone: teacherData?.Numero_tel ? `+216 ${teacherData.Numero_tel}` : "Non spécifié",
-    bio: teacherData?.Description || "Aucune description fournie.",
+      // Optimisation: Vérifiez d'abord si l'emploi existe
+      if (!emploiDuTemps?.fichier_path) {
+        console.error("Aucun fichier d'emploi du temps disponible");
+        return;
+      }
+
+      const response = await axios.get(
+        `${API_URL}/emplois/enseignant/${teacherCin}/download`,
+        {
+          headers: { 'Authorization': `Bearer ${token}` },
+          responseType: 'blob'
+        }
+      );
+
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `emploi_${teacherCin}_${new Date().toISOString().slice(0, 10)}.xlsx`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+    } catch (error) {
+      console.error("Erreur téléchargement:", error);
+    }
+  }, [emploiDuTemps, API_URL]);
+
+  const handleImageChange = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    // Prévisualisation immédiate
+    const reader = new FileReader();
+    reader.onload = (e) => setPreviewImage(e.target.result);
+    reader.readAsDataURL(file);
+
+    try {
+      const formData = new FormData();
+      formData.append('profileImage', file);
+
+      const response = await axios.post(`${API_URL}/upload-profile-image`, formData, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+          'Content-Type': 'multipart/form-data'
+        }
+      });
+
+      if (response.data.success) {
+        setPreviewImage(response.data.imageUrl);
+      }
+    } catch (error) {
+      console.error("Erreur upload:", error);
+      setPreviewImage(null);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
   };
 
   const handleLogout = () => {
@@ -190,48 +336,16 @@ const handleImageChange = async (e) => {
     localStorage.removeItem('teacherEmail');
     navigate('/connexion');
   };
-  
-  // Ajouter ce bouton dans la navbar
-  <button onClick={handleLogout} style={{ /* styles */ }}>
-    Déconnexion
-  </button>
 
+  const teacherProfile = teacherData ? {
+    name: teacherData.Nom_et_prénom || "Nom non spécifié",
+    title: teacherData.Classement || "Enseignant",
+    email: teacherData.Email || "Email non spécifié",
+    phone: teacherData.Numero_tel ? `+216 ${teacherData.Numero_tel}` : "Non spécifié",
+    bio: teacherData.Description || "Aucune description fournie.",
+  } : null;
 
-
-  const uploadProfileImage = async (file) => {
-    const formData = new FormData();
-    formData.append('profileImage', file);
-    
-    try {
-      const response = await fetch('http://localhost:5000/api/upload-profile-image', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        },
-        body: formData
-      });
-      
-      const data = await response.json();
-      
-      if (!response.ok) {
-        throw new Error(data.message || 'Erreur lors du téléchargement');
-      }
-      
-      console.log('Image téléchargée avec succès:', data);
-      // Mettre à jour les données de l'enseignant si nécessaire
-    } catch (error) {
-      console.error('Erreur:', error);
-      alert('Erreur lors du téléchargement de l\'image');
-    }
-  };
-  const styles = {
-    profileImage: {
-      width: '100%',
-      height: '100%',
-      objectFit: 'cover'
-    }
-  };
-  function getArtGradient(type) {
+  const getArtGradient = (type) => {
     const gradients = {
       'Conférence': '#8b5cf6, #7c3aed',
       'Atelier': '#ec4899, #db2777',
@@ -239,541 +353,627 @@ const handleImageChange = async (e) => {
       'Performance': '#10b981, #059669'
     };
     return gradients[type] || '#6d28d9, #4c1d95';
+  };
+
+  if (isLoading) {
+    return (
+      <Box display="flex" justifyContent="center" alignItems="center" height="100vh">
+        <CircularProgress />
+        <Typography variant="body1" style={{ marginLeft: '1rem' }}>
+          Chargement de votre profil...
+        </Typography>
+      </Box>
+    );
   }
+
+  // Remplacez votre gestion d'erreur actuelle par :
+  if (!teacherData) {
+    return (
+      <Box
+        display="flex"
+        flexDirection="column"
+        justifyContent="center"
+        alignItems="center"
+        height="100vh"
+        bgcolor="#f8f9fa"
+      >
+        <Typography variant="h6" color="error" gutterBottom>
+          Erreur de chargement des données
+        </Typography>
+        <Typography variant="body1" gutterBottom>
+          {error || 'Veuillez vérifier votre connexion'}
+        </Typography>
+        <Button
+          variant="contained"
+          color="primary"
+          onClick={() => {
+            localStorage.removeItem('token');
+            localStorage.removeItem('teacherCin');
+            navigate('/connexion');
+          }}
+          sx={{ mt: 2 }}
+        >
+          Se reconnecter
+        </Button>
+      </Box>
+    );
+  }
+
   return (
-    <div style={{
-      fontFamily: "'Georgia', 'Times New Roman', serif",
-      backgroundColor: "#f8f9fa",
-      minHeight: "100vh"
-    }}>
-      {/* Navbar */}
-      <header style={{
-        display: "flex",
-        alignItems: "center",
-        padding: "1rem 5%",
-        backgroundColor: "#fff",
-        borderBottom: "1px solid #e0e0e0",
-        boxShadow: "0 2px 12px rgba(0, 0, 0, 0.08)",
-        position: "sticky",
-        top: 0,
-        zIndex: 1000
-      }}>
-        <a href="/" style={{
-          display: "flex",
-          alignItems: "center",
-          textDecoration: "none"
-        }}>
+    <div style={styles.container}>
+      {/* Header */}
+      <header style={styles.header}>
+        <a href="/" style={{ display: "flex", alignItems: "center", textDecoration: "none" }}>
           <img
             src={logoFac}
             width="80"
             height="80"
             alt="Logo Faculté"
-            style={{
-              objectFit: "contain",
-              marginRight: "1rem",
-              filter: "drop-shadow(0 2px 4px rgba(0,0,0,0.1))"
-            }}
+            style={{ objectFit: "contain", marginRight: "1rem" }}
           />
-          <div style={{
-            borderLeft: "2px solid #0056b3",
-            paddingLeft: "1rem",
-            height: "50px",
-            display: "flex",
-            flexDirection: "column",
-            justifyContent: "center"
-          }}>
-            <span style={{
-              fontSize: "1.2rem",
-              fontWeight: "bold",
-              color: "#0056b3"
-            }}>Faculté des Sciences et Techniques FSTSBZ</span>
-            <span style={{
-              fontSize: "0.9rem",
-              color: "#555"
-            }}>Université de Kairouan</span>
+          <div style={{ borderLeft: "2px solid #0056b3", paddingLeft: "1rem" }}>
+            <Typography variant="h6" style={{ color: "#0056b3", fontWeight: "bold" }}>
+              Faculté des Sciences et Techniques FSTSBZ
+            </Typography>
+            <Typography variant="subtitle2" style={{ color: "#555" }}>
+              Université de Kairouan
+            </Typography>
           </div>
         </a>
+        <div style={{ flexGrow: 1 }} />
 
-        <div style={{ flexGrow: 1 }}></div>
-        
         <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
-          <a href="/teacherUploadDoc" style={{
-            textDecoration: "none",
-            color: "#0056b3",
-            fontWeight: "bold"
-          }}>
+          <IconButton
+            ref={anchorEl}
+            onClick={handleToggleNotifications}
+            style={{
+              position: 'relative',
+              color: '#0056b3',
+              '&:hover': {
+                backgroundColor: 'rgba(0, 86, 179, 0.1)'
+              }
+            }}
+          >
+            <Badge
+              badgeContent={unreadCount}
+              color="error"
+              invisible={unreadCount === 0}
+            >
+              <NotificationsIcon />
+            </Badge>
+          </IconButton>
+
+          <Popover
+            open={open}
+            anchorEl={anchorEl.current}
+            onClose={handleCloseNotifications}
+            anchorOrigin={{
+              vertical: 'bottom',
+              horizontal: 'right',
+            }}
+            transformOrigin={{
+              vertical: 'top',
+              horizontal: 'right',
+            }}
+            PaperProps={{
+              style: {
+                width: 400,
+                maxHeight: '70vh',
+                overflow: 'auto',
+                padding: '1rem',
+                borderRadius: '10px',
+                boxShadow: '0 4px 20px 0 rgba(0,0,0,0.15)'
+              }
+            }}
+          >
+            <ClickAwayListener onClickAway={handleCloseNotifications}>
+              <Box>
+                <Box style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  marginBottom: '1rem'
+                }}>
+                  <Typography variant="h6" style={{ color: '#0056b3' }}>
+                    Notifications
+                  </Typography>
+                  <IconButton onClick={handleCloseNotifications} size="small">
+                    <CloseIcon fontSize="small" />
+                  </IconButton>
+                </Box>
+
+                <Divider style={{ marginBottom: '1rem' }} />
+
+                {notifications.length === 0 ? (
+                  <Typography variant="body2" style={{ color: '#666', textAlign: 'center', padding: '1rem' }}>
+                    Aucune notification pour le moment
+                  </Typography>
+                ) : (
+                  <List dense>
+                    {notifications.map((notification, index) => (
+                      <React.Fragment key={notification.id || index}>
+                        <ListItem
+                          style={{
+                            backgroundColor: notification.read_status ? 'inherit' : 'rgba(0, 86, 179, 0.05)',
+                            borderRadius: '8px',
+                            marginBottom: '0.5rem',
+                            cursor: 'pointer',
+                            '&:hover': {
+                              backgroundColor: 'rgba(0, 86, 179, 0.1)'
+                            }
+                          }}
+                          onClick={() => markAsRead(notification.id)}
+                        >
+                          <ListItemText
+                            primary={
+                              <Typography variant="subtitle2" style={{ color: '#0056b3' }}>
+                                {notification.title || "Notification"}
+                              </Typography>
+                            }
+                            secondary={
+                              <Typography variant="body2" style={{ color: '#666' }}>
+                                {notification.message}
+                              </Typography>
+                            }
+                            secondaryTypographyProps={{
+                              style: {
+                                whiteSpace: 'nowrap',
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis'
+                              }
+                            }}
+                          />
+                        </ListItem>
+                        {index < notifications.length - 1 && <Divider />}
+                      </React.Fragment>
+                    ))}
+                  </List>
+                )}
+              </Box>
+            </ClickAwayListener>
+          </Popover>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+          <Button
+            href="/teacherUploadDoc"
+            color="primary"
+            style={{ fontWeight: "bold" }}
+          >
             Diffuser cours
-          </a>
-         
+          </Button>
+          <Button
+            variant="contained"
+            color="primary"
+            onClick={handleLogout}
+          >
+            Déconnexion
+          </Button>
         </div>
       </header>
 
-      {/* Section principale */}
-      <div style={{
-        display: "flex",
-        padding: "2rem 5%",
-        gap: "2rem"
-      }}>
-        {/* Colonne de gauche - Profil */}
-<div style={{
-  flex: "0 0 300px",
-  backgroundColor: "#fff",
-  borderRadius: "10px",
-  boxShadow: "0 4px 12px rgba(0, 0, 0, 0.1)",
-  padding: "2rem",
-  height: "fit-content"
-}}>
-  <div style={{
-    display: "flex",
-    flexDirection: "column",
-    alignItems: "center",
-    marginBottom: "2rem"
-  }}>
-    {/* Section Photo UNIQUE (version améliorée) */}
-    <div style={{
-  position: 'relative',
-  width: "150px",
-  height: "150px",
-  borderRadius: "50%",
-  backgroundColor: "#e0e0e0",
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "center",
-  marginBottom: "1rem",
-  overflow: "hidden",
-  cursor: 'pointer'
-}} onClick={() => fileInputRef.current.click()}>
-  {previewImage ? (
-    <img 
-      src={previewImage} 
-      alt="Photo de profil" 
-      style={{ 
-        width: '100%', 
-        height: '100%',
-        objectFit: 'cover'
-      }}
-    />
-  ) : (
-    <FaChalkboardTeacher size={60} color="#555" />
-  )}
-  <div style={{
-    position: 'absolute',
-    bottom: 0,
-    width: '100%',
-    padding: '0.5rem',
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    color: 'white',
-    textAlign: 'center',
-    fontSize: '0.8rem'
-  }}>
-    Changer photo
-  </div>
-</div>
+      {/* Main Content */}
+      <div style={{ display: "flex", padding: "2rem 5%", gap: "2rem" }}>
+        {/* Profile Column */}
+        <div style={styles.profileCard}>
+          <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
+            <div
+              style={{
+                position: 'relative',
+                width: "150px",
+                height: "150px",
+                borderRadius: "50%",
+                backgroundColor: "#e0e0e0",
+                margin: "0 auto 1rem",
+                overflow: "hidden",
+                cursor: 'pointer'
+              }}
+              onClick={() => fileInputRef.current.click()}
+            >
+              {previewImage ? (
+                <img
+                  src={previewImage}
+                  alt="Photo de profil"
+                  style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                />
+              ) : (
+                <FaChalkboardTeacher size={60} color="#555" style={{ marginTop: '45px' }} />
+              )}
+              <div style={{
+                position: 'absolute',
+                bottom: 0,
+                width: '100%',
+                padding: '0.5rem',
+                backgroundColor: 'rgba(0,0,0,0.5)',
+                color: 'white',
+                textAlign: 'center'
+              }}>
+                Changer photo
+              </div>
+            </div>
+            <input
+              type="file"
+              ref={fileInputRef}
+              onChange={handleImageChange}
+              style={{ display: 'none' }}
+              accept="image/*"
+            />
 
-    <h2 style={{ margin: "0.5rem 0", color: "#0056b3" }}>{teacherProfile.name}</h2>
-    <p style={{ margin: "0", color: "#666", fontWeight: "500" }}>{teacherProfile.title}</p>
-  </div>
+            <Typography variant="h5" style={{ color: "#0056b3" }}>
+              {teacherProfile.name}
+            </Typography>
+            <Typography variant="subtitle1" style={{ color: "#666" }}>
+              {teacherProfile.title}
+            </Typography>
+          </div>
 
           <div style={{ borderTop: "1px solid #eee", paddingTop: "1rem" }}>
-            <h3 style={{ display: "flex", alignItems: "center", gap: "0.5rem", color: "#444" }}>
+            <Typography variant="h6" style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
               <FaUniversity /> Informations
-            </h3>
+            </Typography>
             <div style={{ marginTop: "1rem" }}>
-              <p style={{ display: "flex", alignItems: "center", gap: "0.5rem", margin: "0.5rem 0" }}>
+              <Typography style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
                 <MdEmail color="#0056b3" /> {teacherProfile.email}
-              </p>
-              <p style={{ display: "flex", alignItems: "center", gap: "0.5rem", margin: "0.5rem 0" }}>
+              </Typography>
+              <Typography style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
                 <MdPhone color="#0056b3" /> {teacherProfile.phone}
-              </p>
-              
+              </Typography>
             </div>
           </div>
 
-          <div style={{ borderTop: "1px solid #eee", paddingTop: "1rem", marginTop: "1rem" }}>
-            <h3 style={{ color: "#444" }}>À propos</h3>
-            <p style={{ color: "#666", lineHeight: "1.6" }}>{teacherProfile.bio}</p>
+          <div style={{ borderTop: "1px solid #eee", marginTop: "1rem", paddingTop: "1rem" }}>
+            <Typography variant="h6">À propos</Typography>
+            <Typography variant="body1" style={{ color: "#666", lineHeight: "1.6" }}>
+              {teacherProfile.bio}
+            </Typography>
           </div>
         </div>
 
-        {/* Colonne de droite - Contenu principal */}
-        <div style={{ flex: "1" }}>
-          {/* Section de bienvenue */}
-          <div style={{
-            backgroundColor: "#fff",
-            borderRadius: "10px",
-            boxShadow: "0 4px 12px rgba(0, 0, 0, 0.1)",
-            padding: "2rem",
-            marginBottom: "2rem",
-            display: "flex",
-            alignItems: "center",
-            gap: "2rem"
-          }}>
-            <div style={{ flex: "1" }}>
-              <h1 style={{ color: "#0056b3", marginBottom: "1rem" }}>
-                Bienvenue, {teacherProfile.name}
-              </h1>
-              <p style={{ color: "#666", lineHeight: "1.6" }}>
-                Enseigner, c'est semer des graines de savoir qui fleuriront toute une vie.
-                Consultez votre emploi du temps, vos examens à venir et restez à jour avec les dernières actualités.
-              </p>
-            </div>
-            <div style={{ width: "200px" }}>
-              <Lottie animationData={home} loop={true} />
-            </div>
-          </div>
-
-          {/* Emploi du temps */}
-          <div style={{
-            backgroundColor: "#fff",
-            borderRadius: "10px",
-            boxShadow: "0 4px 12px rgba(0, 0, 0, 0.1)",
-            padding: "2rem",
-            marginBottom: "2rem"
-          }}>
-            <h2 style={{ display: "flex", alignItems: "center", gap: "0.5rem", color: "#0056b3", marginBottom: "1.5rem" }}>
-              <FaClock /> Emploi du temps
-            </h2>
-            
-            <div style={{ overflowX: "auto" }}>
-              <table style={{ width: "100%", borderCollapse: "collapse" }}>
-                <thead>
-                  <tr style={{ backgroundColor: "#f5f5f5" }}>
-                    <th style={{ padding: "0.75rem", textAlign: "left", borderBottom: "1px solid #ddd" }}>Jour</th>
-                    <th style={{ padding: "0.75rem", textAlign: "left", borderBottom: "1px solid #ddd" }}>Heure</th>
-                    <th style={{ padding: "0.75rem", textAlign: "left", borderBottom: "1px solid #ddd" }}>Cours</th>
-                    <th style={{ padding: "0.75rem", textAlign: "left", borderBottom: "1px solid #ddd" }}>Salle</th>
-                    <th style={{ padding: "0.75rem", textAlign: "left", borderBottom: "1px solid #ddd" }}>Type</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {schedule.map((item, index) => (
-                    <tr key={index} style={{ borderBottom: "1px solid #eee" }}>
-                      <td style={{ padding: "0.75rem" }}>{item.day}</td>
-                      <td style={{ padding: "0.75rem" }}>{item.time}</td>
-                      <td style={{ padding: "0.75rem" }}>{item.course}</td>
-                      <td style={{ padding: "0.75rem" }}>{item.room}</td>
-                      <td style={{ padding: "0.75rem" }}>
-                        <span style={{
-                          padding: "0.25rem 0.5rem",
-                          borderRadius: "4px",
-                          backgroundColor: item.type === "Cours" ? "#e3f2fd" : 
-                                          item.type === "TD" ? "#e8f5e9" : "#fff8e1",
-                          color: item.type === "Cours" ? "#1976d2" : 
-                                item.type === "TD" ? "#2e7d32" : "#ff8f00"
-                        }}>
-                          {item.type}
-                        </span>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-
-          {/* Calendrier des examens */}
-          <div style={{
-            backgroundColor: "#fff",
-            borderRadius: "10px",
-            boxShadow: "0 4px 12px rgba(0, 0, 0, 0.1)",
-            padding: "2rem",
-            marginBottom: "2rem"
-          }}>
-            <h2 style={{ display: "flex", alignItems: "center", gap: "0.5rem", color: "#0056b3", marginBottom: "1.5rem" }}>
-              <FaCalendarAlt /> Calendrier des examens
-            </h2>
-            
-            <div style={{ marginBottom: "2rem" }}>
-              <FullCalendar
-                plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
-                initialView="dayGridMonth"
-                headerToolbar={{
-                  left: "prev,next today",
-                  center: "title",
-                  right: "dayGridMonth,timeGridWeek"
-                }}
-                events={exams.map(exam => ({
-                  title: exam.title,
-                  start: exam.date,
-                  end: exam.date,
-                  extendedProps: {
-                    time: exam.time,
-                    room: exam.room
-                  }
-                }))}
-                eventContent={(eventInfo) => (
-                  <div>
-                    <b>{eventInfo.event.title}</b>
-                    <div style={{ fontSize: "0.8em" }}>
-                      {eventInfo.event.extendedProps.time}
-                    </div>
-                  </div>
-                )}
-                eventDidMount={(info) => {
-                  info.el.style.backgroundColor = "#e3f2fd";
-                  info.el.style.borderColor = "#bbdefb";
-                  info.el.style.color = "#0d47a1";
-                }}
-                height="auto"
-              />
-            </div>
-
-            <div>
-              <h3 style={{ color: "#444", marginBottom: "1rem" }}>Examens à venir</h3>
-              {exams.map((exam, index) => (
-                <div key={index} style={{
-                  padding: "1rem",
-                  marginBottom: "0.5rem",
-                  backgroundColor: "#f5f5f5",
-                  borderRadius: "6px",
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center"
-                }}>
-                  <div>
-                    <h4 style={{ margin: "0 0 0.25rem 0", color: "#0056b3" }}>{exam.title}</h4>
-                    <p style={{ margin: "0", color: "#666" }}>
-                      {new Date(exam.date).toLocaleDateString('fr-FR', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
-                      {" • " + exam.time}
-                    </p>
-                  </div>
-                  <div style={{ color: "#777" }}>
-                    <FaBook /> {exam.room}
-                  </div>
-                </div>
-              ))}
-      
-            </div>
-           
-          </div>
-          <section style={{
-  padding: '8rem 2rem',
-  background: '#fafafa',
-  position: 'relative'
-}}>
-  {/* Élément décoratif abstrait */}
-  <div style={{
-    position: 'absolute',
-    top: '10%',
-    right: '5%',
-    width: '400px',
-    height: '400px',
-    background: 'radial-gradient(circle, rgba(168,85,247,0.05) 0%, rgba(255,255,255,0) 70%)',
-    zIndex: 0
-  }}></div>
-
-  <div style={{
-    maxWidth: '1400px',
-    margin: '0 auto',
-    position: 'relative',
-    zIndex: 1
-  }}>
-    <div style={{
-      textAlign: 'center',
-      marginBottom: '6rem'
-    }}>
-      <h2 style={{
-        fontSize: '3.5rem',
-        fontWeight: '300',
-        color: '#1e293b',
-        marginBottom: '1.5rem',
-        letterSpacing: '1px'
-      }}>
-        <span style={{
-          fontWeight: '500',
-          background: 'linear-gradient(90deg, #7e22ce 0%, #a855f7 100%)',
-          WebkitBackgroundClip: 'text',
-          WebkitTextFillColor: 'transparent'
-        }}>Notre Programme</span> Culturel
-      </h2>
-      <p style={{
-        color: '#64748b',
-        fontSize: '1.2rem',
-        maxWidth: '700px',
-        margin: '0 auto',
-        lineHeight: '1.8'
-      }}>
-        Des expériences immersives où l'art rencontre l'innovation
-      </p>
-    </div>
-
-    {/* Conteneur avec deux événements par ligne */}
-    <div style={{
-      display: 'grid',
-      gridTemplateColumns: 'repeat(2, 1fr)',
-      gap: '3rem',
-      marginBottom: '4rem'
-    }}>
-      {events.map((event, index) => (
-        <motion.div 
-          key={event.id}
-          whileHover={{ y: -10 }}
-          style={{
-            backgroundColor: 'white',
-            borderRadius: '20px',
-            overflow: 'hidden',
-            boxShadow: '0 25px 50px -12px rgba(0,0,0,0.03)',
-            border: '1px solid rgba(226, 232, 240, 0.7)',
-            transition: 'all 0.4s cubic-bezier(0.16, 1, 0.3, 1)'
-          }}
-        >
-          <div style={{
-            height: '280px',
-            background: `linear-gradient(45deg, ${getArtGradient(event.type)})`,
-            position: 'relative'
-          }}>
-            <div style={{
-              position: 'absolute',
-              bottom: '2rem',
-              left: '2rem',
-              color: 'white',
-              zIndex: 2
-            }}>
-              <div style={{
-                fontSize: '0.9rem',
-                fontWeight: '500',
-                marginBottom: '0.5rem',
-                textShadow: '0 2px 4px rgba(0,0,0,0.2)'
-              }}>
-                {event.type.toUpperCase()}
+        {/* Main Content Column */}
+        <div style={{ flex: "1", display: "flex", flexDirection: "column", gap: "2rem" }}>
+          {/* Welcome Section */}
+          <div style={styles.contentCard}>
+            <div style={{ display: "flex", alignItems: "center", gap: "2rem" }}>
+              <div style={{ flex: "1" }}>
+                <Typography variant="h4" style={{ color: "#0056b3", marginBottom: "1rem" }}>
+                  Bienvenue, {teacherProfile.name}
+                </Typography>
+                <Typography variant="body1" style={{ color: "#666", lineHeight: "1.6" }}>
+                  Enseigner, c'est semer des graines de savoir qui fleuriront toute une vie.
+                  Consultez votre emploi du temps, vos examens à venir et restez à jour avec les dernières actualités.
+                </Typography>
               </div>
-              <h3 style={{
-                fontSize: '2rem',
-                fontWeight: '600',
-                margin: 0,
-                lineHeight: '1.2',
-                textShadow: '0 2px 4px rgba(0,0,0,0.2)'
-              }}>
-                {event.titre}
-              </h3>
+              <div style={{ width: "200px" }}>
+                <Lottie animationData={home} loop={true} />
+              </div>
             </div>
-            <div style={{
-              position: 'absolute',
-              inset: 0,
-              background: 'linear-gradient(to top, rgba(0,0,0,0.3) 0%, rgba(0,0,0,0) 50%)'
-            }}></div>
           </div>
 
-          <div style={{ padding: '2.5rem' }}>
-            <div style={{
-              display: 'flex',
-              justifyContent: 'space-between',
-              marginBottom: '2rem'
-            }}>
-              <div style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '1rem'
-              }}>
-                <div style={{
-                  width: '60px',
-                  height: '60px',
-                  borderRadius: '12px',
-                  backgroundColor: '#f5f3ff',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  alignItems: 'center',
-                  justifyContent: 'center'
-                }}>
-                  <div style={{
-                    fontSize: '1.5rem',
-                    fontWeight: '700',
-                    color: '#7e22ce'
-                  }}>
-                    {new Date(event.date).getDate()}
-                  </div>
-                  <div style={{
-                    fontSize: '0.7rem',
-                    color: '#7e22ce',
-                    textTransform: 'uppercase'
-                  }}>
-                    {new Date(event.date).toLocaleString('fr-FR', { month: 'short' })}
-                  </div>
-                </div>
+          {/* Schedule Section */}
+          {/* Schedule Section */}
+          <div style={{ ...styles.contentCard, overflowX: "auto" }}>
+
+
+            {/* Schedule Section */}
+            <div style={{ ...styles.contentCard, overflowX: "auto" }}>
+              {parsedSchedule && emploiDuTemps ? (
                 <div>
-                  <div style={{
-                    fontSize: '0.9rem',
-                    color: '#64748b',
-                    marginBottom: '0.25rem'
-                  }}>
-                    {new Date(event.date).toLocaleString('fr-FR', { weekday: 'long' })}
-                  </div>
-                  <div style={{
-                    fontSize: '1rem',
-                    fontWeight: '500',
-                    color: '#1e293b'
-                  }}>
-                    {new Date(event.date).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
-                  </div>
-                </div>
-              </div>
-              <div style={{
-                alignSelf: 'flex-end'
-              }}>
-                <div style={{
-                  backgroundColor: '#f5f3ff',
-                  color: '#7e22ce',
-                  padding: '0.5rem 1rem',
-                  borderRadius: '50px',
-                  fontSize: '0.8rem',
-                  fontWeight: '600',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '0.5rem'
-                }}>
-                  <MdLocationOn size={16} />
-                  {event.lieu}
-                </div>
-              </div>
-            </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1.5rem' }}>
+                    <Typography variant="h5" style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                      <FaClock /> Votre emploi du temps
+                    </Typography>
 
-            <p style={{
-              color: '#64748b',
-              lineHeight: '1.7',
-              marginBottom: '2.5rem'
-            }}>
-              {event.description.substring(0, 120)}...
-            </p>
+                    <Button
+                      variant="contained"
+                      startIcon={<DownloadIcon />}
+                      href={`${API_URL}${emploiDuTemps.fichier_path}`}
+                      target="_blank"
+                    >
+                      Télécharger
+                    </Button>
+                  </div>
 
-            <div style={{
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center'
-            }}>
-              
-              <button style={{
-                padding: '0.75rem 1.5rem',
-                backgroundColor: '#7e22ce',
-                color: 'white',
-                border: 'none',
-                borderRadius: '8px',
-                fontSize: '0.95rem',
-                fontWeight: '500',
-                cursor: 'pointer',
-                transition: 'all 0.3s ease',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '0.5rem',
-                ':hover': {
-                  backgroundColor: '#6b21a8'
-                }
-              }}>
-                <FaTicketAlt /> Réserver
-              </button>
+                  <Typography variant="body1" style={{ marginBottom: '1rem' }}>
+                    {teacherProfile.name} - {teacherProfile.title}
+                  </Typography>
+
+                  <TableContainer component={Paper} sx={{
+                    margin: '2rem 0',
+                    borderRadius: '8px',
+                    overflow: 'hidden',
+                    boxShadow: '0 2px 10px rgba(0,0,0,0.1)'
+                  }}>
+                    <Table>
+                      <TableHead>
+                        <TableRow>
+                          {parsedSchedule.headers.map((header, idx) => (
+                            <TableCell
+                              key={idx}
+                              align="center"
+                              sx={{
+                                backgroundColor: '#2c3e50',
+                                color: 'white',
+                                fontWeight: '600',
+                                fontSize: '0.9rem'
+                              }}
+                            >
+                              {header}
+                            </TableCell>
+                          ))}
+                        </TableRow>
+                      </TableHead>
+                      <TableBody>
+                        {parsedSchedule.rows.map((row, rowIndex) => (
+                          <TableRow
+                            key={rowIndex}
+                            sx={{
+                              '&:nth-of-type(even)': {
+                                backgroundColor: '#f9f9f9'
+                              },
+                              '&:hover': {
+                                backgroundColor: '#f0f7ff'
+                              }
+                            }}
+                          >
+                            {parsedSchedule.headers.map((header, colIndex) => (
+                              <TableCell
+                                key={`${rowIndex}-${colIndex}`}
+                                align="center"
+                                sx={{
+                                  padding: '12px',
+                                  borderBottom: '1px solid #f0f0f0',
+                                  fontSize: '0.9rem'
+                                }}
+                              >
+                                {row[header] || '-'}
+                              </TableCell>
+                            ))}
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </TableContainer>
+
+                  <Typography variant="body2" color="textSecondary" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <FaCalendarAlt />
+                    Dernière mise à jour: {new Date(emploiDuTemps.published_at).toLocaleDateString('fr-FR', {
+                      day: 'numeric',
+                      month: 'long',
+                      year: 'numeric',
+                      hour: '2-digit',
+                      minute: '2-digit'
+                    })}
+                  </Typography>
+                </div>
+              ) : (
+                <Paper sx={{ p: 3, textAlign: 'center' }}>
+                  <Typography variant="body1" color="textSecondary">
+                    Aucun emploi du temps disponible
+                  </Typography>
+                </Paper>
+              )}
             </div>
           </div>
-        </motion.div>
-      ))}
-    </div>
 
-    
-    
-  </div>
-</section>
+          {/* Exams Section */}
+          <div style={styles.contentCard}>
+            <Typography variant="h5" style={{ marginBottom: "1rem" }}>
+              Vos examens à venir
+            </Typography>
+
+            {teacherExams.length > 0 ? (
+              teacherExams.map((exam, index) => (
+                <div
+                  key={index}
+                  style={{
+                    padding: "1rem",
+                    marginBottom: "0.5rem",
+                    backgroundColor: "#f5f5f5",
+                    borderRadius: "6px",
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center"
+                  }}
+                >
+                  <div>
+                    <Typography variant="subtitle1" style={{ color: "#0056b3" }}>
+                      {exam.matiere_nom}
+                    </Typography>
+                    <Typography variant="body2" style={{ color: "#666" }}>
+                      {new Date(exam.date).toLocaleDateString('fr-FR', {
+                        weekday: 'long',
+                        year: 'numeric',
+                        month: 'long',
+                        day: 'numeric'
+                      })}
+                      {" • " + exam.heure_debut} - {exam.heure_fin}
+                    </Typography>
+                    <Typography variant="body2" style={{ color: "#555" }}>
+                      {exam.filiere_nom} - {exam.classe_nom} (Semestre {exam.semestre_numero})
+                    </Typography>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <FaBook />
+                    <Typography variant="body2" style={{ marginRight: '0.5rem' }}>
+                      {exam.salle}
+                    </Typography>
+                    <Tag color={exam.type === 'Examen' ? 'red' : 'blue'}>
+                      {exam.type}
+                    </Tag>
+                  </div>
+                </div>
+              ))
+            ) : (
+              <Typography variant="body1" color="textSecondary">
+                Aucun examen à venir pour le moment
+              </Typography>
+            )}
+          </div>
+
+          {/* Events Section */}
+          <div style={{ maxWidth: '1400px', margin: '0 auto' }}>
+            <div style={{ textAlign: 'center', marginBottom: '3rem' }}>
+              <Typography variant="h3" style={{ marginBottom: '1rem' }}>
+                <span style={{
+                  fontWeight: '500',
+                  background: 'linear-gradient(90deg, #7e22ce 0%, #a855f7 100%)',
+                  WebkitBackgroundClip: 'text',
+                  WebkitTextFillColor: 'transparent'
+                }}>
+                  Notre Programme
+                </span> Culturel
+              </Typography>
+              <Typography variant="subtitle1" style={{ color: '#64748b' }}>
+                Des expériences immersives où l'art rencontre l'innovation
+              </Typography>
+            </div>
+
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fill, minmax(400px, 1fr))',
+              gap: '2rem',
+              marginBottom: '4rem'
+            }}>
+              {events.map((event) => (
+                <EventCard key={event.id} event={event} getArtGradient={getArtGradient} />
+              ))}
+            </div>
+          </div>
         </div>
-        
       </div>
     </div>
+  );
+};
+
+// Composant séparé pour la carte d'événement
+const EventCard = ({ event, getArtGradient }) => {
+  if (!event || !event.titre || !event.date) return null;
+
+  return (
+    <motion.div
+      whileHover={{ y: -10 }}
+      style={{
+        backgroundColor: 'white',
+        borderRadius: '20px',
+        overflow: 'hidden',
+        boxShadow: '0 25px 50px -12px rgba(0,0,0,0.03)',
+        border: '1px solid rgba(226, 232, 240, 0.7)'
+      }}
+    >
+      <div style={{
+        height: '200px',
+        background: `linear-gradient(45deg, ${getArtGradient(event.type)})`,
+        position: 'relative'
+      }}>
+        <div style={{
+          position: 'absolute',
+          bottom: '1rem',
+          left: '1rem',
+          color: 'white',
+          zIndex: 2
+        }}>
+          <Typography variant="overline" style={{ textShadow: '0 2px 4px rgba(0,0,0,0.2)' }}>
+            {event.type?.toUpperCase() || 'ÉVÉNEMENT'}
+          </Typography>
+          <Typography variant="h5" style={{
+            margin: 0,
+            textShadow: '0 2px 4px rgba(0,0,0,0.2)'
+          }}>
+            {event.titre}
+          </Typography>
+        </div>
+        <div style={{
+          position: 'absolute',
+          inset: 0,
+          background: 'linear-gradient(to top, rgba(0,0,0,0.3) 0%, rgba(0,0,0,0) 50%)'
+        }} />
+      </div>
+
+      <div style={{ padding: '1.5rem' }}>
+        <div style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          marginBottom: '1.5rem'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+            <div style={{
+              width: '50px',
+              height: '50px',
+              borderRadius: '8px',
+              backgroundColor: '#f5f3ff',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center'
+            }}>
+              <Typography variant="body1" style={{ color: '#7e22ce', fontWeight: 'bold' }}>
+                {new Date(event.date).getDate()}
+              </Typography>
+              <Typography variant="caption" style={{ color: '#7e22ce' }}>
+                {new Date(event.date).toLocaleString('fr-FR', { month: 'short' })}
+              </Typography>
+            </div>
+            <div>
+              <Typography variant="body2" style={{ color: '#64748b' }}>
+                {new Date(event.date).toLocaleString('fr-FR', { weekday: 'long' })}
+              </Typography>
+              <Typography variant="body1" style={{ fontWeight: '500' }}>
+                {new Date(event.date).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
+              </Typography>
+            </div>
+          </div>
+          <div>
+            <Typography variant="body2" style={{
+              backgroundColor: '#f5f3ff',
+              color: '#7e22ce',
+              padding: '0.5rem 1rem',
+              borderRadius: '50px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.5rem'
+            }}>
+              <MdLocationOn size={16} />
+              {event.lieu || 'Lieu non spécifié'}
+            </Typography>
+          </div>
+        </div>
+
+        <Typography variant="body1" style={{
+          color: '#64748b',
+          lineHeight: '1.7',
+          marginBottom: '1.5rem',
+          minHeight: '60px'
+        }}>
+          {event.description
+            ? `${event.description.substring(0, 120)}...`
+            : 'Aucune description disponible'}
+        </Typography>
+
+        <Button
+          variant="contained"
+          startIcon={<FaTicketAlt />}
+          style={{
+            backgroundColor: '#7e22ce',
+            '&:hover': { backgroundColor: '#6b21a8' }
+          }}
+        >
+          Réserver
+        </Button>
+      </div>
+    </motion.div>
   );
 };
 

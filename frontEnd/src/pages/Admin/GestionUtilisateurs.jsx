@@ -8,8 +8,11 @@ import MuiAlert from "@mui/material/Alert";
 import axios from "axios";
 import DeleteIcon from '@mui/icons-material/Delete';
 import EditIcon from '@mui/icons-material/Edit';
+import { useNavigate } from 'react-router-dom';
+import { ArrowBack } from '@mui/icons-material';
 
 const GestionUtilisateurs = () => {
+  const navigate = useNavigate();
   const [utilisateurs, setUtilisateurs] = useState([]);
   const [open, setOpen] = useState(false);
   const [snackbar, setSnackbar] = useState({ open: false, message: "", severity: "success" });
@@ -100,6 +103,13 @@ const GestionUtilisateurs = () => {
 
   return (
     <div style={{ padding: "2rem" }}>
+      <Button 
+    startIcon={<ArrowBack />} 
+    onClick={() => navigate('/admin/dashboard')} 
+    sx={{ mb: 2 }}
+  >
+    Retour
+  </Button>
       <h2>Gestion des Utilisateurs</h2>
 
       <TextField
@@ -119,7 +129,7 @@ const GestionUtilisateurs = () => {
               <TableCell>Nom</TableCell>
               <TableCell>Email</TableCell>
               <TableCell>Rôle</TableCell>
-              <TableCell>Filière</TableCell>
+              
               <TableCell>Actions</TableCell>
             </TableRow>
           </TableHead>
@@ -132,7 +142,7 @@ const GestionUtilisateurs = () => {
                   <TableCell>{user.Nom_et_prénom}</TableCell>
                   <TableCell>{user.email || user.Email}</TableCell>
                   <TableCell>{user.role}</TableCell>
-                  <TableCell>{user.filière || "-"}</TableCell>
+                  
                   <TableCell>
                     <IconButton color="primary" onClick={() => handleEdit(user)}><EditIcon /></IconButton>
                     <IconButton color="error" onClick={() => handleConfirmDelete(user)}><DeleteIcon /></IconButton>
@@ -158,9 +168,7 @@ const GestionUtilisateurs = () => {
           <TextField label="CIN" fullWidth margin="dense" value={form.Cin} disabled />
           <TextField label="Nom" fullWidth margin="dense" value={form.nom} onChange={(e) => setForm({ ...form, nom: e.target.value })} />
           <TextField label="Email" fullWidth margin="dense" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
-          {form.role === "étudiant" && (
-            <TextField label="Filière" fullWidth margin="dense" value={form.formation} onChange={(e) => setForm({ ...form, formation: e.target.value })} />
-          )}
+          
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setOpen(false)}>Annuler</Button>

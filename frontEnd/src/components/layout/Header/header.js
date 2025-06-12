@@ -1,37 +1,44 @@
-
 import React, { useState, useEffect } from 'react';
-import { FaGraduationCap, FaFlask } from 'react-icons/fa';
+import { FaGraduationCap, FaFlask, FaUser } from 'react-icons/fa';
+import { Typography, Button } from '@mui/material';
+import { useNavigate } from 'react-router-dom';
 import IMG from "../../../assets/img/IMG.JPG";
 import logoFac from "./../../../assets/logoFac.png";
-import Fac from "../../../assets/img/fac.JPG";
 import faculte from "./../../../assets/img/faculte.JPG"; 
 import facultee from "./../../../assets/img/facultee.JPG"; 
-import faculté from "./../../../assets/img/faculté.JPG"
-
+import faculté from "./../../../assets/img/faculté.JPG";
+import { useAuth } from '../../../hooks/AuthContext';
 const Header = () => {
   const [activeImage, setActiveImage] = useState(0);
   const images = [faculte, facultee, faculté];
+  const navigate = useNavigate();
+const { isAuthenticated, role, logout } = useAuth();
+  
+
+  const handleProfileClick = () => {
+  if (role === 'enseignant') {
+    navigate('/teacherProfil');
+  } else if (role === 'etudiant') {
+    navigate('/etudiantProfil');
+  } else if (role === 'admin') {
+    navigate('/adminDashboard');
+  }
+};
+
   const handleLoginClick = () => {
-    // Fonction pour gérer le clic sur le bouton de connexion
-    console.log("Bouton de connexion cliqué");
-    // Redirection vers la page de connexion
-    // window.location.href = "/login";
+    navigate('/connexion');
   };
- // Animation pour alterner entre les images avec effet de glissement
- useEffect(() => {
-  const interval = setInterval(() => {
-    setActiveImage(prev => (prev + 1) % images.length);
-  }, 5000); // Change d'image toutes les 5 secondes
-  return () => clearInterval(interval);
-}, []);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setActiveImage(prev => (prev + 1) % images.length);
+    }, 5000);
+    return () => clearInterval(interval);
+  }, [images.length]);
 
   return (
-    <div style={{
-      fontFamily: "'Georgia', 'Times New Roman', serif",
-      backgroundColor: "#f8f9fa",
-      minHeight: "100vh"
-    }}>
-      {/* Navbar */}
+    <div>
+      {/* Header Section */}
       <header style={{
         display: "flex",
         alignItems: "center",
@@ -43,88 +50,67 @@ const Header = () => {
         top: 0,
         zIndex: 1000
       }}>
-        <a href="/" style={{
-          display: "flex",
-          alignItems: "center",
-          textDecoration: "none"
-        }}>
+        <a href="/" style={{ display: "flex", alignItems: "center", textDecoration: "none" }}>
           <img
             src={logoFac}
             width="80"
             height="80"
             alt="Logo Faculté"
-            style={{
-              objectFit: "contain",
-              marginRight: "1rem",
-              filter: "drop-shadow(0 2px 4px rgba(0,0,0,0.1))"
-            }}
+            style={{ objectFit: "contain", marginRight: "1rem" }}
           />
-          <div style={{
-            borderLeft: "2px solid #0056b3",
-            paddingLeft: "1rem",
-            height: "50px",
-            display: "flex",
-            flexDirection: "column",
-            justifyContent: "center"
-          }}>
-            <span style={{
-              fontSize: "1.2rem",
-              fontWeight: "bold",
-              color: "#0056b3"
-            }}>Faculté des Sciences et Techniques FSTSBZ</span>
-            <span style={{
-              fontSize: "0.9rem",
-              color: "#555"
-            }}>Université de Kairouan</span>
+          <div style={{ borderLeft: "2px solid #0056b3", paddingLeft: "1rem" }}>
+            <Typography variant="h6" style={{ color: "#0056b3", fontWeight: "bold" }}>
+              Faculté des Sciences et Techniques FSTSBZ
+            </Typography>
+            <Typography variant="subtitle2" style={{ color: "#555" }}>
+              Université de Kairouan
+            </Typography>
           </div>
         </a>
 
-        <div style={{ flexGrow: 1 }}></div>
-        <a href='/connexion'>
-          <button
-            onClick={handleLoginClick}
-            style={{
-              background: "linear-gradient(to right, #0056b3, #0077cc)",
-              color: "white",
-              border: "none",
-              padding: "0.7rem 1.8rem",
-              borderRadius: "30px",
-              fontSize: "1rem",
-              fontWeight: "600",
-              cursor: "pointer",
-              transition: "all 0.3s ease",
-              boxShadow: "0 3px 6px rgba(0, 86, 179, 0.2)",
-              letterSpacing: "0.5px"
-            }}
-            onMouseOver={(e) => {
-              e.currentTarget.style.background = "linear-gradient(to right, #004494, #0066b3)";
-              e.currentTarget.style.boxShadow = "0 4px 8px rgba(0, 86, 179, 0.3)";
-            }}
-            onMouseOut={(e) => {
-              e.currentTarget.style.background = "linear-gradient(to right, #0056b3, #0077cc)";
-              e.currentTarget.style.boxShadow = "0 3px 6px rgba(0, 86, 179, 0.2)";
-            }}
-          >
-            Se connecter
-          </button>
-        </a>
+        <div style={{ flexGrow: 1 }} />
+        
+        {isAuthenticated ? (
+  <Button 
+    variant="contained" 
+    startIcon={<FaUser />}
+    onClick={handleProfileClick}
+    style={{ 
+      backgroundColor: '#0056b3',
+      color: 'white',
+      fontWeight: 'bold',
+      textTransform: 'none'
+    }}
+  >
+    Profil
+  </Button>
+) : (
+  <Button 
+    variant="contained" 
+    color="primary"
+    onClick={handleLoginClick}
+    style={{ fontWeight: "bold" }}
+  >
+    Se connecter
+  </Button>
+)}
       </header>
 
-      {/* Bande défilante sous la navbar */}
+      {/* Scrolling Banner */}
       <div style={{
-  backgroundColor: "#0056b3",
-  overflow: "hidden",
-  whiteSpace: "nowrap",
-  color: "#fff",
-  fontWeight: "bold",
-  fontSize: "1rem",
-  padding: "0.5rem 0",
-  borderBottom: "3px solid #003e80",
-  position: "sticky",  // Permet de rester fixe en scrollant
-  top: "80px",         // Ajustez selon la hauteur de votre navbar
-  zIndex: 1000,         // Pour qu'elle reste au-dessus du contenu
-  width: "100%"
-}}>
+        backgroundColor: "#0056b3",
+        overflow: "hidden",
+        whiteSpace: "nowrap",
+        color: "#fff",
+        fontWeight: "bold",
+        fontSize: "1rem",
+        padding: "0.5rem 0",
+        borderBottom: "3px solid #003e80",
+        position: "sticky",
+        top: "80px",
+        zIndex: 1000,
+        width: "100%"
+      }}>
         <div style={{
           display: "inline-block",
           paddingLeft: "100%",
@@ -134,7 +120,6 @@ const Header = () => {
         </div>
       </div>
 
-      {/* Animation CSS */}
       <style>{`
         @keyframes scrollText {
           0% { transform: translateX(0); }
@@ -142,7 +127,7 @@ const Header = () => {
         }
       `}</style>
 
-      {/* Hero Section avec image de fond */}
+      {/* Hero Section */}
       <section style={{
         background: `linear-gradient(rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.5)), url(${IMG})`,
         backgroundSize: 'cover',
@@ -176,7 +161,7 @@ const Header = () => {
         </div>
       </section>
 
-      {/* Section Notre Institution avec animation de défilement */}
+      {/* Institution Section */}
       <section style={{
         padding: '80px 20px',
         backgroundColor: '#fff'
@@ -222,7 +207,6 @@ const Header = () => {
               borderRadius: '8px',
               boxShadow: '0 10px 30px rgba(0,0,0,0.1)'
             }}>
-              {/* Conteneur des images avec animation */}
               <div style={{
                 display: 'flex',
                 width: `${images.length * 100}%`,
@@ -257,7 +241,6 @@ const Header = () => {
                 ))}
               </div>
               
-              {/* Indicateurs de slide */}
               <div style={{
                 position: 'absolute',
                 bottom: '20px',
@@ -284,7 +267,6 @@ const Header = () => {
                 ))}
               </div>
             </div>
-          
             
             <div style={{
               padding: '20px'
@@ -487,7 +469,7 @@ const Header = () => {
         </div>
       </section>
 
-      {/* About Section */}
+      {/* Values Section */}
       <section style={{
         padding: '80px 20px',
         backgroundColor: '#fff'
@@ -764,7 +746,7 @@ const Header = () => {
                 padding: 0,
                 marginBottom: '30px'
               }}>
-                {['Intelligence Artificielle', 'Data Science', 'Énergies Renouvelables', 'Biotechnologie', 'Chimie Avancée', 'Modélisation Mathématique'].map((item, index) => (
+                {['Mastère de recherche Informatique décisionnel', 'Mastère professionnel en procédés de contrôle qualité alimentaire', 'Mastère recherche Physique et Chimie des matériaux de hautes performances'].map((item, index) => (
                   <li key={index} style={{
                     padding: '14px 0',
                     borderBottom: '1px solid #f0f0f0',
@@ -833,7 +815,7 @@ const Header = () => {
                 padding: 0,
                 marginBottom: '30px'
               }}>
-                {['Informatique et Systèmes', 'Physique Théorique', 'Chimie des Matériaux', 'Biologie Moléculaire', 'Sciences de la Terre', 'Mathématiques Pures'].map((item, index) => (
+                {['Informatique et Systèmes',  'Chimie des Matériaux', 'Biologie Moléculaire'].map((item, index) => (
                   <li key={index} style={{
                     padding: '14px 0',
                     borderBottom: '1px solid #f0f0f0',

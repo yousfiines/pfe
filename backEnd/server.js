@@ -9,8 +9,12 @@ import axios from 'axios';
 import express from 'express';
 import authRoutes from './routes/auth.js';
 import connection from './db.js';
-
+import XLSX from 'xlsx';
+import { mkdirSync, existsSync } from 'fs';
+import fs from "fs";
 import dotenv from 'dotenv';
+import { createServer } from "http";
+import { Server } from 'socket.io';
 dotenv.config();
 
 const app = express();
@@ -33,7 +37,7 @@ if (!process.env.JWT_SECRET && process.env.NODE_ENV === 'production') {
 // Configuration JWT
 const JWT_CONFIG = {
   secret: process.env.JWT_SECRET || 'dev-secret-only',
-  expiresIn: '24h' // Durée de validité du token
+  expiresIn: '7d' // Durée de validité du token
 };
 
 // Vérification de la configuration JWT
@@ -43,20 +47,27 @@ if (!process.env.JWT_SECRET) {
     throw new Error('Configuration critique: JWT_SECRET doit être défini en production');
   }
 }
-const jwtSecret = process.env.JWT_SECRET || 'dev-secret-only';
-
+//const jwtSecret = process.env.JWT_SECRET || 'dev-secret-only';
+axios.defaults.baseURL = 'http://localhost:5000'; // Point direct vers le backend
+axios.defaults.withCredentials = true;
 // Middlewares
 app.use(cors({
   origin: 'http://localhost:3000',
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+  exposedHeaders: ['Content-Disposition']
 }));
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 app.options('*', cors());
 app.use(cookieParser());
 app.use('/api', authRoutes); // plus de /api
-
+app.use((req, res, next) => {
+  res.header("Access-Control-Allow-Origin", "http://localhost:3000");
+  res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept");
+  next();
+});
 
 // Configuration de la base de données
 const pool = mysql.createPool({
@@ -71,7 +82,7 @@ const pool = mysql.createPool({
 
 // Utilisez une URL absolue en développement
 const API_URL = process.env.NODE_ENV === 'development' 
-  ? 'http://localhost:3000S/api' 
+  ? 'http://localhost:5000/api' 
   : '/api';
 
 // Exemple d'appel corrigé
@@ -83,7 +94,7 @@ axios.get(`${API_URL}/filieres`)
     }
   });
 
-// Route pour la connexion admin
+
 // Route pour la connexion admin
 app.post("/admin/login", async (req, res) => {
   const { email, password } = req.body;
@@ -164,7 +175,7 @@ app.post("/connexion", async (req, res) => {
         const token = jwt.sign(
           { cin: etudiant.CIN, role: 'etudiant' },
           process.env.JWT_SECRET || 'dev-secret-only',
-          { expiresIn: '1h' }
+          { expiresIn: '24h' }
         );
         
         return res.json({
@@ -523,6 +534,7 @@ app.post('/api/register', async (req, res) => {
 
 // Middleware d'authentification amélioré
 // Middleware d'authentification générique
+// Middleware d'authentification générique
 const authenticate = (allowedRoles) => async (req, res, next) => {
   const authHeader = req.headers.authorization;
   
@@ -547,13 +559,18 @@ const authenticate = (allowedRoles) => async (req, res, next) => {
     let user;
     switch(decoded.role) {
       case 'admin':
-        [user] = await pool.query('SELECT * FROM admin WHERE CIN = ?', [decoded.cin]);
+        [user] = await pool.query('SELECT * FROM admin WHERE Email = ?', [decoded.email]);
         break;
       case 'enseignant':
         [user] = await pool.query('SELECT * FROM enseignants WHERE CIN = ?', [decoded.cin]);
         break;
       case 'etudiant':
         [user] = await pool.query('SELECT * FROM etudiant WHERE CIN = ?', [decoded.cin]);
+        break;
+      case 'Agent':
+      case 'Superviseur':
+      case 'Administrateur':
+        [user] = await pool.query('SELECT * FROM agents WHERE id = ?', [decoded.id]);
         break;
       default:
         throw new Error('Rôle invalide');
@@ -574,6 +591,10 @@ const authenticate = (allowedRoles) => async (req, res, next) => {
   }
 };
 
+// Middleware spécifique pour les agents
+const authenticateAgent = (allowedRoles = ['Agent', 'Superviseur', 'Administrateur']) => {
+  return authenticate(allowedRoles);
+};
 // Middlewares spécifiques par rôle
 const authenticateAdmin = authenticate(['admin']);
 const authenticateTeacher = authenticate(['enseignant']);
@@ -637,106 +658,241 @@ app.get("/api/enseignants", authenticate(['enseignant']), async (req, res) => {
 
 
 
-// Configuration du stockage pour les emplois du temps
+
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
-    cb(null, path.join(__dirname, 'uploads'));
+    cb(null, uploadDir);
   },
   filename: (req, file, cb) => {
     const ext = path.extname(file.originalname);
-    cb(null, `file-${Date.now()}${ext}`);
+    const uniqueName = `profile-${Date.now()}${ext}`;
+    cb(null, uniqueName);
   }
 });
 
 const upload = multer({
-  storage,
-  limits: { fileSize: 10 * 1024 * 1024 },
+  storage: storage,
+  limits: { fileSize: 2 * 1024 * 1024 }, // 2MB
   fileFilter: (req, file, cb) => {
-    const allowed = /application\/(pdf|vnd.ms-excel|vnd.openxmlformats-officedocument.spreadsheetml.sheet)/.test(file.mimetype);
-    cb(null, allowed);
+    if (file.mimetype.match(/^image\/(jpeg|png|jpg)$/)) {
+      cb(null, true);
+    } else {
+      cb(new Error('Type de fichier non supporté'), false);
+    }
   }
 });
 
-// Créer le répertoire de téléchargement s'il n'existe pas
-import fs from "fs";
-const uploadDir = path.join(__dirname, "uploads", "emplois");
-if (!fs.existsSync(uploadDir)) {
-  fs.mkdirSync(uploadDir, { recursive: true });
-}
 
-// Routes pour les emplois du temps
+// 1. Configuration du stockage des images
+const profileStorage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    const dir = path.join(__dirname, 'uploads/profiles');
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true }); // Crée le dossier si inexistant
+    cb(null, dir);
+  },
+  filename: (req, file, cb) => {
+    const ext = path.extname(file.originalname);
+    const uniqueName = `profile-${Date.now()}${ext}`;
+    cb(null, uniqueName); // Ex: "profile-1623456789.png"
+  }
+});
 
-// Ajouter un nouvel emploi du temps
-app.post("/api/emplois", upload.single("fichier"), async (req, res) => {
-  try {
-    const { filiere_id, classe_id, semestre_id, type } = req.body;
-    const fichier_path = req.file ? `/uploads/emplois/${req.file.filename}` : null;
-
-    // Validation des données
-    if (!filiere_id || !classe_id || !semestre_id || !type || !fichier_path) {
-      return res.status(400).json({
-        success: false,
-        message: "Tous les champs sont obligatoires",
-      });
+// 2. Middleware Multer
+const uploadProfile = multer({
+  storage: profileStorage,
+  limits: { fileSize: 2 * 1024 * 1024 }, // 2MB max
+  fileFilter: (req, file, cb) => {
+    if (file.mimetype.match(/^image\/(jpeg|png|jpg)$/)) {
+      cb(null, true); // Accepte l'image
+    } else {
+      cb(new Error('Seules les images (JPEG/PNG) sont autorisées !'), false);
     }
+  }
+});
 
-    // Insérer dans la base de données
-    const [result] = await pool.query(
-      "INSERT INTO emplois_du_temps (filiere_id, classe_id, semestre_id, type, fichier_path) VALUES (?, ?, ?, ?, ?)",
-      [filiere_id, classe_id, semestre_id, type, fichier_path]
+
+// Configuration for schedule files (emploi du temps)
+const scheduleStorage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    const uploadDir = path.join(__dirname, "uploads", "emplois");
+    if (!fs.existsSync(uploadDir)) {
+      fs.mkdirSync(uploadDir, { recursive: true });
+    }
+    cb(null, uploadDir);
+  },
+  filename: (req, file, cb) => {
+    const ext = path.extname(file.originalname);
+    const uniqueName = `emploi-${Date.now()}${ext}`;
+    cb(null, uniqueName);
+  }
+});
+
+const uploadSchedule = multer({
+  storage: scheduleStorage,
+  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB
+  fileFilter: (req, file, cb) => {
+    const allowedTypes = [
+      'application/pdf',
+      'application/vnd.ms-excel',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    ];
+    if (allowedTypes.includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error('Seuls les fichiers PDF et Excel sont autorisés'), false);
+    }
+  }
+});
+
+
+const uploadDirs = [
+  path.join(__dirname, 'uploads', 'profiles'),
+  path.join(__dirname, 'uploads', 'documents'),
+  path.join(__dirname, 'uploads', 'emplois')
+];
+
+uploadDirs.forEach(dir => {
+  if (!fs.existsSync(dir)) {
+    fs.mkdirSync(dir, { recursive: true });
+  }
+});
+
+
+app.use('/api/uploads', express.static(path.join(__dirname, 'uploads')));
+
+
+
+// Emploi du temps enseignant publié + parsing
+app.get('/api/emplois/enseignant/:cin', async (req, res) => {
+  try {
+    const { cin } = req.params;
+
+    const [emplois] = await pool.query(`
+      SELECT *
+      FROM emplois_du_temps 
+      WHERE enseignant_id = ? AND type = 'enseignant' AND published = 1
+      ORDER BY created_at DESC 
+      LIMIT 1
+    `, [cin]);
+
+    res.json({ success: true, data: emplois });
+  } catch (err) {
+    console.error('Erreur emploi enseignant:', err);
+    res.status(500).json({ success: false, message: 'Erreur serveur' });
+  }
+});
+
+app.get('/api/emplois/:id/parsed', async (req, res) => {
+  try {
+    const [emploi] = await pool.query(
+      'SELECT fichier_path FROM emplois_du_temps WHERE id = ?',
+      [req.params.id]
     );
 
-    res.status(201).json({
-      success: true,
-      data: {
-        id: result.insertId,
-        filiere_id,
-        classe_id,
-        semestre_id,
+    if (!emploi[0]?.fichier_path) {
+      return res.status(404).json({ success: false, message: 'Fichier non trouvé' });
+    }
+
+    const filePath = path.join(__dirname, emploi[0].fichier_path);
+    const workbook = XLSX.readFile(filePath);
+    const sheet = workbook.Sheets[workbook.SheetNames[0]];
+    const data = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+
+    const headers = data[0];
+    const rows = data.slice(1).map(row =>
+      Object.fromEntries(headers.map((h, i) => [h, row[i]]))
+    );
+
+    res.json({ success: true, data: { headers, rows } });
+  } catch (error) {
+    console.error("Erreur parsing:", error);
+    res.status(500).json({ success: false, message: 'Erreur serveur' });
+  }
+});
+
+
+
+
+// Ajouter un nouvel emploi du temps
+app.post("/api/emplois", uploadSchedule.single("fichier"), async (req, res) => {
+  try {
+    const { type, enseignant_id } = req.body;
+    const fichier_path = req.file ? `/uploads/emplois/${req.file.filename}` : null;
+
+    // Validation spécifique au type
+    if (type === 'enseignant') {
+      if (!enseignant_id || !fichier_path) {
+        return res.status(400).json({
+          success: false,
+          message: "Pour un emploi enseignant, le fichier et l'enseignant sont requis"
+        });
+      }
+    } else {
+      const { filiere_id, classe_id, semestre_id } = req.body;
+      if (!filiere_id || !classe_id || !semestre_id || !fichier_path) {
+        return res.status(400).json({
+          success: false,
+          message: "Pour un emploi étudiant, tous les champs sont requis"
+        });
+      }
+    }
+
+    // Requête SQL conditionnelle
+    const [result] = await pool.query(
+      `INSERT INTO emplois_du_temps 
+      (type, fichier_path, enseignant_id, filiere_id, classe_id, semestre_id) 
+      VALUES (?, ?, ?, ?, ?, ?)`,
+      [
         type,
         fichier_path,
-      },
-    });
+        type === 'enseignant' ? enseignant_id : null,
+        type === 'etudiant' ? req.body.filiere_id : null,
+        type === 'etudiant' ? req.body.classe_id : null,
+        type === 'etudiant' ? req.body.semestre_id : null
+      ]
+    );
+
+    res.status(201).json({ success: true, id: result.insertId });
   } catch (error) {
-    console.error("Erreur lors de l'ajout de l'emploi du temps:", error);
+    console.error("Erreur SQL:", error);
     res.status(500).json({
       success: false,
-      message: "Erreur serveur",
+      message: error.sqlMessage || "Erreur serveur"
     });
   }
 });
 
-// Récupérer tous les emplois du temps
+// Récupérer les emplois publiés par classe et type
 app.get("/api/emplois/classe/:classeNom", async (req, res) => {
   try {
     const { classeNom } = req.params;
-    
-    const [emplois] = await pool.query(`
-      SELECT e.*, f.nom AS filiere_nom, c.nom AS classe_nom
-      FROM emplois_du_temps e
-      JOIN classes c ON e.classe_id = c.id
-      JOIN filieres f ON e.filiere_id = f.id
-      WHERE e.published = TRUE AND c.nom = ?
-      ORDER BY e.created_at DESC
-      LIMIT 1
-    `, [classeNom]);
+    const { type } = req.query;
 
-    if (emplois.length === 0) {
-      return res.json({ 
-        success: true,
-        data: [] 
-      });
-    }
+    const [emplois] = await pool.query(`
+      SELECT e.*, 
+             f.nom AS filiere_nom,
+             c.nom AS classe_nom,
+             s.numero AS semestre_numero,
+             DATE_FORMAT(e.published_at, '%Y-%m-%d %H:%i:%s') AS published_at
+      FROM emplois_du_temps e
+      LEFT JOIN filieres f ON e.filiere_id = f.id
+      LEFT JOIN classes c ON e.classe_id = c.id
+      LEFT JOIN semestres s ON e.semestre_id = s.id
+      WHERE e.published = TRUE 
+        AND c.nom = ?
+        AND e.type = ?
+      ORDER BY e.created_at DESC
+    `, [classeNom, type]);
 
     res.json({
       success: true,
-      data: emplois
+      data: emplois,
     });
   } catch (error) {
     console.error("Erreur:", error);
     res.status(500).json({
       success: false,
-      message: "Erreur serveur"
+      message: "Erreur serveur",
     });
   }
 });
@@ -746,15 +902,14 @@ app.get("/api/emplois/classe/:classeNom", async (req, res) => {
 // Publier un emploi du temps
 // Route PUT pour publier un emploi du temps
 app.put("/api/emplois/:id/publish", async (req, res) => {
-  try {
-    const { id } = req.params;
-    
-    // Seulement mettre à jour le statut published
+    try {
     const [result] = await pool.query(
-      "UPDATE emplois_du_temps SET published = TRUE WHERE id = ?",
-      [id]
+      `UPDATE emplois_du_temps 
+       SET published = 1, 
+           published_at = NOW() 
+       WHERE id = ?`,
+      [req.params.id]
     );
-
     if (result.affectedRows === 0) {
       return res.status(404).json({
         success: false,
@@ -785,28 +940,23 @@ app.get("/api/emplois/:id/download", async (req, res) => {
       [id]
     );
 
-    if (emploi.length === 0 || !emploi[0].fichier_path) {
-      return res.status(404).json({
-        success: false,
-        message: "Fichier non trouvé",
-      });
+    if (!emploi.length) {
+      return res.status(404).json({ message: "Emploi non trouvé" });
     }
 
     const filePath = path.join(__dirname, emploi[0].fichier_path);
+    
     if (!fs.existsSync(filePath)) {
-      return res.status(404).json({
-        success: false,
-        message: "Fichier non trouvé sur le serveur",
-      });
+      return res.status(404).json({ message: "Fichier introuvable sur le serveur" });
     }
 
-    res.download(filePath);
-  } catch (error) {
-    console.error("Erreur lors du téléchargement:", error);
-    res.status(500).json({
-      success: false,
-      message: "Erreur serveur",
+    res.download(filePath, err => {
+      if (err) console.error("Erreur de téléchargement:", err);
     });
+
+  } catch (error) {
+    console.error("Erreur:", error);
+    res.status(500).json({ message: "Erreur serveur" });
   }
 });
 
@@ -827,6 +977,11 @@ app.get("/api/filieres", async (req, res) => {
   }
 });
 
+const uploadDir = path.join(__dirname, "uploads", "emplois");
+if (!fs.existsSync(uploadDir)) {
+  fs.mkdirSync(uploadDir, { recursive: true });
+}
+
 app.get("/api/classes", async (req, res) => {
   try {
     const [classes] = await pool.query("SELECT * FROM classes ORDER BY nom");
@@ -843,23 +998,30 @@ app.get("/api/classes", async (req, res) => {
   }
 });
 
-app.get("/api/semestres", async (req, res) => {
+// Dans votre backend (server.js)
+// Update the semesters endpoint to filter by class_id
+app.get('/api/semestres', async (req, res) => {
   try {
-    const [semestres] = await pool.query("SELECT * FROM semestres ORDER BY numero");
-    res.json({
-      success: true,
-      data: semestres,
-    });
+    const { classe_id } = req.query;
+    
+    let query = 'SELECT * FROM semestres';
+    const params = [];
+    
+    if (classe_id) {
+      query += ' WHERE classe_id = ?';
+      params.push(classe_id);
+    }
+    
+    query += ' ORDER BY numero';
+    
+    const [semestres] = await pool.query(query, params);
+    res.json({ success: true, data: semestres });
   } catch (error) {
     console.error("Erreur:", error);
-    res.status(500).json({
-      success: false,
-      message: "Erreur serveur",
-    });
+    res.status(500).json({ success: false, message: "Erreur serveur" });
   }
 });
 
-// Middleware pour servir les fichiers uploadés
 app.use("/uploads", express.static(uploadDir));
 
 // Middleware pour les erreurs
@@ -880,10 +1042,6 @@ app.get("/api/etudiant/:cin/emploi-du-temps", async (req, res) => {
   // Implémentation similaire à la route précédente
 });
 
-// Route pour les examens de l'étudiant
-app.get("/api/etudiant/:cin/examens", async (req, res) => {
-  // Implémentation similaire à la route précédente
-});
 
 
 
@@ -944,11 +1102,12 @@ app.post('/api/etudiant', (req, res) => {
 });
 
 // Route pour récupérer les données d'un étudiant
+// Dans server.js (backend)
 app.get("/api/etudiant/:cin", async (req, res) => {
   const { cin } = req.params;
-  
   try {
-    const [etudiant] = await pool.query(`
+    const [etudiant] = await pool.query(
+      `
       SELECT 
         e.CIN, 
         e.Nom_et_prénom, 
@@ -962,10 +1121,14 @@ app.get("/api/etudiant/:cin", async (req, res) => {
       LEFT JOIN filieres f ON e.Filière = f.id
       LEFT JOIN classes c ON e.Classe = c.id
       WHERE e.CIN = ?
-    `, [cin]);
+    `,
+      [cin]
+    );
 
     if (etudiant.length === 0) {
-      return res.status(404).json({ success: false, message: "Étudiant non trouvé" });
+      return res
+        .status(404)
+        .json({ success: false, message: "Étudiant non trouvé" });
     }
 
     res.json({
@@ -974,8 +1137,8 @@ app.get("/api/etudiant/:cin", async (req, res) => {
         ...etudiant[0],
         // Utilisez les noms complets pour l'affichage
         Filière: etudiant[0].filiere_nom || etudiant[0].filiere_id,
-        Classe: etudiant[0].classe_nom || etudiant[0].classe_id
-      }
+        Classe: etudiant[0].classe_nom || etudiant[0].classe_id,
+      },
     });
   } catch (error) {
     console.error("Erreur:", error);
@@ -988,34 +1151,47 @@ app.get("/api/etudiant/:cin", async (req, res) => {
 
 
 
-app.post('/api/upload-profile-image', upload.single('profileImage'), async (req, res) => {
-  try {
-    if (!req.file) {
-      return res.status(400).json({ success: false, message: 'Aucun fichier reçu' });
+// Route pour l'upload des photos étudiants
+app.post('/api/etudiant/upload-profile',
+  authenticate(['etudiant']), // Middleware d'authentification
+  uploadProfile.single('profile'), // 'profile' = nom du champ dans FormData
+  async (req, res) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json({ success: false, message: "Aucun fichier reçu." });
+      }
+
+      const token = req.headers.authorization.split(' ')[1];
+      const decoded = jwt.verify(token, process.env.JWT_SECRET);
+      const cin = decoded.cin;
+
+      // Chemin relatif (ex: "/uploads/profiles/profile-123456789.png")
+      const imagePath = `/uploads/profiles/${req.file.filename}`;
+
+      // Mise à jour en base de données
+      await pool.query(
+        'UPDATE etudiant SET ProfileImage = ? WHERE CIN = ?',
+        [imagePath, cin]
+      );
+
+      res.json({
+        success: true,
+        imageUrl: imagePath // Renvoie le chemin pour affichage immédiat
+      });
+
+    } catch (error) {
+      console.error("Erreur upload:", error);
+      res.status(500).json({
+        success: false,
+        message: "Erreur serveur lors de l'enregistrement de la photo.",
+        error: process.env.NODE_ENV === 'development' ? error.message : undefined
+      });
     }
-
-    const token = req.headers.authorization?.split(' ')[1];
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    
-    const imagePath = `/uploads/${req.file.filename}`;
-    const fullUrl = `http://localhost:5000${imagePath}`;
-    
-    // Utilisez le même nom de champ partout (ProfileImage)
-    await pool.query(
-      'UPDATE enseignants SET ProfileImage = ? WHERE CIN = ?',
-      [fullUrl, decoded.cin]
-    );
-
-    res.json({ 
-      success: true,
-      imageUrl: fullUrl,
-      message: 'Image enregistrée avec succès'
-    });
-  } catch (error) {
-    console.error('Erreur upload:', error);
-    res.status(500).json({ success: false, message: 'Erreur serveur' });
   }
-});
+);
+
+
+
 
 
 
@@ -1026,24 +1202,7 @@ app.use(bodyParser.urlencoded({ extended: true })); // Pour parser les formulair
 
 
 ////////filière 
-// Gardez seulement cette version de la route
-// Route pour les filières (version unique)
-app.get('/api/filieres', async (req, res) => {
-  try {
-    const [filieres] = await pool.query('SELECT * FROM filieres ORDER BY nom');
-    res.json({
-      success: true,
-      data: filieres,
-    });
-  } catch (error) {
-    console.error("Erreur:", error);
-    res.status(500).json({
-      success: false,
-      message: "Erreur serveur",
-      error: process.env.NODE_ENV === 'development' ? error.message : undefined
-    });
-  }
-});
+
 
 app.post('/api/filieres', async (req, res) => {
   try {
@@ -1287,17 +1446,73 @@ app.delete('/api/classes/:id', async (req, res) => {
 app.get('/api/filieres/:filiereId/classes', async (req, res) => {
   try {
     const [classes] = await pool.query(
-      'SELECT * FROM classes WHERE filiere_id = ?',
+      'SELECT id, nom FROM classes WHERE filiere_id = ?',
       [req.params.filiereId]
     );
-    res.json(classes);
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Erreur serveur' });
+    res.json({
+      success: true,
+      data: classes
+    });
+  } catch (error) {
+    console.error('Error fetching classes:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Erreur serveur'
+    });
   }
 });
 
+app.get('/api/classes/:classId/semestres', async (req, res) => {
+  try {
+    const [semestres] = await pool.query(
+      'SELECT id, numero FROM semestres WHERE classe_id = ?',
+      [req.params.classId]
+    );
+    res.json({
+      success: true,
+      data: semestres
+    });
+  } catch (error) {
+    console.error('Error fetching semesters:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Erreur serveur'
+    });
+  }
+});
 
+app.get('/api/semestres/:semesterId/matieres', async (req, res) => {
+  try {
+    const [matieres] = await pool.query(
+      'SELECT id, nom FROM matieres WHERE semestre_id = ?',
+      [req.params.semesterId]
+    );
+    res.json({
+      success: true,
+      data: matieres
+    });
+  } catch (error) {
+    console.error('Error fetching subjects:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Erreur serveur'
+    });
+  }
+});
+
+app.get('/api/classes/:classeId/matieres', async (req, res) => {
+  try {
+    const [matieres] = await pool.query(`
+      SELECT m.id, m.nom 
+      FROM matieres m
+      JOIN semestres s ON m.semestre_id = s.id
+      WHERE s.classe_id = ?
+    `, [req.params.classeId]);
+    res.json(matieres);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
 
 ///semestres
 // Route POST pour créer un semestre
@@ -1361,7 +1576,7 @@ app.post('/api/semestres', async (req, res) => {
 
 
 // Récupérer tous les semestres avec leur classe
-app.get('/api/semestres', async (req, res) => {
+{/*app.get('/api/semestres', async (req, res) => {
   try {
     const [semestres] = await pool.query(`
       SELECT s.id, s.numero, c.nom as classe_nom, c.id as classe_id
@@ -1373,7 +1588,7 @@ app.get('/api/semestres', async (req, res) => {
     console.error(err);
     res.status(500).json({ error: 'Erreur serveur' });
   }
-});
+});*/}
 
 // Récupérer les semestres d'une classe spécifique
 app.get('/api/classes/:classeId/semestres', async (req, res) => {
@@ -1851,78 +2066,69 @@ const getEmplois = async () => {
 };
 
 
-// Route pour les documents par matière
-app.get('/api/documents-matiere', authenticateStudent, async (req, res) => {
-  try {
-    const { matiereId } = req.query;
-    
-    const [documents] = await pool.query(`
-      SELECT id, titre, description, file_path AS path, 
-             DATE_FORMAT(createdAt, '%Y-%m-%d') AS date,
-             ROUND(LENGTH(contenu)/1024) AS size_kb,
-             'pdf' AS type
-      FROM documents
-      WHERE matiere_id = ?
-    `, [matiereId]);
 
-    res.json({
-      success: true,
-      documents
-    });
-  } catch (error) {
-    console.error('Erreur:', error);
-    res.status(500).json({ 
-      success: false,
-      message: 'Erreur serveur' 
-    });
-  }
-});
+
+
+
 
 // Route pour télécharger un document
-app.get('/api/download-document/:id', authenticateStudent, async (req, res) => {
+app.get("/api/documents/:id/download", async (req, res) => {
   try {
     const { id } = req.params;
-    
-    const [document] = await pool.query(`
-      SELECT contenu, nom_fichier 
-      FROM documents 
-      WHERE id = ?
-    `, [id]);
+    const [document] = await pool.query(
+      "SELECT file_path, file_name FROM documents WHERE id = ?",
+      [id]
+    );
 
     if (!document.length) {
-      return res.status(404).json({ success: false, message: 'Document non trouvé' });
+      return res.status(404).json({
+        success: false,
+        message: "Document non trouvé",
+      });
     }
 
-    // Convertir le buffer stocké en base64
-    const fileBuffer = Buffer.from(document[0].contenu, 'base64');
+    const filePath = path.join(__dirname, document[0].file_path);
     
-    res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', `attachment; filename=${document[0].nom_fichier}`);
-    res.send(fileBuffer);
+    if (!fs.existsSync(filePath)) {
+      return res.status(404).json({
+        success: false,
+        message: "Fichier introuvable sur le serveur",
+      });
+    }
+
+    res.download(filePath, document[0].file_name);
   } catch (error) {
-    console.error('Erreur:', error);
-    res.status(500).json({ success: false, message: 'Erreur serveur' });
+    console.error("Erreur lors du téléchargement:", error);
+    res.status(500).json({
+      success: false,
+      message: "Erreur serveur",
+    });
   }
 });
 
-
-
-
 // Route pour récupérer les cours par filière et classe
-app.get('/api/cours-etudiant', authenticateStudent, async (req, res) => {
+app.get("/api/cours-etudiant", authenticate(['etudiant']), async (req, res) => {
   try {
     const { filiere, classe } = req.query;
-    
+
+    // Validation des paramètres
+    if (!filiere || !classe) {
+      return res.status(400).json({
+        success: false,
+        message: "Les paramètres 'filiere' et 'classe' sont requis"
+      });
+    }
+
     // 1. Récupérer l'ID de la classe
     const [classeData] = await pool.query(
-      'SELECT id FROM classes WHERE nom = ? LIMIT 1',
+      "SELECT id FROM classes WHERE nom = ? LIMIT 1",
       [classe]
     );
 
     if (!classeData.length) {
-      return res.status(404).json({ 
+      return res.status(404).json({
         success: false,
-        message: 'Classe non trouvée' 
+        message: "Classe non trouvée"
       });
     }
 
@@ -1930,36 +2136,38 @@ app.get('/api/cours-etudiant', authenticateStudent, async (req, res) => {
 
     // 2. Récupérer les semestres de cette classe
     const [semestres] = await pool.query(
-      'SELECT id, numero FROM semestres WHERE classe_id = ?',
+      "SELECT id, numero FROM semestres WHERE classe_id = ?",
       [classeId]
     );
 
     // 3. Pour chaque semestre, récupérer les matières
-    const result = await Promise.all(semestres.map(async (semestre) => {
-      const [matieres] = await pool.query(`
-        SELECT m.id, m.nom, m.credits, 
-               e.Nom_et_prénom AS enseignant
-        FROM matieres m
-        LEFT JOIN enseignants e ON m.enseignant_id = e.CIN
-        WHERE m.semestre_id = ?
-      `, [semestre.id]);
+    const result = await Promise.all(
+      semestres.map(async (semestre) => {
+        const [matieres] = await pool.query(
+          `SELECT m.id, m.nom, m.credits, 
+                  e.Nom_et_prénom AS enseignant
+           FROM matieres m
+           LEFT JOIN enseignants e ON m.enseignant_id = e.CIN
+           WHERE m.semestre_id = ?`,
+          [semestre.id]
+        );
 
-      return {
-        semestre: semestre.numero,
-        matieres
-      };
-    }));
+        return {
+          semestre: semestre.numero,
+          matieres,
+        };
+      })
+    );
 
     res.json({
       success: true,
-      data: result
+      data: result,
     });
-
   } catch (error) {
-    console.error('Erreur:', error);
-    res.status(500).json({ 
+    console.error("Erreur:", error);
+    res.status(500).json({
       success: false,
-      message: 'Erreur serveur' 
+      message: "Erreur serveur"
     });
   }
 });
@@ -2018,7 +2226,6 @@ app.get('/api/test-filieres', async (req, res) => {
   }
 });
 
-// Récupérer tous les emplois du temps
 app.get("/api/emplois", async (req, res) => {
   try {
     const [emplois] = await pool.query(`
@@ -2033,9 +2240,11 @@ app.get("/api/emplois", async (req, res) => {
       ORDER BY e.created_at DESC
     `);
 
+    console.log("Emplois récupérés:", emplois); // Log pour débogage
+    
     res.json({
       success: true,
-      data: emplois
+      data: emplois // Assurez-vous que c'est bien 'data' et non 'emplois'
     });
   } catch (error) {
     console.error("Erreur:", error);
@@ -2046,27 +2255,32 @@ app.get("/api/emplois", async (req, res) => {
   }
 });
 
-// Récupérer les emplois publiés pour une classe spécifique
-app.get("/api/emplois/classe/:classeNom", async (req, res) => {
+
+
+// Supprimez tout le middleware d'authentification et modifiez la route comme suit :
+app.get("/api/teaching-data", async (req, res) => {
   try {
-    const { classeNom } = req.params;
-    
-    const [emplois] = await pool.query(`
-      SELECT e.*, 
-             f.nom AS filiere_nom,
-             c.nom AS classe_nom,
-             s.numero AS semestre_numero
-      FROM emplois_du_temps e
-      LEFT JOIN filieres f ON e.filiere_id = f.id
-      LEFT JOIN classes c ON e.classe_id = c.id
-      LEFT JOIN semestres s ON e.semestre_id = s.id
-      WHERE e.published = TRUE AND c.nom = ?
-      ORDER BY e.created_at DESC
-    `, [classeNom]);
+    const [filieres] = await pool.query(
+      "SELECT id, nom FROM filieres ORDER BY nom"
+    );
+    const [classes] = await pool.query(
+      "SELECT id, nom, filiere_id FROM classes ORDER BY nom"
+    );
+    const [semestres] = await pool.query(
+      "SELECT id, numero, classe_id FROM semestres ORDER BY numero"
+    );
+    const [matieres] = await pool.query(
+      "SELECT id, nom, semestre_id FROM matieres ORDER BY nom"
+    );
 
     res.json({
       success: true,
-      data: emplois,
+      data: {
+        filieres,
+        classes,
+        semestres,
+        matieres,
+      },
     });
   } catch (error) {
     console.error("Erreur:", error);
@@ -2078,106 +2292,26 @@ app.get("/api/emplois/classe/:classeNom", async (req, res) => {
 });
 
 
-// Route pour récupérer les filières, classes et matières
-app.get('/api/teaching-data', async (req, res) => {
-  try {
-    // 1. Récupération des données avec gestion des erreurs de requête
-    const [filieres] = await pool.query('SELECT id, nom FROM filieres ORDER BY nom');
-    const [classes] = await pool.query(`
-      SELECT 
-        c.id, 
-        c.nom, 
-        c.filiere_id,
-        f.nom AS filiere_nom 
-      FROM classes c
-      INNER JOIN filieres f ON c.filiere_id = f.id
-      ORDER BY c.nom
-    `);
-    const [matieres] = await pool.query(`
-      SELECT
-        m.id,
-        m.nom,
-        s.id AS semestre_id,
-        s.numero AS semestre_numero,
-        c.id AS classe_id,
-        c.nom AS classe_nom,
-        f.id AS filiere_id,
-        f.nom AS filiere_nom
-      FROM matieres m
-      INNER JOIN semestres s ON m.semestre_id = s.id
-      INNER JOIN classes c ON s.classe_id = c.id
-      INNER JOIN filieres f ON c.filiere_id = f.id
-      ORDER BY m.nom
-    `);
 
-    // 2. Structuration de la réponse
-    const response = {
-      success: true,
-      data: {
-        filieres: filieres.map(f => ({
-          id: f.id,
-          nom: f.nom
-        })),
-        classes: classes.map(c => ({
-          id: c.id,
-          nom: c.nom,
-          filiere_id: c.filiere_id,
-          filiere_nom: c.filiere_nom
-        })),
-        matieres: matieres.map(m => ({
-          id: m.id,
-          nom: m.nom,
-          semestre: {
-            id: m.semestre_id,
-            numero: m.semestre_numero
-          },
-          classe: {
-            id: m.classe_id,
-            nom: m.classe_nom
-          },
-          filiere: {
-            id: m.filiere_id,
-            nom: m.filiere_nom
-          }
-        }))
-      }
-    };
 
-    // 3. Journalisation contrôlée
-    if (process.env.NODE_ENV === 'development') {
-      console.log('Données pédagogiques chargées:', {
-        filieres: response.data.filieres,
-        classes: response.data.classes,
-        matieres: response.data.matieres
-      });
-    }
+// Configuration Multer pour les documents
+const documentsDir = path.join(__dirname, 'uploads', 'documents');
+if (!fs.existsSync(documentsDir)) {
+  fs.mkdirSync(documentsDir, { recursive: true });
+}
 
-    res.json(response);
-
-  } catch (error) {
-    // 4. Gestion d'erreur améliorée
-    console.error(`Erreur teaching-data: ${error.message}`);
-    
-    res.status(500).json({
-      success: false,
-      message: 'Erreur de chargement des données pédagogiques',
-      error: process.env.NODE_ENV === 'production' ? undefined : error.message
-    });
-  }
-});
-
-// Route pour uploader un document
 const documentStorage = multer.diskStorage({
   destination: (req, file, cb) => {
-    cb(null, path.join(__dirname, 'uploads', 'documents'));
+    cb(null, documentsDir);
   },
   filename: (req, file, cb) => {
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-    cb(null, 'doc-' + uniqueSuffix + path.extname(file.originalname));
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
+    const ext = path.extname(file.originalname);
+    cb(null, 'doc-' + uniqueSuffix + ext);
   }
 });
 
-const uploadDocument = multer({ 
+const uploadDocument = multer({
   storage: documentStorage,
   limits: { fileSize: 10 * 1024 * 1024 }, // 10MB
   fileFilter: (req, file, cb) => {
@@ -2185,9 +2319,6 @@ const uploadDocument = multer({
       'application/pdf',
       'application/msword',
       'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-      'application/vnd.ms-powerpoint',
-      'application/vnd.openxmlformats-officedocument.presentationml.presentation',
-      'text/plain',
       'application/vnd.ms-excel',
       'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
     ];
@@ -2195,86 +2326,187 @@ const uploadDocument = multer({
     if (allowedTypes.includes(file.mimetype)) {
       cb(null, true);
     } else {
-      cb(new Error('Type de fichier non autorisé'), false);
+      cb(new Error('Seuls les fichiers PDF, Word et Excel sont autorisés'), false);
     }
   }
 });
 
-app.post('/api/documents', uploadDocument.single('file'), async (req, res) => {
+
+
+fileFilter: (req, file, cb) => {
+  const filetypes = /pdf|doc|docx|ppt|pptx|xls|xlsx|txt|zip/;
+  const extname = filetypes.test(path.extname(file.originalname).toLowerCase());
+  const mimetype = allowedTypes.includes(file.mimetype);
+
+  if (extname && mimetype) {
+    cb(null, true);
+  } else {
+    cb(new Error("Type de fichier non autorisé"), false);
+  }
+}
+
+// Route corrigée
+app.post("/api/diffuseCours", uploadDocument.single('file'), async (req, res) => {
   try {
-    const { title, filiere_id, classe_id, matiere_id } = req.body;
-    const file = req.file;
-    
-    // Validation
-    if (!title || !filiere_id || !classe_id || !matiere_id || !file) {
+    const { 
+      title, 
+      enseignant_id, 
+      filiere_id, 
+      classe_id, 
+      matiere_id, 
+      date_diffusion 
+    } = req.body;
+
+    // Validation des champs obligatoires
+    const requiredFields = {
+      title: 'Titre',
+      enseignant_id: 'ID Enseignant',
+      filiere_id: 'Filière',
+      classe_id: 'Classe', 
+      matiere_id: 'Matière',
+      date_diffusion: 'Date de diffusion'
+    };
+
+    const missingFields = [];
+    for (const [field, label] of Object.entries(requiredFields)) {
+      if (!req.body[field]) missingFields.push(label);
+    }
+
+    if (missingFields.length > 0) {
       return res.status(400).json({
         success: false,
-        message: 'Tous les champs sont obligatoires'
+        message: `Champs manquants: ${missingFields.join(', ')}`
       });
     }
-    
-    // Vérifier que l'enseignant a le droit de publier pour cette matière
-    const token = req.headers.authorization?.split(' ')[1];
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    
-    const [matiere] = await pool.query(
-      'SELECT enseignant_id FROM matieres WHERE id = ?',
-      [matiere_id]
-    );
-    
-    if (matiere.length === 0 || matiere[0].enseignant_id !== decoded.cin) {
-      return res.status(403).json({
+
+    if (!req.file) {
+      return res.status(400).json({
         success: false,
-        message: 'Vous ne pouvez pas publier pour cette matière'
+        message: "Aucun fichier téléchargé"
       });
     }
-    
-    // Enregistrer dans la base de données
+
+    // Vérification des relations
+    const [enseignant] = await pool.query('SELECT CIN FROM enseignants WHERE CIN = ?', [enseignant_id]);
+    if (!enseignant.length) {
+      return res.status(400).json({
+        success: false,
+        message: "Enseignant non trouvé"
+      });
+    }
+
+    const [filiere] = await pool.query('SELECT id FROM filieres WHERE id = ?', [filiere_id]);
+    if (!filiere.length) {
+      return res.status(400).json({
+        success: false,
+        message: "Filière non trouvée"
+      });
+    }
+
+    const [classe] = await pool.query('SELECT id FROM classes WHERE id = ? AND filiere_id = ?', [classe_id, filiere_id]);
+    if (!classe.length) {
+      return res.status(400).json({
+        success: false,
+        message: "Classe non trouvée ou n'appartient pas à la filière"
+      });
+    }
+
+    const [matiere] = await pool.query('SELECT id FROM matieres WHERE id = ?', [matiere_id]);
+    if (!matiere.length) {
+      return res.status(400).json({
+        success: false,
+        message: "Matière non trouvée"
+      });
+    }
+
+    // Chemin relatif pour la base de données
+    const filePath = path.join('/uploads/documents', req.file.filename).replace(/\\/g, '/');
+
+    // Insertion dans la base de données
     const [result] = await pool.query(
       `INSERT INTO documents 
-      (title, file_name, file_type, file_size, file_path, 
-       diffusion_date, filiere_id, classe_id, matiere_id, enseignant_id)
-      VALUES (?, ?, ?, ?, ?, NOW(), ?, ?, ?, ?)`,
+      (title, enseignant_id, filiere_id, classe_id, matiere_id, diffusion_date, file_path, file_name) 
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         title,
-        file.originalname,
-        file.mimetype,
-        file.size,
-        `/uploads/documents/${file.filename}`,
+        enseignant_id,
         filiere_id,
         classe_id,
         matiere_id,
-        decoded.cin
+        date_diffusion,
+        filePath,
+        req.file.originalname
       ]
     );
-    
+
     res.status(201).json({
       success: true,
-      data: {
-        id: result.insertId,
-        title,
-        file_name: file.originalname,
-        file_type: file.mimetype,
-        file_size: file.size,
-        file_path: `/uploads/documents/${file.filename}`,
-        filiere_id,
-        classe_id,
-        matiere_id
-      }
+      message: "Document diffusé avec succès",
+      documentId: result.insertId,
+      filePath: filePath
     });
+
   } catch (error) {
-    console.error('Erreur upload document:', error);
+    console.error("Erreur dans /api/diffuseCours:", error);
+    
+    // Supprimer le fichier uploadé en cas d'erreur
+    if (req.file) {
+      fs.unlink(req.file.path, () => {});
+    }
+
     res.status(500).json({
       success: false,
-      message: 'Erreur serveur'
+      message: process.env.NODE_ENV === 'development' 
+        ? error.message 
+        : "Erreur lors de la diffusion du document"
     });
   }
 });
 
-// Route pour récupérer les documents d'un enseignant
-app.get('/api/teacher-documents',  authenticate(['enseignant']), async (req, res) => {
+app.get('/api/documentsMatiere', async (req, res) => {
   try {
-    const [documents] = await pool.query(`
+    const { filiere_id, classe_id, matiere_id } = req.query;
+    let sql = 'SELECT * FROM documents';
+    const conditions = [];
+    const params = [];
+
+    if (filiere_id) {
+      conditions.push('filiere_id = ?');
+      params.push(filiere_id);
+    }
+    if (classe_id) {
+      conditions.push('classe_id = ?');
+      params.push(classe_id);
+    }
+    if (matiere_id) {
+      conditions.push('matiere_id = ?');
+      params.push(matiere_id);
+    }
+
+    if (conditions.length > 0) {
+      sql += ' WHERE ' + conditions.join(' AND ');
+    }
+    const [rows] = await pool.query(sql, params);
+
+    res.json({ success: true, documents: rows });
+  } catch (error) {
+    console.error('Erreur lors de la récupération des documents:', error);
+    res.status(500).json({ success: false, message: "Erreur serveur" });
+  }
+});
+
+
+
+
+
+// Route pour récupérer les documents d'un enseignant
+app.get(
+  "/api/teacher-documents",
+  authenticate(["enseignant"]),
+  async (req, res) => {
+    try {
+      const [documents] = await pool.query(
+        `
       SELECT d.id, d.title, d.file_name, d.file_type, d.file_size, 
              d.diffusion_date, d.file_path,
              f.nom as filiere_nom, c.nom as classe_nom, m.nom as matiere_nom
@@ -2284,37 +2516,33 @@ app.get('/api/teacher-documents',  authenticate(['enseignant']), async (req, res
       JOIN matieres m ON d.matiere_id = m.id
       WHERE d.enseignant_id = ?
       ORDER BY d.diffusion_date DESC
-    `, [req.user.cin]);
-    
-    res.json({
-      success: true,
-      data: documents
-    });
-  } catch (error) {
-    console.error('Erreur récupération documents:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Erreur serveur'
-    });
-  }
-});
+    `,
+        [req.user.cin]
+      );
 
+      res.json({
+        success: true,
+        data: documents,
+      });
+    } catch (error) {
+      console.error("Erreur récupération documents:", error);
+      res.status(500).json({
+        success: false,
+        message: "Erreur serveur",
+      });
+    }
+  }
+);
 
 app.get('/api/filieres', async (req, res) => {
   try {
-    const [filieres] = await pool.query("SELECT id, nom FROM filieres ORDER BY nom");
-    res.json({
-      success: true,
-      data: filieres // Assurez-vous de retourner un objet avec une propriété data
-    });
+    const [filieres] = await pool.query('SELECT id, nom FROM filieres');
+    res.json(filieres);
   } catch (error) {
-    console.error("Erreur:", error);
-    res.status(500).json({
-      success: false,
-      message: "Erreur serveur"
-    });
+    res.status(500).json({ error: error.message });
   }
 });
+
 
 // Et pour les classes :
 app.get('/api/classes', async (req, res) => {
@@ -2336,6 +2564,1164 @@ app.get('/api/classes', async (req, res) => {
     });
   }
 });
+
+
+
+
+// Corrigez la route pour retourner le bon format de données
+app.get('/api/enseignants/list', async (req, res) => {
+  try {
+    const [enseignants] = await pool.query('SELECT CIN, Nom_et_prénom FROM enseignants');
+    res.json({ 
+      success: true,
+      data: enseignants  // Assurez-vous de retourner un objet avec propriété data
+    });
+  } catch (error) {
+    console.error('Erreur:', error);
+    res.status(500).json({ 
+      success: false,
+      message: 'Erreur serveur',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+});
+
+app.get("/api/emplois/enseignant/:cin", authenticate(['enseignant']), async (req, res) => {
+  try {
+    const { cin } = req.params;
+
+    const [emplois] = await pool.query(`
+      SELECT 
+        e.id,
+        f.nom AS filiere_nom,
+        c.nom AS classe_nom,
+        s.numero AS semestre_numero,
+        e.fichier_path,
+        e.published_at
+      FROM emplois_du_temps e
+      LEFT JOIN filieres f ON e.filiere_id = f.id
+      LEFT JOIN classes c ON e.classe_id = c.id
+      LEFT JOIN semestres s ON e.semestre_id = s.id
+      WHERE e.enseignant_id = ? AND e.type = 'enseignant' AND e.published = TRUE
+      ORDER BY e.published_at DESC
+    `, [cin]);
+
+    res.json({
+      success: true,
+      data: emplois
+    });
+
+  } catch (error) {
+    console.error("Erreur récupération emploi enseignant :", error);
+    res.status(500).json({ success: false, message: "Erreur serveur" });
+  }
+});
+
+
+
+
+
+app.get('/api/emplois/enseignant/:cin/download', async (req, res) => {
+  try {
+    const { cin } = req.params;
+    
+    const [emploi] = await pool.query(
+      'SELECT fichier_path FROM emplois_du_temps WHERE enseignant_id = ? AND published = 1 ORDER BY created_at DESC LIMIT 1',
+      [cin]
+    );
+
+    if (!emploi.length) {
+      return res.status(404).json({ success: false, message: "Emploi non trouvé" });
+    }
+
+    const filePath = path.join(__dirname, emploi[0].fichier_path);
+    res.download(filePath);
+    
+  } catch (error) {
+    console.error('Erreur:', error);
+    res.status(500).json({ success: false, message: 'Erreur serveur' });
+  }
+});
+
+
+
+// Route pour l'emploi du temps étudiant
+app.get("/api/etudiant/emplois", async (req, res) => {
+  try {
+    const { filiere, classe } = req.query;
+    
+    const [emplois] = await pool.query(`
+      SELECT e.*, 
+        f.nom AS filiere_nom,
+        c.nom AS classe_nom,
+        s.numero AS semestre_numero
+      FROM emplois_du_temps e
+      LEFT JOIN filieres f ON e.filiere_id = f.id
+      LEFT JOIN classes c ON e.classe_id = c.id
+      LEFT JOIN semestres s ON e.semestre_id = s.id
+      WHERE e.type = 'etudiant'
+        AND f.nom = ?
+        AND c.nom = ?
+        AND e.published = 1
+      ORDER BY e.created_at DESC
+    `, [filiere, classe]);
+
+    res.json({ 
+      success: true,
+      data: emplois
+    });
+  } catch (error) {
+    console.error("Erreur:", error);
+    res.status(500).json({ success: false, message: "Erreur serveur" });
+  }
+});
+
+// Dans votre fichier backend (ex: server.js)
+app.get('/api/emplois/:id/parsed', async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const [rows] = await pool.query(
+      'SELECT fichier_path FROM emplois_du_temps WHERE id = ?',
+      [id]
+    );
+
+    if (!rows.length || !rows[0].fichier_path) {
+      return res.status(404).json({ success: false, message: "Fichier introuvable" });
+    }
+
+    const filePath = path.join(__dirname, rows[0].fichier_path);
+    if (!fs.existsSync(filePath)) {
+      return res.status(404).json({ success: false, message: "Fichier manquant sur le serveur" });
+    }
+
+    const workbook = XLSX.readFile(filePath);
+    const sheetName = workbook.SheetNames[0];
+    const data = XLSX.utils.sheet_to_json(workbook.Sheets[sheetName], { defval: '' });
+
+    res.json({ success: true, data });
+  } catch (error) {
+    console.error("Erreur parsing emploi:", error);
+    res.status(500).json({ success: false, message: "Erreur serveur" });
+  }
+});
+
+
+
+router.get('/auth/verify', authenticateAdmin, (req, res) => {
+  res.json({ 
+    valid: true,
+    user: {
+      email: req.user.email,
+      role: req.user.role
+    }
+  });
+});
+
+
+app.get('/api/enseignants', async (req, res) => {
+  try {
+    const [enseignants] = await pool.query(
+      'SELECT CIN, Nom_et_prénom FROM enseignants ORDER BY Nom_et_prénom'
+    );
+    res.json({
+      success: true,
+      data: enseignants
+    });
+  } catch (error) {
+    console.error('Erreur:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Erreur serveur'
+    });
+  }
+});
+
+
+app.post("/auth/login", async (req, res) => {
+  const { email, password } = req.body;
+
+  try {
+    // Admin login
+    const [admin] = await pool.query("SELECT * FROM admin WHERE Email = ?", [email]);
+    if (admin.length && password === admin[0].password) {
+      const token = jwt.sign({ email, role: 'admin' }, JWT_SECRET, { expiresIn: '24h' });
+      return res.json({
+        success: true,
+        token,
+        user: { email, role: 'admin' }
+      });
+    }
+
+    // Agent login
+    const [agent] = await pool.query("SELECT * FROM agents WHERE email = ?", [email]);
+    if (agent.length && password === agent[0].password) {
+      const user = agent[0];
+      const token = jwt.sign({ id: user.id, role: user.role }, JWT_SECRET, { expiresIn: '24h' });
+      return res.json({
+        success: true,
+        token,
+        user: {
+          id: user.id,
+          nom: user.nom,
+          prenom: user.prenom,
+          email: user.email,
+          role: user.role,
+          departement: user.departement
+        }
+      });
+    }
+
+    return res.status(401).json({ success: false, message: "Identifiants incorrects" });
+
+  } catch (err) {
+    console.error("Erreur login unifié :", err);
+    return res.status(500).json({ success: false, message: "Erreur serveur" });
+  }
+});
+
+
+
+
+
+
+
+
+
+
+
+// Route pour créer un examen (admin seulement)
+app.post('/api/examens',  async (req, res) => {
+  try {
+    const {
+      matiere_id,
+      filiere_id,
+      classe_id,
+      semestre_id,
+      date,
+      heure_debut,
+      heure_fin,
+      salle,
+      enseignant_id,
+      type
+    } = req.body;
+
+    // Validation des données
+    if (!matiere_id || !filiere_id || !classe_id || !semestre_id || !date || 
+        !heure_debut || !heure_fin || !salle || !type) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Tous les champs obligatoires doivent être remplis' 
+      });
+    }
+
+    // Vérifier que la date est dans le futur
+    const examDate = new Date(`${date}T${heure_debut}`);
+    if (examDate < new Date()) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'La date et heure de l\'examen doivent être dans le futur' 
+      });
+    }
+
+    // Insertion dans la base de données
+    const [result] = await pool.query(
+      `INSERT INTO examens 
+      (matiere_id, filiere_id, classe_id, semestre_id, date, heure_debut, heure_fin, salle, enseignant_id, type) 
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        matiere_id,
+        filiere_id,
+        classe_id,
+        semestre_id,
+        date,
+        heure_debut,
+        heure_fin,
+        salle,
+        enseignant_id || null,
+        type
+      ]
+    );
+
+    res.status(201).json({ 
+      success: true, 
+      message: 'Examen créé avec succès',
+      examen_id: result.insertId 
+    });
+
+  } catch (error) {
+    console.error('Erreur création examen:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Erreur serveur lors de la création de l\'examen',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+});
+
+// Route pour lister tous les examens (admin seulement)
+app.get('/api/examens', async (req, res) => {
+  console.log("Reçu requête GET /api/examens"); // Log 1
+  
+  try {
+    const [rows] = await pool.query(`
+      SELECT e.*, m.nom AS matiere_nom 
+      FROM examens e
+      LEFT JOIN matieres m ON e.matiere_id = m.id
+    `);
+    
+    console.log("Données récupérées:", rows); // Log 2
+    
+    res.json({
+      success: true,
+      data: rows,
+      message: `${rows.length} examens trouvés`
+    });
+    
+  } catch (error) {
+    console.error("Erreur complète:", error); // Log 3
+    res.status(500).json({
+      success: false,
+      message: "Échec de la récupération",
+      error: error.message
+    });
+  }
+});
+
+app.get('/api/notifications', async (req, res) => {
+  try {
+    const { audience } = req.query;
+
+    if (!audience || !['enseignants', 'etudiants', 'tous'].includes(audience)) {
+      return res.status(400).json({ success: false, message: 'Audience invalide ou manquante' });
+    }
+
+    const [notifications] = await pool.query(
+      `SELECT * FROM notifications 
+       WHERE audience IN (?, 'tous')
+       ORDER BY created_at DESC`,
+      [audience]
+    );
+
+    res.json({ success: true, notifications });
+
+  } catch (error) {
+    console.error('Erreur récupération notifications:', error);
+    res.status(500).json({ success: false, message: 'Erreur serveur lors de la récupération des notifications' });
+  }
+});
+
+
+// Route pour publier/diffuser un examen (admin seulement)
+app.put('/api/examens/:id/publish', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { cible } = req.body;
+
+    if (!['enseignants', 'etudiants', 'tous'].includes(cible)) {
+      return res.status(400).json({ success: false, message: 'Cible de diffusion invalide' });
+    }
+
+    // Vérifier que l'examen existe
+    const [examens] = await pool.query(`SELECT * FROM examens WHERE id = ?`, [id]);
+
+    if (examens.length === 0) {
+      return res.status(404).json({ success: false, message: 'Examen non trouvé' });
+    }
+
+    const examen = examens[0];
+
+    // Mise à jour de l'état de diffusion
+    const updates = {
+      diffusion_at: new Date(),
+      diffusion_enseignants: (cible === 'enseignants' || cible === 'tous'),
+      diffusion_etudiants: (cible === 'etudiants' || cible === 'tous')
+    };
+
+    await pool.query(
+      `UPDATE examens SET 
+        diffusion_enseignants = ?,
+        diffusion_etudiants = ?,
+        diffusion_at = ?
+       WHERE id = ?`,
+      [
+        updates.diffusion_enseignants,
+        updates.diffusion_etudiants,
+        updates.diffusion_at,
+        id
+      ]
+    );
+
+    // Préparation des notifications
+    const notifications = [];
+    const createdAt = new Date();
+
+    if (updates.diffusion_enseignants) {
+      notifications.push([
+        null,                  // user_id
+        'enseignants',         // ✅ audience
+        'examen',              // type
+        `Nouvel examen publié pour les enseignants le ${examen.date} à ${examen.heure_debut}`,
+        id,                    // reference_id
+        createdAt
+      ]);
+    }
+
+    if (updates.diffusion_etudiants) {
+      notifications.push([
+        null,
+        'etudiants',
+        'examen',
+        `Nouvel examen publié pour les étudiants le ${examen.date} à ${examen.heure_debut}`,
+        id,
+        createdAt
+      ]);
+    }
+
+    // Insertion des notifications si besoin
+    if (notifications.length > 0) {
+      await pool.query(
+        `INSERT INTO notifications (user_id, audience, type, message, reference_id, created_at)
+         VALUES ?`,
+        [notifications]
+      );
+    }
+
+    res.json({ success: true, message: `Examen diffusé avec succès aux ${cible}` });
+
+  } catch (error) {
+    console.error('Erreur publication examen:', error);
+    res.status(500).json({ success: false, message: 'Erreur serveur lors de la publication de l\'examen' });
+  }
+});
+
+
+
+// Route pour modifier un examen (admin seulement)
+app.put('/api/examens/:id', authenticateAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const {
+      matiere_id,
+      filiere_id,
+      classe_id,
+      semestre_id,
+      date,
+      heure_debut,
+      heure_fin,
+      salle,
+      enseignant_id,
+      type
+    } = req.body;
+
+    // Vérifier que l'examen existe
+    const [examen] = await pool.query('SELECT id FROM examens WHERE id = ?', [id]);
+    if (!examen.length) {
+      return res.status(404).json({ 
+        success: false, 
+        message: 'Examen non trouvé' 
+      });
+    }
+
+    // Mise à jour dans la base de données
+    const [result] = await pool.query(
+      `UPDATE examens SET 
+        matiere_id = ?,
+        filiere_id = ?,
+        classe_id = ?,
+        semestre_id = ?,
+        date = ?,
+        heure_debut = ?,
+        heure_fin = ?,
+        salle = ?,
+        enseignant_id = ?,
+        type = ?
+       WHERE id = ?`,
+      [
+        matiere_id,
+        filiere_id,
+        classe_id,
+        semestre_id,
+        date,
+        heure_debut,
+        heure_fin,
+        salle,
+        enseignant_id || null,
+        type,
+        id
+      ]
+    );
+
+    res.json({ 
+      success: true, 
+      message: 'Examen mis à jour avec succès' 
+    });
+
+  } catch (error) {
+    console.error('Erreur modification examen:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Erreur serveur lors de la modification de l\'examen' 
+    });
+  }
+});
+
+// Route pour supprimer un examen (admin seulement)
+app.delete('/api/examens/:id', authenticateAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // Vérifier que l'examen existe
+    const [examen] = await pool.query('SELECT id FROM examens WHERE id = ?', [id]);
+    if (!examen.length) {
+      return res.status(404).json({ 
+        success: false, 
+        message: 'Examen non trouvé' 
+      });
+    }
+
+    // Suppression de la base de données
+    await pool.query('DELETE FROM examens WHERE id = ?', [id]);
+
+    res.json({ 
+      success: true, 
+      message: 'Examen supprimé avec succès' 
+    });
+
+  } catch (error) {
+    console.error('Erreur suppression examen:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Erreur serveur lors de la suppression de l\'examen' 
+    });
+  }
+});
+
+// Route pour récupérer les examens diffusés aux enseignants
+app.get('/api/examens/enseignants', authenticate(['enseignant']), async (req, res) => {
+  try {
+    const [examens] = await pool.query(`
+      SELECT e.*, 
+             m.nom AS matiere_nom,
+             f.nom AS filiere_nom,
+             c.nom AS classe_nom,
+             s.numero AS semestre_numero
+      FROM examens e
+      LEFT JOIN matieres m ON e.matiere_id = m.id
+      LEFT JOIN filieres f ON e.filiere_id = f.id
+      LEFT JOIN classes c ON e.classe_id = c.id
+      LEFT JOIN semestres s ON e.semestre_id = s.id
+      WHERE e.diffusion_enseignants = TRUE
+        AND e.date >= CURDATE()
+      ORDER BY e.date ASC, e.heure_debut ASC
+    `);
+
+    res.json({ 
+      success: true, 
+      data: examens 
+    });
+
+  } catch (error) {
+    console.error('Erreur récupération examens enseignants:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Erreur serveur lors de la récupération des examens' 
+    });
+  }
+});
+
+// Route pour récupérer les examens diffusés aux étudiants
+app.get('/api/examens/etudiants', authenticate(['etudiant']), async (req, res) => {
+  try {
+    // Récupérer la filière et classe de l'étudiant
+    const [etudiant] = await pool.query(
+      'SELECT Filière AS filiere_id, Classe AS classe_id FROM etudiant WHERE CIN = ?',
+      [req.user.cin]
+    );
+
+    if (!etudiant.length) {
+      return res.status(404).json({ 
+        success: false, 
+        message: 'Étudiant non trouvé' 
+      });
+    }
+
+    const { filiere_id, classe_id } = etudiant[0];
+
+    const [examens] = await pool.query(`
+      SELECT e.*, 
+             m.nom AS matiere_nom,
+             f.nom AS filiere_nom,
+             c.nom AS classe_nom,
+             s.numero AS semestre_numero,
+             en.Nom_et_prénom AS enseignant_nom
+      FROM examens e
+      LEFT JOIN matieres m ON e.matiere_id = m.id
+      LEFT JOIN filieres f ON e.filiere_id = f.id
+      LEFT JOIN classes c ON e.classe_id = c.id
+      LEFT JOIN semestres s ON e.semestre_id = s.id
+      LEFT JOIN enseignants en ON e.enseignant_id = en.CIN
+      WHERE e.diffusion_etudiants = TRUE
+        AND e.filiere_id = ?
+        AND e.classe_id = ?
+        AND e.date >= CURDATE()
+      ORDER BY e.date ASC, e.heure_debut ASC
+    `, [filiere_id, classe_id]);
+
+    res.json({ 
+      success: true, 
+      data: examens 
+    });
+
+  } catch (error) {
+    console.error('Erreur récupération examens étudiants:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Erreur serveur lors de la récupération des examens' 
+    });
+  }
+});
+
+
+
+
+app.get("/api/examens/etudiant/:cin", async (req, res) => {
+  const { cin } = req.params;
+  
+  try {
+    // 1. Récupérer les infos de l'étudiant (filière et classe)
+    const [etudiant] = await pool.query(
+      `SELECT e.Filière AS filiere_id, e.Classe AS classe_id, 
+              f.nom AS filiere_nom, c.nom AS classe_nom
+       FROM etudiant e
+       LEFT JOIN filieres f ON e.Filière = f.id
+       LEFT JOIN classes c ON e.Classe = c.id
+       WHERE e.CIN = ?`,
+      [cin]
+    );
+
+    if (!etudiant.length) {
+      return res.status(404).json({ success: false, message: "Étudiant non trouvé" });
+    }
+
+    const studentInfo = etudiant[0];
+    
+    // 2. Récupérer les examens pour cette filière et classe
+    const [examens] = await pool.query(`
+      SELECT e.*, 
+             m.nom AS matiere_nom,
+             f.nom AS filiere_nom,
+             c.nom AS classe_nom,
+             s.numero AS semestre_numero,
+             en.Nom_et_prénom AS enseignant_nom
+      FROM examens e
+      LEFT JOIN matieres m ON e.matiere_id = m.id
+      LEFT JOIN filieres f ON e.filiere_id = f.id
+      LEFT JOIN classes c ON e.classe_id = c.id
+      LEFT JOIN semestres s ON e.semestre_id = s.id
+      LEFT JOIN enseignants en ON e.enseignant_id = en.CIN
+      WHERE e.filiere_id = ? 
+        AND e.classe_id = ?
+        AND e.diffusion_etudiants = TRUE
+        AND e.date >= CURDATE()
+      ORDER BY e.date ASC, e.heure_debut ASC
+    `, [studentInfo.filiere_id, studentInfo.classe_id]);
+
+    res.status(200).json({ 
+      success: true, 
+      data: examens 
+    });
+  } catch (error) {
+    console.error('Erreur récupération examens étudiant :', error);
+    res.status(500).json({ 
+      success: false, 
+      message: "Erreur serveur",
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+});
+
+
+
+
+
+// Route pour récupérer les examens d'un enseignant spécifique
+app.get('/api/examens/enseignant/:cin', authenticate(['enseignant']), async (req, res) => {
+  try {
+    const { cin } = req.params;
+
+    const [examens] = await pool.query(`
+      SELECT e.*, 
+             m.nom AS matiere_nom,
+             f.nom AS filiere_nom,
+             c.nom AS classe_nom,
+             s.numero AS semestre_numero
+      FROM examens e
+      JOIN matieres m ON e.matiere_id = m.id
+      JOIN filieres f ON e.filiere_id = f.id
+      JOIN classes c ON e.classe_id = c.id
+      JOIN semestres s ON e.semestre_id = s.id
+      WHERE e.enseignant_id = ?
+        AND e.diffusion_enseignants = TRUE
+        AND e.date >= CURDATE()
+      ORDER BY e.date ASC, e.heure_debut ASC
+    `, [cin]);
+
+    res.json({ 
+      success: true, 
+      data: examens 
+    });
+  } catch (error) {
+    console.error('Erreur:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Erreur serveur' 
+    });
+  }
+});
+
+
+// ✅ Route pour récupérer les examens d'un étudiant
+{/*app.get("/api/examens/etudiant/:cin", async (req, res) => {
+  const { cin } = req.params;
+
+  try {
+    const [examens] = await pool.query(`
+      SELECT 
+        m.nom AS matiere_nom,
+        e.date_examen AS date,
+        e.heure_debut,
+        e.heure_fin,
+        e.salle,
+        e.type
+      FROM examens e
+      JOIN matieres m ON e.matiere_id = m.id
+      JOIN etudiant et ON et.CIN = ?
+      JOIN classes c ON c.nom = et.Classe
+      WHERE e.filiere_id = c.filiere_id
+        AND e.classe_id = c.id
+        AND e.diffusion_etudiants = 1
+    `, [cin]);
+
+    res.status(200).json({ success: true, data: examens });
+  } catch (error) {
+    console.error('Erreur récupération examens étudiant :', error);
+    res.status(500).json({ success: false, message: "Erreur serveur" });
+  }
+});*/}
+
+
+
+
+
+// Dans server.js
+app.get("/api/test-token", (req, res) => {
+  console.log("Headers reçus:", req.headers);
+  res.json({
+    receivedAuth: req.headers.authorization,
+    serverSecret: process.env.JWT_SECRET || "dev-secret-only",
+  });
+});
+
+// Route pour soumettre un problème
+app.post("/api/support-request", async (req, res) => {
+  try {
+    const { email, message } = req.body;
+    console.log("Tentative d'enregistrement:", { email, message });
+
+    // Validation
+    if (!email || !message) {
+      return res.status(400).json({
+        success: false,
+        message: "Email et message sont obligatoires",
+      });
+    }
+
+    // Déterminer le type d'utilisateur
+    let userType = "etudiant"; // Par défaut étudiant
+
+    // Vérifier si c'est un enseignant
+    const [enseignant] = await pool.query(
+      "SELECT Email FROM enseignants WHERE Email = ?",
+      [email]
+    );
+
+    if (enseignant.length > 0) {
+      userType = "enseignant";
+    }
+
+    // Enregistrement
+    const [result] = await pool.query(
+      "INSERT INTO notifications (user_email, user_type, message) VALUES (?, ?, ?)",
+      [email, userType, message]
+    );
+
+    console.log("Notification enregistrée avec ID:", result.insertId);
+
+    res.status(201).json({
+      success: true,
+      message: "Problème signalé avec succès",
+    });
+  } catch (error) {
+    console.error("Erreur détaillée:", {
+      message: error.message,
+      stack: error.stack,
+      sqlMessage: error.sqlMessage,
+    });
+
+    res.status(500).json({
+      success: false,
+      message:
+        process.env.NODE_ENV === "development"
+          ? `Erreur SQL: ${error.sqlMessage || error.message}`
+          : "Erreur serveur",
+    });
+  }
+});
+
+// Route pour récupérer les notifications (admin)
+app.get("/api/admin/notifications", authenticateAdmin, async (req, res) => {
+  try {
+    const { unread } = req.query;
+
+    let query = `
+      SELECT n.*, 
+        CASE 
+          WHEN n.user_type = 'etudiant' THEN e.Nom_et_prénom
+          WHEN n.user_type = 'enseignant' THEN en.Nom_et_prénom
+          ELSE 'Admin'
+        END AS user_name
+      FROM notifications n
+      LEFT JOIN etudiant e ON n.user_email = e.email AND n.user_type = 'etudiant'
+      LEFT JOIN enseignants en ON n.user_email = en.Email AND n.user_type = 'enseignant'
+    `;
+
+    if (unread === "true") {
+      query += " WHERE n.read_status = FALSE";
+    }
+
+    query += " ORDER BY n.created_at DESC";
+
+    const [notifications] = await pool.query(query);
+    res.json({ success: true, data: notifications });
+  } catch (error) {
+    console.error("Erreur:", error);
+    res.status(500).json({
+      success: false,
+      message: "Erreur serveur",
+    });
+  }
+});
+
+// Route pour marquer comme lue
+app.patch(
+  "/api/admin/notifications/:id/read",
+  authenticateAdmin,
+  async (req, res) => {
+    try {
+      await pool.query(
+        "UPDATE notifications SET read_status = TRUE WHERE id = ?",
+        [req.params.id]
+      );
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Erreur:", error);
+      res.status(500).json({
+        success: false,
+        message: "Erreur serveur",
+      });
+    }
+  }
+);
+
+const httpServer = createServer(app);
+const io = new Server(httpServer, {
+  cors: {
+    origin: "http://localhost:3000",
+    methods: ["GET", "POST"],
+  },
+});
+
+let adminSockets = [];
+
+io.on("connection", (socket) => {
+  socket.on("registerAsAdmin", () => {
+    if (!adminSockets.includes(socket.id)) {
+      adminSockets.push(socket.id);
+    }
+  });
+
+  socket.on("disconnect", () => {
+    adminSockets = adminSockets.filter((id) => id !== socket.id);
+  
+  });
+});
+
+// Route : soumettre une réclamation
+app.post("/api/reclamations", async (req, res) => {
+  try {
+    const { email, message, userType } = req.body;
+
+    if (!email || !message) {
+      return res.status(400).json({ success: false, message: "Email et message sont obligatoires" });
+    }
+
+    const [result] = await pool.query(
+      "INSERT INTO reclamations (email, message, user_type) VALUES (?, ?, ?)",
+      [email, message, userType || "autre"]
+    );
+
+    // Notifier uniquement les admins connectés
+    adminSockets.forEach((socketId) => {
+      io.to(socketId).emit("newReclamation", {
+        id: result.insertId,
+        email,
+        message,
+        userType: userType || "autre",
+        timestamp: new Date(),
+      });
+    });
+
+    res.status(201).json({
+      success: true,
+      message: "Réclamation enregistrée avec succès",
+      reclamationId: result.insertId,
+    });
+  } catch (error) {
+    console.error("Erreur enregistrement réclamation:", error);
+    res.status(500).json({
+      success: false,
+      message: "Erreur serveur",
+    });
+  }
+});
+
+httpServer.listen(5000, () => {
+  console.log("Serveur démarré sur http://localhost:5000");
+});
+
+// Route pour récupérer les réclamations (admin)
+app.get("/api/admin/reclamations", authenticateAdmin, async (req, res) => {
+  try {
+    const [reclamations] = await pool.query(`
+      SELECT r.*, 
+        CASE 
+          WHEN r.user_type = 'etudiant' THEN e.Nom_et_prénom
+          WHEN r.user_type = 'enseignant' THEN en.Nom_et_prénom
+          ELSE 'Autre'
+        END AS user_name
+      FROM reclamations r
+      LEFT JOIN etudiant e ON r.email = e.email AND r.user_type = 'etudiant'
+      LEFT JOIN enseignants en ON r.email = en.Email AND r.user_type = 'enseignant'
+      ORDER BY r.created_at DESC
+    `);
+
+    res.json({
+      success: true,
+      data: reclamations
+    });
+
+  } catch (error) {
+    console.error("Erreur récupération réclamations:", error);
+    res.status(500).json({
+      success: false,
+      message: "Erreur serveur"
+    });
+  }
+});
+
+// Route pour mettre à jour le statut d'une réclamation
+app.put("/api/admin/reclamations/:id/status", authenticateAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { status } = req.body;
+
+    const [result] = await pool.query(
+      "UPDATE reclamations SET status = ? WHERE id = ?",
+      [status, id]
+    );
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "Réclamation non trouvée"
+      });
+    }
+
+    res.json({
+      success: true,
+      message: "Statut mis à jour"
+    });
+
+  } catch (error) {
+    console.error("Erreur mise à jour statut:", error);
+    res.status(500).json({
+      success: false,
+      message: "Erreur serveur"
+    });
+  }
+});
+
+
+
+//Ageeeeeeeents
+
+// GET all agents
+app.get('/agents', async (req, res) => {
+  try {
+    const [rows] = await pool.query('SELECT * FROM agents');
+    res.json(rows);
+  } catch (err) {
+    res.status(500).json({ error: 'Erreur lors de la récupération des agents' });
+  }
+});
+
+// POST create agent
+app.post('/agents', async (req, res) => {
+  const { nom, prenom, email, password, departement, role } = req.body;
+
+  if (!nom || !prenom || !email || !password || !departement || !role) {
+    return res.status(400).json({ error: 'Champs obligatoires manquants' });
+  }
+
+  try {
+    const hashedPassword = await bcrypt.hash(password, 10);
+    const [result] = await pool.query(
+      'INSERT INTO agents (nom, prenom, email, password, departement, role) VALUES (?, ?, ?, ?, ?, ?)',
+      [nom, prenom, email, hashedPassword, departement, role]
+    );
+    res.status(201).json({ id: result.insertId, message: 'Agent ajouté avec succès' });
+  } catch (err) {
+    res.status(500).json({ error: 'Erreur lors de l\'ajout de l\'agent' });
+  }
+});
+
+// DELETE agent
+app.delete('/agents/:id', async (req, res) => {
+  const { id } = req.params;
+  try {
+    await pool.query('DELETE FROM agents WHERE id = ?', [id]);
+    res.json({ message: 'Agent supprimé avec succès' });
+  } catch (err) {
+    res.status(500).json({ error: 'Erreur lors de la suppression' });
+  }
+});
+
+// PUT update agent
+app.put('/agents/:id', async (req, res) => {
+  const { id } = req.params;
+  const { nom, prenom, email, password, departement, role } = req.body;
+
+  if (!nom || !prenom || !email || !departement || !role) {
+    return res.status(400).json({ error: 'Champs requis manquants' });
+  }
+
+  try {
+    let query, params;
+
+    if (password && password.trim() !== '') {
+      // Si un nouveau mot de passe est fourni
+      const hashedPassword = await bcrypt.hash(password, 10);
+      query = `
+        UPDATE agents 
+        SET nom = ?, prenom = ?, email = ?, password = ?, departement = ?, role = ? 
+        WHERE id = ?
+      `;
+      params = [nom, prenom, email, hashedPassword, departement, role, id];
+    } else {
+      // Sinon ne pas modifier le mot de passe
+      query = `
+        UPDATE agents 
+        SET nom = ?, prenom = ?, email = ?, departement = ?, role = ? 
+        WHERE id = ?
+      `;
+      params = [nom, prenom, email, departement, role, id];
+    }
+
+    const [result] = await pool.query(query, params);
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ error: 'Agent non trouvé' });
+    }
+
+    res.json({ message: 'Agent mis à jour avec succès' });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Erreur lors de la mise à jour de l\'agent' });
+  }
+});
+
+app.post('/api/agents/login', async (req, res) => {
+  const { email, password } = req.body;
+
+  if (!email || !password) {
+    return res.status(400).json({ success: false, message: 'Email et mot de passe requis' });
+  }
+
+  try {
+    const [rows] = await pool.query('SELECT * FROM agents WHERE email = ?', [email]);
+    const agent = rows[0];
+
+    if (!agent) {
+      return res.status(404).json({ success: false, message: 'Agent introuvable' });
+    }
+
+    const passwordMatch = await bcrypt.compare(password, agent.password);
+    if (!passwordMatch) {
+      return res.status(401).json({ success: false, message: 'Mot de passe incorrect' });
+    }
+
+    const token = jwt.sign(
+      {
+        id: agent.id,
+        email: agent.email,
+        role: agent.role
+      },
+      JWT_SECRET,
+      { expiresIn: '7d' }
+    );
+
+    res.json({
+      success: true,
+      message: 'Connexion réussie',
+      token,
+      agent: {
+        id: agent.id,
+        nom: agent.nom,
+        prenom: agent.prenom,
+        email: agent.email,
+        role: agent.role,
+        departement: agent.departement
+      }
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ success: false, message: 'Erreur serveur' });
+  }
+});
+
+
+app.get('/api/agents/profile', authenticateAgent(), async (req, res) => {
+  try {
+    const [results] = await pool.query(
+      'SELECT id, nom, prenom, email, departement, role FROM agents WHERE id = ?',
+      [req.user.id]
+    );
+
+    if (results.length === 0) {
+      return res.status(404).json({ success: false, message: 'Agent non trouvé' });
+    }
+
+    res.json({ success: true, data: results[0] });
+  } catch (error) {
+    console.error('Erreur:', error);
+    res.status(500).json({ success: false, message: 'Erreur serveur' });
+  }
+});
+
+
+
+
 
 
 // Protégez vos routes
